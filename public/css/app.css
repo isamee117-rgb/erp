@@ -1,0 +1,1284 @@
+/*
+ * LeanERP - Centralized CSS
+ * Replaces all inline styles across blade templates
+ * =================================================
+ */
+
+/* ─── CSS Variables ──────────────────────────────── */
+:root {
+    --erp-primary:          #3B4FE4;
+    --erp-primary-hover:    #2d3fcf;
+    --erp-primary-light:    #5B6CF9;
+    --erp-success:          #10B981;
+    --erp-success-dark:     #059669;
+    --erp-danger:           #dc2626;
+    --erp-danger-light:     #ef4444;
+    --erp-text-dark:        #1A1D2E;
+    --erp-text-muted:       #6B7280;
+    --erp-text-light:       #9CA3AF;
+    --erp-text-placeholder: #B0B7C9;
+    --erp-text-mono:        #64748b;
+    --erp-border:           #E8EAF0;
+    --erp-border-light:     #DDE1EC;
+    --erp-bg-light:         #F8F9FC;
+    --erp-radius-sm:        6px;
+    --erp-radius-md:        8px;
+    --erp-radius-lg:        14px;
+}
+
+/* ─── Typography Utilities ───────────────────────── */
+.erp-brand-name {
+    font-size: 1.25rem;
+}
+
+.erp-nav-section-label {
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+}
+
+.erp-text-xxs {
+    font-size: 0.72rem;
+}
+
+.erp-text-xs {
+    font-size: 0.75rem;
+}
+
+.erp-text-sm {
+    font-size: 0.8rem;
+}
+
+.erp-text-82 {
+    font-size: 0.82rem;
+}
+
+.erp-text-85 {
+    font-size: 0.85rem;
+}
+
+.erp-text-mono {
+    font-size: 0.72rem;
+    color: var(--erp-text-mono);
+    font-family: monospace;
+}
+
+.erp-table-section-header {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--erp-text-muted);
+}
+
+.erp-table-col-header {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--erp-text-muted);
+}
+
+.erp-label-upper {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.erp-text-placeholder {
+    color: var(--erp-text-placeholder);
+}
+
+.erp-text-muted-light {
+    color: var(--erp-text-light);
+    font-size: 0.78rem;
+}
+
+.erp-text-returned {
+    color: var(--erp-danger-light);
+    text-decoration: line-through;
+}
+
+.text-erp-primary {
+    color: var(--erp-primary);
+}
+
+.erp-text-danger {
+    color: var(--erp-danger-light);
+}
+
+.erp-border-top-light {
+    border-top: 1px solid #F0F2F8;
+}
+
+
+/* ─── Button Utilities ───────────────────────────── */
+.btn-erp-sm {
+    font-size: 0.82rem;
+    font-weight: 600;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: var(--erp-radius-sm);
+}
+
+.btn-erp-success-gradient {
+    background: linear-gradient(135deg, var(--erp-success), var(--erp-success-dark));
+    border: none;
+    color: #fff;
+}
+
+.btn-erp-success-gradient:hover {
+    background: linear-gradient(135deg, var(--erp-success-dark), #047857);
+    color: #fff;
+}
+
+.btn-erp-danger-gradient {
+    background: linear-gradient(135deg, var(--erp-danger), var(--erp-danger-light));
+    border: none;
+    color: #fff;
+}
+
+.btn-erp-danger-gradient:hover {
+    background: linear-gradient(135deg, #b91c1c, var(--erp-danger));
+    color: #fff;
+}
+
+.btn-erp-clear {
+    height: 36px;
+    border: 1px solid var(--erp-border-light);
+    border-radius: var(--erp-radius-sm);
+    color: var(--erp-text-muted);
+    font-size: 0.85rem;
+}
+
+.btn-erp-scanner {
+    width: 38px;
+    height: 38px;
+}
+
+.btn-erp-scanner-lg {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--erp-radius-md);
+}
+
+
+/* ─── Form / Input Utilities ─────────────────────── */
+.erp-readonly-field {
+    background: var(--erp-bg-light) !important;
+    color: #64748b;
+}
+
+.erp-input-no-right-border {
+    border-right: none !important;
+}
+
+.erp-input-left-radius {
+    border-radius: 8px 0 0 8px !important;
+}
+
+.erp-textarea-auto {
+    height: auto !important;
+}
+
+.erp-password-hint {
+    font-size: 0.75rem;
+    display: none;
+}
+
+.erp-search-icon {
+    font-size: 14px;
+}
+
+.erp-icon-sm {
+    font-size: 14px;
+}
+
+.erp-icon-md {
+    font-size: 16px;
+}
+
+.erp-icon-lg {
+    font-size: 17px;
+}
+
+.erp-icon-inline {
+    font-size: 1.2rem;
+    vertical-align: middle;
+}
+
+.erp-icon-disabled {
+    color: var(--erp-text-placeholder);
+    pointer-events: none;
+}
+
+
+/* ─── Table Column Widths ────────────────────────── */
+.col-erp-checkbox {
+    width: 36px;
+    padding-left: 16px !important;
+}
+
+.col-erp-expand {
+    width: 30px;
+}
+
+.col-erp-action {
+    width: 32px;
+}
+
+.col-erp-xs {
+    width: 90px;
+}
+
+.col-erp-sm {
+    width: 120px;
+}
+
+.col-erp-md {
+    width: 150px;
+}
+
+.col-erp-lg {
+    width: 190px;
+}
+
+.col-erp-28 {
+    width: 28px;
+}
+
+.col-erp-160 {
+    width: 160px;
+}
+
+
+/* ─── Layout Utilities ───────────────────────────── */
+.justify-center {
+    justify-content: center;
+}
+
+.erp-divider-bottom {
+    border-bottom: 1px solid var(--erp-border);
+}
+
+.erp-section-divider {
+    border-bottom: 1px solid var(--erp-border);
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+}
+
+.erp-summary-box {
+    background: #fff;
+    border: 1px solid var(--erp-border);
+    border-radius: var(--erp-radius-md);
+    padding: 12px 16px;
+}
+
+.erp-permission-table-wrap {
+    border: 1px solid var(--erp-border);
+    border-radius: var(--erp-radius-md);
+    overflow: hidden;
+}
+
+.erp-pt-btn {
+    padding-top: 20px;
+}
+
+.erp-overflow-hidden {
+    overflow: hidden;
+}
+
+.erp-overflow-visible {
+    overflow: visible;
+}
+
+.erp-flex-shrink-0 {
+    flex-shrink: 0;
+}
+
+.erp-min-h-0 {
+    min-height: 0;
+}
+
+
+/* ─── Modal Dialog Widths ────────────────────────── */
+.modal-dialog-380 { max-width: 380px; }
+.modal-dialog-440 { max-width: 440px; }
+.modal-dialog-520 { max-width: 520px; }
+.modal-dialog-620 { max-width: 620px; }
+.modal-dialog-640 { max-width: 640px; }
+.modal-dialog-680 { max-width: 680px; }
+
+/* ─── Overlay Icon Colors ────────────────────────── */
+.ms-icon-danger {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+
+.ms-icon-warning {
+    background: rgba(234, 88, 12, 0.1);
+    color: #ea580c;
+}
+
+.ms-icon-warning-amber {
+    background: rgba(245, 158, 11, 0.1);
+    color: #D97706;
+}
+
+/* ─── Stock Status Badges ────────────────────────── */
+.erp-stock-badge-out {
+    font-size: 0.68rem;
+    background: #FEE2E2;
+    color: #DC2626;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.erp-stock-badge-low {
+    font-size: 0.68rem;
+    background: #FEF3C7;
+    color: #D97706;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+/* ─── Report Print Params ────────────────────────── */
+.rpt-print-params {
+    font-size: 0.75rem;
+    color: #555;
+    margin-top: 6px;
+}
+
+/* ─── Report icon colors ─────────────────────────── */
+.rpt-icon-purchase       { color: #7C3AED; }
+.rpt-icon-purch-ret-color { color: #be123c; }
+.rpt-icon-purch-color    { color: #6d28d9; }
+
+/* ─── Misc Input Helpers ─────────────────────────── */
+.erp-section-title-upper {
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+}
+
+.erp-qty-input {
+    width: 80px;
+    border: 1px solid var(--erp-border-light);
+    border-radius: 5px;
+}
+
+.erp-adj-product-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--erp-primary);
+}
+
+.erp-info-hint {
+    font-size: 0.72rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.erp-dropdown-type-label {
+    color: var(--erp-text-light);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.erp-dropdown-placeholder {
+    color: var(--erp-text-placeholder);
+}
+
+.erp-input-group-suffix {
+    border-radius: 0 7px 7px 0;
+    border-left: none;
+    border-right: 1px solid var(--erp-border-light);
+}
+
+.erp-btn-action-sm {
+    font-size: 0.75rem;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 5px;
+}
+
+/* ─── Cash Reconciliation Log Table ──────────────── */
+.cr-log-th {
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    border-bottom: 2px solid var(--erp-border);
+}
+
+.cr-td {
+    padding: 8px 14px;
+}
+
+.cr-td-muted {
+    padding: 8px 14px;
+    color: #64748b;
+}
+
+/* ─── Report Table Row Styles ─────────────────────── */
+
+/* Total rows */
+.rpt-total-row {
+    font-weight: 700;
+    background: #F8F9FC;
+}
+
+/* Indented item cell */
+.rpt-indent-cell {
+    padding-left: 26px !important;
+    font-size: 0.83rem;
+}
+
+/* Date cell */
+.rpt-date-cell {
+    color: #64748b;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+/* Total label cell */
+.rpt-total-label {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+/* Total value cell */
+.rpt-total-val {
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+/* Secondary text */
+.rpt-secondary-text {
+    font-size: 0.82rem;
+    color: #374151;
+}
+
+/* Meta text (italic, small) */
+.rpt-meta-text {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-style: italic;
+}
+
+/* Font size 0.83rem */
+.erp-text-83 {
+    font-size: 0.83rem;
+}
+
+/* ─── Report ID Badge Colors ──────────────────────── */
+.rpt-id-purchase  { font-weight: 700; color: #7C3AED; font-size: 0.85rem; }
+.rpt-id-sale      { font-weight: 700; color: #3B4FE4; font-size: 0.85rem; }
+.rpt-id-purch-ret { font-weight: 700; color: #6d28d9; font-size: 0.85rem; }
+.rpt-id-sale-ret  { font-weight: 700; color: #be123c; font-size: 0.85rem; }
+.rpt-id-customer  { font-weight: 700; color: #059669; font-size: 0.85rem; }
+.rpt-id-vendor    { font-weight: 700; color: #EA580C; font-size: 0.85rem; }
+
+/* ─── Report Grouped Row Backgrounds ─────────────── */
+
+/* Purchase orders */
+.rpt-purch-header-row   { background: #F5F3FF !important; border-top: 2px solid #DDD6FE !important; }
+.rpt-purch-total-row    { background: #F5F3FF !important; border-top: 1px solid #DDD6FE !important; }
+.rpt-purch-item-row     { border-top: 1px solid #E9D5FF; }
+
+/* Sales invoices */
+.rpt-sales-header-row   { background: #EEF2FF !important; border-top: 2px solid #C7D2FE !important; }
+.rpt-sales-total-row    { background: #EEF2FF !important; border-top: 1px solid #E8EAF0 !important; }
+.rpt-sales-item-row     { border-top: 1px solid #E8EAF0; }
+
+/* Purchase returns */
+.rpt-purch-ret-header-row  { background: #F5F3FF !important; border-top: 2px solid #DDD6FE !important; }
+.rpt-purch-ret-total-row   { background: #F5F3FF !important; border-top: 1px solid #DDD6FE !important; }
+
+/* Sales returns */
+.rpt-sale-ret-header-row   { background: #FFF1F2 !important; border-top: 2px solid #FECDD3 !important; }
+.rpt-sale-ret-total-row    { background: #FFF1F2 !important; border-top: 1px solid #FECDD3 !important; }
+
+/* Sales by customer */
+.rpt-cust-header-row   { background: #ECFDF5 !important; border-top: 2px solid #A7F3D0 !important; }
+.rpt-cust-total-row    { background: #ECFDF5 !important; border-top: 1px solid #A7F3D0 !important; }
+
+/* Purchases by vendor */
+.rpt-vend-header-row   { background: #FFF7ED !important; border-top: 2px solid #FED7AA !important; }
+.rpt-vend-total-row    { background: #FFF7ED !important; border-top: 1px solid #FED7AA !important; }
+
+/* ─── Purchase Order Received Status ─────────────── */
+.po-received-status {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    background: #F0FDF4;
+    border-radius: 7px;
+    color: #059669;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+/* ─── Dashboard JS-generated Content ────────────── */
+.db-company-name {
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.db-company-id {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-family: monospace;
+}
+
+.db-kpi-value {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.db-kpi-sub {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.db-revenue-cell {
+    text-align: right;
+    font-weight: 700;
+    color: var(--erp-primary);
+}
+
+.db-chart-div {
+    height: 300px;
+}
+
+/* ─── Recon badge ─────────────────────────────────── */
+.cr-status-badge {
+    background: rgba(20, 184, 166, 0.1);
+    color: #0d9488;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.cr-view-btn {
+    background: none;
+    border: 1.5px solid #6366f1;
+    color: #6366f1;
+    border-radius: 6px;
+    padding: 3px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+
+/* ─── Feedback / Status Text ─────────────────────── */
+.erp-feedback {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 4px;
+    transition: opacity 0.6s;
+    opacity: 0;
+    min-height: 18px;
+    margin-top: 3px;
+}
+
+.erp-feedback-inline {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 3px;
+    min-height: 16px;
+    opacity: 0;
+    transition: opacity 0.6s;
+}
+
+.erp-feedback-scanner {
+    color: var(--erp-success);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 14px;
+    min-height: 22px;
+    transition: all 0.2s;
+}
+
+/* ─── POS Layout ─────────────────────────────────── */
+.erp-pos-products {
+    height: calc(100vh - 260px);
+}
+
+.erp-pos-order-title {
+    font-size: 0.95rem;
+    color: var(--erp-text-dark);
+}
+
+.erp-pos-right-card {
+    overflow: visible;
+}
+
+
+/* ─── Barcode Scanner Overlay ────────────────────── */
+.erp-scanner-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.93);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.erp-scanner-overlay.active {
+    display: flex;
+}
+
+.erp-scanner-container {
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+}
+
+.erp-scanner-title {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    letter-spacing: 0.02em;
+}
+
+.erp-scanner-reader-box {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 0 0 2px rgba(59, 79, 228, 0.6), 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+.erp-scanner-reader-box video,
+.erp-scanner-reader-box #reader {
+    width: 100%;
+}
+
+.erp-scanner-viewfinder {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+/* Scanner corner marks */
+.erp-scanner-corner {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    border-color: #3B4FE4;
+    border-style: solid;
+}
+
+.erp-scanner-corner-tl {
+    top: 18px;
+    left: 18px;
+    border-width: 3px 0 0 3px;
+    border-radius: 4px 0 0 0;
+}
+
+.erp-scanner-corner-tr {
+    top: 18px;
+    right: 18px;
+    border-width: 3px 3px 0 0;
+    border-radius: 0 4px 0 0;
+}
+
+.erp-scanner-corner-bl {
+    bottom: 18px;
+    left: 18px;
+    border-width: 0 0 3px 3px;
+    border-radius: 0 0 0 4px;
+}
+
+.erp-scanner-corner-br {
+    bottom: 18px;
+    right: 18px;
+    border-width: 0 3px 3px 0;
+    border-radius: 0 0 4px 0;
+}
+
+/* Scanner scanline animation */
+@keyframes bc-scan {
+    0%   { top: 20%; }
+    50%  { top: 80%; }
+    100% { top: 20%; }
+}
+
+.erp-scanner-scanline {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    top: 50%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #3B4FE4, transparent);
+    animation: bc-scan 2s linear infinite;
+}
+
+/* ─── Camera Button (shared across pages) ────────── */
+.bc-cam-btn {
+    background: none;
+    border: 1px solid var(--erp-border-light);
+    border-radius: var(--erp-radius-sm);
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--erp-text-muted);
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.bc-cam-btn:hover {
+    background: #F5F7FF;
+    border-color: var(--erp-primary);
+    color: var(--erp-primary);
+}
+
+/* ─── Hidden App Data ────────────────────────────── */
+#app-data {
+    display: none;
+}
+
+.erp-scanner-cancel-btn {
+    margin-top: 14px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    padding: 10px 32px;
+    border-radius: var(--erp-radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.erp-scanner-cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+
+/* ─── Reports / Print Styles ─────────────────────── */
+.erp-report-tiles {
+    padding: 24px 20px;
+}
+
+/* Report tile icon color variants */
+.rpt-tile-icon-inventory   { background: #EEF2FF; color: #3B4FE4; }
+.rpt-tile-icon-customer    { background: #F0FDF4; color: #059669; }
+.rpt-tile-icon-sales       { background: #FFF7ED; color: #EA580C; }
+.rpt-tile-icon-sales-ret   { background: #FFF1F2; color: #E11D48; }
+.rpt-tile-icon-purchase    { background: #F5F3FF; color: #7C3AED; }
+.rpt-tile-icon-purch-ret   { background: #F5F3FF; color: #6d28d9; }
+.rpt-tile-icon-party       { background: #ECFDF5; color: #059669; }
+.rpt-tile-icon-vendor      { background: #FFF7ED; color: #EA580C; }
+
+/* Report icon color in titles */
+.rpt-icon-inventory { color: #3B4FE4; }
+.rpt-icon-success   { color: #059669; }
+.rpt-icon-sales     { color: #EA580C; }
+
+/* Print company/title text */
+.rpt-print-company-name {
+    font-size: 1.7rem;
+    font-weight: 900;
+    color: #000;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+}
+
+.rpt-print-report-title {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #000;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #ccc;
+}
+
+.erp-print-header {
+    padding: 0 0 14px;
+    border-bottom: 2.5px solid #000;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.erp-print-title {
+    font-size: 1.7rem;
+    font-weight: 900;
+    color: #000;
+}
+
+.erp-filter-w-190 {
+    width: 190px;
+}
+
+.erp-filter-w-160 {
+    width: 160px;
+}
+
+.erp-filter-w-150 {
+    width: 150px;
+}
+
+@media print {
+    .erp-no-print {
+        display: none !important;
+    }
+
+    .erp-print-only {
+        display: block !important;
+    }
+}
+
+
+/* ─── App Hidden Data Container ──────────────────── */
+#erp-app-data {
+    display: none;
+}
+
+/* ─── Dashboard ──────────────────────────────────── */
+.erp-chart-container {
+    height: 300px;
+}
+
+.erp-primary-icon-color {
+    color: var(--erp-primary);
+}
+
+/* ─── Table Thead Background ─────────────────────── */
+.erp-thead-light { background: var(--erp-bg-light); }
+
+/* ─── Utility Color Classes ──────────────────────── */
+.text-erp-purple { color: #6d28d9; }
+.text-erp-rose   { color: #be123c; }
+.text-erp-orange { color: #EA580C; }
+.text-erp-violet { color: #7C3AED; }
+
+/* ─── Report Table — Summary / Count Spans ───────── */
+.rpt-count-span {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 0.82rem;
+}
+
+.rpt-bank-cell {
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.rpt-rcvd-badge {
+    font-size: 0.65rem;
+    color: #059669;
+    font-weight: 600;
+    margin-left: 6px;
+}
+
+.rpt-line-amt {
+    font-size: 0.83rem;
+    font-weight: 500;
+}
+
+.rpt-reason-purch { color: #6d28d9; font-size: 0.7rem; }
+.rpt-reason-sale  { color: #be123c; font-size: 0.7rem; }
+
+/* Indented item ID cells in grouped reports */
+.rpt-indent-id-sale {
+    padding-left: 26px !important;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #3B4FE4;
+}
+
+.rpt-indent-id-vend {
+    padding-left: 26px !important;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #7C3AED;
+}
+
+/* ─── Cash Recon — Detail Overlay ────────────────── */
+.cr-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.cr-detail-panel {
+    background: #F8F9FC;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+    display: flex;
+    flex-direction: column;
+}
+
+.cr-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid #E8EAF0;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.cr-detail-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cr-detail-icon-box {
+    width: 38px;
+    height: 38px;
+    background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cr-detail-icon  { font-size: 1.3rem; color: #0ea5e9; }
+.cr-detail-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; letter-spacing: 0.03em; }
+.cr-detail-sub   { font-size: 0.75rem; color: #64748b; }
+
+.cr-detail-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    color: #94a3b8;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.cr-detail-body { padding: 16px 20px 20px; }
+
+.cr-detail-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #E8EAF0;
+    background: #fff;
+    border-radius: 0 0 16px 16px;
+    display: flex;
+    justify-content: flex-end;
+    position: sticky;
+    bottom: 0;
+}
+
+.cr-detail-close-solid {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 24px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ─── Cash Recon — Denom toggle ──────────────────── */
+.cr-denom-label   { font-size: 0.65rem; color: #94a3b8; font-weight: 500; margin-left: 6px; }
+.cr-denom-chevron { font-size: 1rem; color: #94a3b8; transition: transform 0.2s ease; }
+.erp-cursor-pointer { cursor: pointer; }
+
+/* Recon status badge — larger variant in detail view */
+.cr-status-badge-lg {
+    background: rgba(20, 184, 166, 0.12);
+    color: #0d9488;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+/* ─── Cash Recon — Detail view JS-built HTML ─────── */
+.cr-var-td   { padding: 8px 14px; text-align: right; font-weight: 600; }
+.cr-row-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #F1F5F9; }
+.cr-row-label { font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.cr-row-val   { font-size: 0.83rem; color: #1e293b; }
+
+.cr-period-box {
+    background: #F0FDF4;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cr-period-label { font-size: 0.7rem; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; }
+.cr-period-val   { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
+
+.cr-info-box {
+    background: #fff;
+    border: 1px solid #E8EAF0;
+    border-radius: 10px;
+    padding: 4px 16px;
+    margin-bottom: 14px;
+}
+
+.cr-variance-neg {
+    background: #FFF5F5;
+    border: 1px solid #FECACA;
+    border-radius: 10px;
+    padding: 4px 16px;
+    margin-bottom: 14px;
+}
+
+.cr-variance-pos {
+    background: #FFFBEB;
+    border: 1px solid #FDE68A;
+    border-radius: 10px;
+    padding: 4px 16px;
+    margin-bottom: 14px;
+}
+
+/* ─── Settings — Bulk Import UI ──────────────────── */
+.set-import-subtitle { margin-left: auto; font-size: 0.72rem; font-weight: 500; color: #94a3b8; }
+.set-upload-icon     { font-size: 2.8rem; color: #C5CAE9; display: block; margin-bottom: 10px; }
+.set-upload-title    { font-size: 0.95rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+.set-upload-hint     { font-size: 0.72rem; color: #C5CAE9; margin-top: 8px; }
+.set-download-link   { font-size: 0.8rem; color: #3B4FE4; font-weight: 600; text-decoration: none; }
+
+.set-valid-badge {
+    margin-left: auto;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #059669;
+    background: rgba(5, 150, 105, 0.08);
+    padding: 5px 14px;
+    border-radius: 20px;
+}
+
+.set-import-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6B7280;
+    margin-bottom: 8px;
+}
+
+.set-preview-box {
+    border: 1px solid #E8EAF0;
+    border-radius: 8px;
+    overflow: hidden;
+    max-height: 150px;
+}
+
+.set-import-prog-box {
+    background: #F8F9FC;
+    border: 1px solid #E8EAF0;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+}
+
+.set-stat-ok   { font-size: 1.3rem; font-weight: 700; color: #059669; }
+.set-stat-fail { font-size: 1.3rem; font-weight: 700; color: #EF4444; }
+.set-stat-skip { font-size: 1.3rem; font-weight: 700; color: #94a3b8; }
+
+.set-lock-msg { font-size: 0.75rem; color: #ea580c; font-weight: 600; }
+
+/* Bulk import mapping table */
+.bk-preview-th {
+    padding: 6px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    border-bottom: 1px solid #E8EAF0;
+    white-space: nowrap;
+}
+
+.bk-preview-td {
+    padding: 5px 10px;
+    color: #374151;
+    border-bottom: 1px solid #F0F2F8;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bk-req-label  { color: #EF4444; font-size: 0.72rem; font-weight: 700; }
+.bk-opt-label  { color: #94a3b8; font-size: 0.72rem; }
+.bk-icon-ok    { color: #059669; font-size: 1rem; }
+.bk-icon-empty { color: #DDE1EC; font-size: 1rem; }
+.bk-map-label-td  { padding: 8px 14px; font-weight: 600; color: #1e293b; font-size: 0.82rem; }
+.bk-map-select-td { padding: 6px 10px; }
+.bk-map-status-td { padding: 8px 14px; text-align: center; }
+.bk-err-row       { color: #EF4444; padding: 4px 0; border-bottom: 1px solid #FEE2E2; }
+
+.bk-col-select { height: 30px !important; font-size: 0.8rem !important; padding: 0 8px; }
+
+/* Sequence form inputs */
+.seq-input-base { height: 30px; font-size: 0.8rem; border: 1px solid #DDE1EC; border-radius: 5px; }
+.seq-input-ro   { background: #F8F9FC !important; color: #64748b; cursor: not-allowed; }
+.seq-input-rw   { background: #fff; color: #1A1D2E; }
+.set-auto-managed { font-size: 0.75rem; color: #B0B7C9; font-style: italic; }
+
+/* Settings error list */
+.set-err-list { font-size: 0.78rem; max-height: 180px; overflow-y: auto; margin-bottom: 16px; }
+
+/* Import button variants */
+.set-import-btn {
+    font-size: 0.85rem;
+    padding: 9px 22px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #059669, #10B981);
+    color: #fff;
+    border: none;
+    font-weight: 600;
+}
+
+.set-action-btn { font-size: 0.85rem; padding: 9px 22px; border-radius: 7px; }
+.set-action-btn-sm { font-size: 0.85rem; padding: 9px 20px; border-radius: 7px; }
+.bk-row-badge { background: rgba(255, 255, 255, 0.2); padding: 1px 8px; border-radius: 10px; }
+
+/* Progress bar track & bar */
+.set-prog-track { background: #E8EAF0; border-radius: 100px; height: 10px; overflow: hidden; }
+#bk-prog-bar { height: 100%; background: linear-gradient(90deg, #3B4FE4, #5B6CF9); border-radius: 100px; width: 0%; transition: width 0.25s; }
+
+.set-prog-lbl { font-size: 0.85rem; font-weight: 600; color: #374151; }
+.set-prog-pct { font-size: 0.85rem; font-weight: 700; color: #3B4FE4; }
+
+.bk-seq-preview {
+    font-size: 0.78rem;
+    background: #F0F2FF;
+    color: #3B4FE4;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* ─── POS — Sale Success Modal ───────────────────── */
+.pos-success-icon-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pos-success-title   { font-weight: 700; color: #1A1D2E; margin-bottom: 4px; }
+.pos-success-sub     { font-size: 0.82rem; color: #6B7280; margin-bottom: 16px; }
+.pos-success-box     { background: #fff; border: 1px solid #E8EAF0; border-radius: 8px; padding: 14px; margin-bottom: 8px; }
+.pos-success-lbl     { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6B7280; margin-bottom: 4px; }
+.pos-success-amt     { font-size: 1.5rem; font-weight: 700; color: #3B4FE4; }
+
+/* POS cart/product JS-built items */
+.pos-subtotal-val  { font-weight: 500; color: #1A1D2E; }
+.pos-discount-val  { font-weight: 500; color: #EF4444; }
+.pos-total-val     { font-size: 1.15rem; color: #3B4FE4; }
+.pos-product-name  { font-size: 0.82rem; font-weight: 600; color: #1A1D2E; }
+.pos-product-price { font-size: 0.72rem; color: #6B7280; }
+
+.pos-remove-btn {
+    border: none;
+    background: none;
+    color: #EF4444;
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+}
+
+.pos-cart-empty {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #6B7280;
+}
+
+.pos-cart-empty-sub { font-size: 0.72rem; color: #B0B7C9; }
+
+/* Background light utility */
+.erp-bg-light { background: var(--erp-bg-light); }
+
+/* POS discount input */
+.pos-disc-input { width: 75px; height: 28px !important; font-size: 0.75rem !important; }
+
+/* POS invoice print */
+.pos-print-id { font-weight: 600; color: #1A1D2E; }
+
+/* Empty grid / cart icons */
+.erp-icon-xl    { font-size: 2.5rem; opacity: 0.3; }
+.erp-icon-lg    { font-size: 2rem;   opacity: 0.5; }
+.erp-icon-1-3   { font-size: 1.3rem; color: #B0B7C9; }
+
+/* No-products / empty messages */
+.pos-empty-msg     { font-size: 0.85rem; font-weight: 500; }
+.pos-empty-sub     { font-size: 0.72rem; color: #B0B7C9; }
+.pos-cart-lbl      { font-size: 0.82rem; font-weight: 500; color: #6B7280; }
+
+/* POS product grid — stock badges */
+.pos-badge-out { font-size: 0.68rem; font-weight: 600; color: #EF4444; background: rgba(239,68,68,0.08); padding: 2px 8px; border-radius: 4px; }
+.pos-badge-low { font-size: 0.68rem; font-weight: 600; color: #F59E0B; background: rgba(245,158,11,0.08); padding: 2px 8px; border-radius: 4px; }
+.pos-badge-ok  { font-size: 0.68rem; font-weight: 600; color: #10B981; background: rgba(16,185,129,0.08); padding: 2px 8px; border-radius: 4px; }
+
+/* ─── Purchase Order Table Cells ─────────────────── */
+.po-td-input  { padding: 6px 10px; border-bottom: 1px solid #F0F2F8; }
+.po-td-item   { padding: 8px 10px; border-bottom: 1px solid #F0F2F8; font-size: 0.85rem; }
+.po-td-center { padding: 8px 10px; border-bottom: 1px solid #F0F2F8; font-size: 0.85rem; text-align: center; }
+.po-td-remain { padding: 8px 10px; border-bottom: 1px solid #F0F2F8; font-size: 0.85rem; font-weight: 600; }
+.po-input-sm  { height: 34px !important; font-size: 0.82rem !important; }
+
+/* Receive goods button */
+.btn-erp-receive {
+    background: linear-gradient(135deg, #10B981, #059669);
+    padding: 8px 16px;
+    font-size: 0.82rem;
+    color: #fff;
+    border: none;
+    border-radius: var(--erp-radius-md);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Receive modal PO ID subtitle */
+.recv-po-sub { font-size: 0.75rem; color: rgba(255, 255, 255, 0.7); }
+
+/* PO th columns */
+.po-th-col { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6B7280; background: #F8F9FC; padding: 8px 10px; border-bottom: 1px solid #E8EAF0; }
+.po-th-act  { background: #F8F9FC; padding: 8px; border-bottom: 1px solid #E8EAF0; }
+
+/* Product dropdown display color variants */
+.sdd-disp-normal { color: #1A1D2E; font-size: 0.82rem; }
+.sdd-disp-muted  { color: #B0B7C9; font-size: 0.82rem; }
+
+/* Expand row td (sale-returns, purchase-returns) */
+.erp-expand-row-td { background: var(--erp-bg-light); padding: 16px 14px; }
+
+/* Dashboard amber icon (leaderboard) */
+.erp-text-amber { color: #ca8a04; }
