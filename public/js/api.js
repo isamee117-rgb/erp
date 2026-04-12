@@ -125,6 +125,27 @@
         deleteProduct: function(id) {
             return request('DELETE', '/products/' + id);
         },
+        listUomConversions: function(productId) {
+            return request('GET', '/products/' + productId + '/uom-conversions');
+        },
+        addUomConversion: function(productId, data) {
+            return request('POST', '/products/' + productId + '/uom-conversions', data);
+        },
+        updateUomConversion: function(productId, cid, data) {
+            return request('PUT', '/products/' + productId + '/uom-conversions/' + cid, data);
+        },
+        deleteUomConversion: function(productId, cid) {
+            return request('DELETE', '/products/' + productId + '/uom-conversions/' + cid);
+        },
+        savePriceTier: function(productId, data) {
+            return request('POST', '/products/' + productId + '/price-tiers', data);
+        },
+        updatePriceTier: function(productId, tid, data) {
+            return request('PUT', '/products/' + productId + '/price-tiers/' + tid, data);
+        },
+        deletePriceTier: function(productId, tid) {
+            return request('DELETE', '/products/' + productId + '/price-tiers/' + tid);
+        },
         createSale: function(saleData) {
             return request('POST', '/sales', saleData);
         },
