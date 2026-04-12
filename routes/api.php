@@ -39,6 +39,17 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
     Route::get('/products/barcode', [ProductController::class, 'findByBarcode']);
     Route::post('/products/adjust-stock', [ProductController::class, 'adjustStock']);
 
+    // UOM conversions per product
+    Route::get('/products/{id}/uom-conversions', [ProductController::class, 'listUomConversions']);
+    Route::post('/products/{id}/uom-conversions', [ProductController::class, 'storeUomConversion']);
+    Route::put('/products/{id}/uom-conversions/{cid}', [ProductController::class, 'updateUomConversion']);
+    Route::delete('/products/{id}/uom-conversions/{cid}', [ProductController::class, 'destroyUomConversion']);
+
+    // Price tiers per product
+    Route::post('/products/{id}/price-tiers', [ProductController::class, 'storePriceTier']);
+    Route::put('/products/{id}/price-tiers/{tid}', [ProductController::class, 'updatePriceTier']);
+    Route::delete('/products/{id}/price-tiers/{tid}', [ProductController::class, 'destroyPriceTier']);
+
     Route::post('/parties', [PartyController::class, 'store']);
     Route::put('/parties/{id}', [PartyController::class, 'update']);
     Route::delete('/parties/{id}', [PartyController::class, 'destroy']);
