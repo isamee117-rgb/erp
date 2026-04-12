@@ -1,6 +1,8 @@
 var sortKey = 'name', sortDir = 'asc', currentPage = 1, itemsPerPage = 10;
 var editingProductId = null, adjustProductId = null;
 
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
 window.ERP.onReady = function() { renderPage(); };
 
 function computeStats() {
@@ -161,7 +163,11 @@ function openProductModal(mode, productId) {
   catSel.innerHTML = '<option value="">Select Category</option>';
   uomSel.innerHTML = '<option value="">Select UOM</option>';
   cats.forEach(function(c) { var o = document.createElement('option'); o.value = c.id; o.textContent = c.name; catSel.appendChild(o); });
-  uoms.forEach(function(u) { var o = document.createElement('option'); o.value = u.name; o.textContent = u.name; uomSel.appendChild(o); });
+  uoms.forEach(function(u) {
+    var o1 = document.createElement('option'); o1.value = u.name; o1.textContent = u.name; uomSel.appendChild(o1);
+  });
+
+  var uomSection = document.getElementById('pf-uom-section');
 
   if (mode === 'edit' && productId) {
     var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
@@ -176,6 +182,9 @@ function openProductModal(mode, productId) {
       document.getElementById('pf-price').value = p.unitPrice || 0;
       document.getElementById('pf-reorder').value = p.reorderLevel || 0;
       document.getElementById('pf-opening-row').style.display = 'none';
+      uomSection.style.display = '';
+      renderUomConversionsSection(p);
+      renderPriceTiersSection(p);
     }
   } else {
     document.getElementById('pf-id').value = '';
@@ -189,6 +198,11 @@ function openProductModal(mode, productId) {
     document.getElementById('pf-reorder').value = '0';
     document.getElementById('pf-opening').value = '0';
     document.getElementById('pf-opening-row').style.display = '';
+    uomSection.style.display = 'none';
+    uomSection.innerHTML = '';
+    var tierSection = document.getElementById('pf-price-tiers-section');
+    tierSection.style.display = 'none';
+    tierSection.innerHTML = '';
   }
   new bootstrap.Modal(document.getElementById('productModal')).show();
 }
@@ -401,4 +415,255 @@ async function _doBulkDeleteProducts() {
     document.getElementById('invDeleteErrorMsg').textContent = msg;
     document.getElementById('invDeleteError').classList.remove('d-none');
   }
+}
+
+// ── UOM Conversion Management ─────────────────────────────────────────────────
+
+function renderUomConversionsSection(product) {
+  var conversions = product.uomConversions || [];
+  var uoms = window.ERP.state.uoms || [];
+  var section = document.getElementById('pf-uom-section');
+  if (!section) return;
+
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  var pid = product.id;
+
+  var uomOptHtml = '<option value="">Select UOM...</option>';
+  uoms.forEach(function(u) {
+    uomOptHtml += '<option value="' + esc(u.id) + '">' + esc(u.name) + '</option>';
+  });
+
+  var rowsHtml = '';
+  if (conversions.length === 0) {
+    rowsHtml = '<tr><td colspan="5" class="text-center text-muted uom-conv-empty">No conversions defined</td></tr>';
+  } else {
+    conversions.forEach(function(conv) {
+      var cid = conv.id;
+      var multCell =
+        '<span id="uom-mult-display-' + esc(cid) + '" class="uom-mult-display">× ' + conv.multiplier + '</span>' +
+        '<button type="button" id="uom-edit-btn-' + esc(cid) + '" class="uom-conv-edit-btn ms-1" onclick="startUomConvEdit(\'' + esc(cid) + '\',' + conv.multiplier + ')" title="Edit multiplier"><i class="ti ti-pencil"></i></button>' +
+        '<span id="uom-mult-edit-' + esc(cid) + '" class="uom-mult-edit-wrap" style="display:none;">' +
+          '<input type="number" id="uom-mult-inp-' + esc(cid) + '" class="uom-mult-edit-inp" step="0.001" min="0.001">' +
+          '<button type="button" class="uom-conv-save-btn" onclick="saveUomConvMult(\'' + esc(pid) + '\',\'' + esc(cid) + '\')"><i class="ti ti-check"></i></button>' +
+          '<button type="button" class="uom-conv-cancel-btn" onclick="cancelUomConvEdit(\'' + esc(cid) + '\')"><i class="ti ti-x"></i></button>' +
+        '</span>';
+
+      var defPurchCb = '<input type="checkbox" class="uom-conv-cb"' + (conv.isDefaultPurchaseUnit ? ' checked' : '') +
+        ' onchange="setUomConvDefault(\'' + esc(pid) + '\',\'' + esc(cid) + '\',\'purchase\',this.checked)" title="Default purchase unit">';
+      var defSaleCb = '<input type="checkbox" class="uom-conv-cb"' + (conv.isDefaultSalesUnit ? ' checked' : '') +
+        ' onchange="setUomConvDefault(\'' + esc(pid) + '\',\'' + esc(cid) + '\',\'sales\',this.checked)" title="Default sales unit">';
+
+      rowsHtml += '<tr>' +
+        '<td class="uom-conv-td">' + esc(conv.uomName || conv.uomId) + '</td>' +
+        '<td class="uom-conv-td text-center">' + multCell + '</td>' +
+        '<td class="uom-conv-td text-center">' + defPurchCb + '</td>' +
+        '<td class="uom-conv-td text-center">' + defSaleCb + '</td>' +
+        '<td class="uom-conv-td text-center"><button type="button" class="uom-conv-del-btn" onclick="doDeleteUomConv(\'' + esc(pid) + '\',\'' + esc(cid) + '\')"><i class="ti ti-trash"></i></button></td>' +
+        '</tr>';
+    });
+  }
+
+  section.innerHTML =
+    '<div class="pm-acct-wrap mt-1">' +
+      '<button type="button" class="pm-acct-toggle" onclick="toggleUomSection()">' +
+        '<span><i class="ti ti-arrows-exchange me-2"></i>UOM Conversions</span>' +
+        '<i class="ti ti-chevron-down" id="uomConvChevron"></i>' +
+      '</button>' +
+      '<div id="uomConvBody" class="pm-acct-body" style="display:none;">' +
+        '<table class="table table-sm uom-conv-table mb-2">' +
+          '<thead><tr>' +
+            '<th class="uom-conv-th">Unit</th>' +
+            '<th class="uom-conv-th text-center">Multiplier</th>' +
+            '<th class="uom-conv-th text-center">Def. Purchase</th>' +
+            '<th class="uom-conv-th text-center">Def. Sales</th>' +
+            '<th class="uom-conv-th"></th>' +
+          '</tr></thead>' +
+          '<tbody id="uomConvRows">' + rowsHtml + '</tbody>' +
+        '</table>' +
+        '<div class="uom-add-card">' +
+          '<div class="uom-add-grid">' +
+            '<div>' +
+              '<div class="pm-label mb-1">Unit</div>' +
+              '<select class="form-select pm-input" id="uom-add-uomid">' + uomOptHtml + '</select>' +
+            '</div>' +
+            '<div>' +
+              '<div class="pm-label mb-1">Multiplier</div>' +
+              '<div class="input-group">' +
+                '<span class="input-group-text pm-prefix">×</span>' +
+                '<input type="number" step="0.001" min="0.001" class="form-control pm-input" id="uom-add-mult" placeholder="e.g. 12">' +
+              '</div>' +
+            '</div>' +
+            '<div class="uom-add-btn-wrap">' +
+              '<button type="button" class="pm-btn-save uom-conv-add-btn" onclick="doAddUomConv(\'' + esc(pid) + '\')"><i class="ti ti-plus me-1"></i>Add</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="erp-info-hint mt-2"><i class="ti ti-info-circle me-1"></i>Multiplier = base units per 1 of this unit. E.g. 1 Box = 12 Pieces → multiplier 12.</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderPriceTiersSection(product) {
+  var section = document.getElementById('pf-price-tiers-section');
+  section.style.display = '';
+  var tiers = product.priceTiers || [];
+
+  var html = '<div class="pm-tier-wrap">' +
+    '<div class="pm-tier-header">' +
+      '<span><i class="ti ti-tag me-1"></i>Customer Category Pricing</span>' +
+      '<button type="button" class="pm-tier-add-btn" onclick="openAddPriceTierRow()"><i class="ti ti-plus me-1"></i>Add Tier</button>' +
+    '</div>';
+
+  if (tiers.length === 0) {
+    html += '<div class="pm-tier-empty">No price tiers — all customers pay the base unit price.</div>';
+  } else {
+    html += '<table class="pm-tier-table"><thead><tr><th>Customer Category</th><th class="text-end">Price</th><th></th></tr></thead><tbody>';
+    tiers.forEach(function(t) {
+      html += '<tr>' +
+        '<td>' + escHtml(t.category) + '</td>' +
+        '<td class="text-end">' + ERP.formatCurrency(t.price) + '</td>' +
+        '<td class="text-center">' +
+          '<button class="inv-action-btn inv-action-danger" onclick="confirmDeletePriceTier(\'' + escHtml(t.id) + '\',\'' + escHtml(t.category) + '\')" title="Remove tier"><i class="ti ti-trash"></i></button>' +
+        '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  html += '<div id="pm-tier-add-row" style="display:none;">' +
+    '<div class="pm-tier-add-form row g-2 mt-1">' +
+      '<div class="col-5"><input type="text" class="form-control pm-input" id="pm-tier-cat" placeholder="e.g. Wholesale, VIP, Retail"></div>' +
+      '<div class="col-4"><div class="input-group"><span class="input-group-text pm-prefix">Rs.</span><input type="number" step="0.01" min="0" class="form-control pm-input" id="pm-tier-price" placeholder="0.00"></div></div>' +
+      '<div class="col-3 d-flex gap-1">' +
+        '<button type="button" class="pm-btn-save" onclick="savePriceTierRow()"><i class="ti ti-check me-1"></i>Add</button>' +
+        '<button type="button" class="pm-btn-cancel" onclick="document.getElementById(\'pm-tier-add-row\').style.display=\'none\'">Cancel</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+  '</div>';
+
+  section.innerHTML = html;
+}
+
+function openAddPriceTierRow() {
+  document.getElementById('pm-tier-add-row').style.display = '';
+  document.getElementById('pm-tier-cat').value = '';
+  document.getElementById('pm-tier-price').value = '';
+  document.getElementById('pm-tier-cat').focus();
+}
+
+async function savePriceTierRow() {
+  var productId = document.getElementById('pf-id').value;
+  var category  = (document.getElementById('pm-tier-cat').value || '').trim();
+  var price     = parseFloat(document.getElementById('pm-tier-price').value);
+  if (!category) { alert('Customer category name is required'); return; }
+  if (isNaN(price) || price < 0) { alert('Price must be 0 or greater'); return; }
+  try {
+    await ERP.api.savePriceTier(productId, { category: category, price: price });
+    await ERP.sync();
+    var product = (window.ERP.state.products || []).find(function(p) { return p.id === productId; });
+    if (product) { renderPriceTiersSection(product); }
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+function confirmDeletePriceTier(tierId, categoryName) {
+  if (!confirm('Remove price tier for "' + categoryName + '"?')) return;
+  deletePriceTierById(tierId);
+}
+
+async function deletePriceTierById(tierId) {
+  var productId = document.getElementById('pf-id').value;
+  try {
+    await ERP.api.deletePriceTier(productId, tierId);
+    await ERP.sync();
+    var product = (window.ERP.state.products || []).find(function(p) { return p.id === productId; });
+    if (product) { renderPriceTiersSection(product); }
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+function toggleUomSection() {
+  var body = document.getElementById('uomConvBody');
+  var chevron = document.getElementById('uomConvChevron');
+  if (!body) return;
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chevron) {
+    chevron.classList.toggle('ti-chevron-down', open);
+    chevron.classList.toggle('ti-chevron-up', !open);
+  }
+}
+
+async function doAddUomConv(productId) {
+  var uomId = document.getElementById('uom-add-uomid').value;
+  var mult  = parseFloat(document.getElementById('uom-add-mult').value);
+  if (!uomId) { alert('Select a UOM'); return; }
+  if (!mult || mult <= 0) { alert('Enter a positive multiplier'); return; }
+  try {
+    await ERP.api.addUomConversion(productId, { uomId: uomId, multiplier: mult });
+    await ERP.api.syncMaster().then(function(d) { window.ERP.state.products = d.products || window.ERP.state.products; });
+    var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
+    if (p) renderUomConversionsSection(p);
+    // Keep section open
+    var body = document.getElementById('uomConvBody');
+    if (body) body.style.display = 'block';
+  } catch(e) { alert(e.message || 'Failed to add conversion'); }
+}
+
+async function doDeleteUomConv(productId, cid) {
+  try {
+    await ERP.api.deleteUomConversion(productId, cid);
+    await ERP.api.syncMaster().then(function(d) { window.ERP.state.products = d.products || window.ERP.state.products; });
+    var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
+    if (p) renderUomConversionsSection(p);
+    var body = document.getElementById('uomConvBody');
+    if (body) body.style.display = 'block';
+  } catch(e) { alert(e.message || 'Failed to delete conversion'); }
+}
+
+async function setUomConvDefault(productId, cid, type, value) {
+  var payload = type === 'purchase'
+    ? { isDefaultPurchaseUnit: value }
+    : { isDefaultSalesUnit: value };
+  try {
+    await ERP.api.updateUomConversion(productId, cid, payload);
+    await ERP.api.syncMaster().then(function(d) { window.ERP.state.products = d.products || window.ERP.state.products; });
+    var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
+    if (p) renderUomConversionsSection(p);
+    var body = document.getElementById('uomConvBody');
+    if (body) body.style.display = 'block';
+  } catch(e) { alert(e.message || 'Failed to update default'); }
+}
+
+function startUomConvEdit(cid, currentMult) {
+  document.getElementById('uom-mult-display-' + cid).style.display = 'none';
+  document.getElementById('uom-edit-btn-' + cid).style.display = 'none';
+  var editWrap = document.getElementById('uom-mult-edit-' + cid);
+  editWrap.style.display = 'inline-flex';
+  var inp = document.getElementById('uom-mult-inp-' + cid);
+  inp.value = currentMult;
+  inp.focus();
+  inp.select();
+}
+
+function cancelUomConvEdit(cid) {
+  document.getElementById('uom-mult-display-' + cid).style.display = '';
+  document.getElementById('uom-edit-btn-' + cid).style.display = '';
+  document.getElementById('uom-mult-edit-' + cid).style.display = 'none';
+}
+
+async function saveUomConvMult(productId, cid) {
+  var val = parseFloat(document.getElementById('uom-mult-inp-' + cid).value);
+  if (!val || val <= 0) { alert('Enter a positive multiplier'); return; }
+  try {
+    await ERP.api.updateUomConversion(productId, cid, { multiplier: val });
+    await ERP.api.syncMaster().then(function(d) { window.ERP.state.products = d.products || window.ERP.state.products; });
+    var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
+    if (p) renderUomConversionsSection(p);
+    var body = document.getElementById('uomConvBody');
+    if (body) body.style.display = 'block';
+  } catch(e) { alert(e.message || 'Failed to update multiplier'); }
 }

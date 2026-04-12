@@ -1282,3 +1282,58 @@
 
 /* Dashboard amber icon (leaderboard) */
 .erp-text-amber { color: #ca8a04; }
+
+/* ── UOM Conversions (Inventory modal) ────────────────────────────────────── */
+.uom-conv-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #F8F9FC; border: 1px solid #E8EAF0; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: #374151; }
+.uom-conv-header:hover { background: #F0F2F8; }
+.uom-conv-body { border: 1px solid #E8EAF0; border-top: none; border-radius: 0 0 6px 6px; padding: 12px; }
+.uom-conv-table { width: 100%; font-size: 0.80rem; border-collapse: collapse; }
+.uom-conv-th { padding: 5px 8px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #6B7280; border-bottom: 1px solid #E8EAF0; }
+.uom-conv-td { padding: 7px 8px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
+.uom-conv-del-btn { padding: 3px 7px; font-size: 0.78rem; background: none; border: 1px solid #EF4444; color: #EF4444; border-radius: 4px; cursor: pointer; }
+.uom-conv-del-btn:hover { background: #FEF2F2; }
+.uom-conv-empty { color: #9CA3AF; font-size: 0.80rem; text-align: center; padding: 10px 0; }
+/* Checkbox for default flags */
+.uom-conv-cb { width: 16px; height: 16px; cursor: pointer; accent-color: var(--erp-primary); vertical-align: middle; }
+/* Multiplier inline edit */
+.uom-mult-display { font-size: 0.82rem; }
+.uom-conv-edit-btn { background: none; border: none; color: #C4C9D4; padding: 0 2px; cursor: pointer; font-size: 0.75rem; line-height: 1; vertical-align: middle; }
+.uom-conv-edit-btn:hover { color: var(--erp-primary); }
+.uom-mult-edit-wrap { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; }
+.uom-mult-edit-inp { width: 64px; padding: 2px 6px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 0.80rem; }
+.uom-conv-save-btn { background: none; border: 1px solid #10B981; color: #10B981; border-radius: 4px; padding: 2px 5px; cursor: pointer; font-size: 0.72rem; line-height: 1.4; }
+.uom-conv-save-btn:hover { background: #F0FDF4; }
+.uom-conv-cancel-btn { background: none; border: 1px solid #EF4444; color: #EF4444; border-radius: 4px; padding: 2px 5px; cursor: pointer; font-size: 0.72rem; line-height: 1.4; }
+.uom-conv-cancel-btn:hover { background: #FEF2F2; }
+/* Add UOM card */
+.uom-add-card { background: #F8F9FC; border: 1px dashed #D1D5DB; border-radius: 6px; padding: 10px 12px; margin-top: 4px; }
+.uom-add-grid { display: grid; grid-template-columns: 1fr 130px auto; gap: 8px; align-items: end; }
+.uom-add-btn-wrap { display: flex; align-items: flex-end; }
+.uom-conv-add-btn { font-size: 0.80rem; padding: 6px 14px; background: var(--erp-primary); color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; height: 36px; }
+.uom-conv-add-btn:hover { background: var(--erp-primary-hover); }
+
+/* ── POS UOM selector per cart item ──────────────────────────────────────── */
+.pos-uom-sel { font-size: 0.75rem; padding: 0 4px; height: 28px; border: 1px solid #DDE1EC; border-radius: 6px; background: #fff; color: #374151; min-width: 80px; cursor: pointer; }
+.pos-uom-sel:disabled { background: #F8F9FC; color: #6B7280; cursor: default; }
+.pos-cart-stock { font-size: 0.70rem; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
+.pos-cart-stock-ok { background: #D1FAE5; color: #065F46; }
+.pos-cart-stock-low { background: #FEF3C7; color: #92400E; }
+.pos-cart-stock-out { background: #FEE2E2; color: #991B1B; }
+
+/* ── Purchase Order UOM elements ─────────────────────────────────────────── */
+.po-uom-preview { font-size: 0.70rem; color: #6B7280; margin-top: 3px; }
+.po-uom-badge { font-size: 0.72rem; padding: 2px 7px; background: #EEF2FF; color: #4338CA; border-radius: 10px; font-weight: 600; }
+
+/* ── Product Price Tiers ─────────────────────────────────────────── */
+.pm-tier-wrap          { margin-top: 1rem; border: 1px solid #e6e7ee; border-radius: 6px; overflow: hidden; }
+.pm-tier-header        { display: flex; align-items: center; justify-content: space-between;
+                         padding: .5rem .75rem; background: #f8f9fc; font-size: .8rem; font-weight: 600; color: #4a4c6a; }
+.pm-tier-add-btn       { font-size: .78rem; padding: .2rem .6rem; border: 1px solid #c5c7db;
+                         background: #fff; border-radius: 5px; cursor: pointer; color: #4a4c6a; }
+.pm-tier-add-btn:hover { background: #eef0ff; }
+.pm-tier-empty         { padding: .6rem .75rem; font-size: .8rem; color: #9193a6; font-style: italic; }
+.pm-tier-table         { width: 100%; font-size: .82rem; border-collapse: collapse; }
+.pm-tier-table th,
+.pm-tier-table td      { padding: .4rem .75rem; border-top: 1px solid #eef0f7; }
+.pm-tier-table th      { background: #f3f4fb; font-weight: 600; font-size: .78rem; color: #6163a0; }
+.pm-tier-add-form      { padding: .5rem .75rem; background: #f8f9fc; }
