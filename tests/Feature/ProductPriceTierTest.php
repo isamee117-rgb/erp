@@ -54,4 +54,94 @@ class ProductPriceTierTest extends ApiTestCase
         $this->assertCount(1, $product->priceTiers);
         $this->assertEquals('Wholesale', $product->priceTiers->first()->category);
     }
+
+    private function makeProduct(): \App\Models\Product
+    {
+        app(\App\Services\DocumentSequenceService::class)->ensureSequencesExist($this->company->id);
+
+        $category = \App\Models\Category::create([
+            'id'         => 'CAT-pt-' . uniqid(),
+            'company_id' => $this->company->id,
+            'name'       => 'TestCategory-' . uniqid(),
+        ]);
+
+        $res = $this->postJson('/api/products', [
+            'name'         => 'TestProduct-' . uniqid(),
+            'type'         => 'Product',
+            'uom'          => 'pcs',
+            'categoryId'   => $category->id,
+            'unitCost'     => 10,
+            'unitPrice'    => 20,
+            'initialStock' => 0,
+        ], $this->auth());
+        $this->assertNotNull($res->json('id'), 'Product creation failed: ' . $res->getContent());
+        return \App\Models\Product::find($res->json('id'));
+    }
+
+    #[Test]
+    public function price_tier_can_be_created(): void
+    {
+        $product = $this->makeProduct();
+
+        $res = $this->postJson("/api/products/{$product->id}/price-tiers", [
+            'category' => 'Wholesale', 'price' => 15,
+        ], $this->auth());
+
+        $res->assertStatus(201)
+            ->assertJsonPath('category', 'Wholesale')
+            ->assertJsonPath('price', 15);
+
+        $this->assertDatabaseHas('product_price_tiers', [
+            'product_id' => $product->id, 'category' => 'Wholesale', 'price' => 15,
+        ]);
+    }
+
+    #[Test]
+    public function duplicate_category_tier_is_rejected(): void
+    {
+        $product = $this->makeProduct();
+
+        $this->postJson("/api/products/{$product->id}/price-tiers", [
+            'category' => 'Wholesale', 'price' => 15,
+        ], $this->auth());
+
+        $res = $this->postJson("/api/products/{$product->id}/price-tiers", [
+            'category' => 'Wholesale', 'price' => 12,
+        ], $this->auth());
+
+        $res->assertStatus(422);
+    }
+
+    #[Test]
+    public function price_tier_can_be_updated(): void
+    {
+        $product = $this->makeProduct();
+
+        $createRes = $this->postJson("/api/products/{$product->id}/price-tiers", [
+            'category' => 'VIP', 'price' => 10,
+        ], $this->auth());
+        $tierId = $createRes->json('id');
+
+        $res = $this->putJson("/api/products/{$product->id}/price-tiers/{$tierId}", [
+            'price' => 8,
+        ], $this->auth());
+
+        $res->assertStatus(200)->assertJsonPath('price', 8);
+        $this->assertDatabaseHas('product_price_tiers', ['id' => $tierId, 'price' => 8]);
+    }
+
+    #[Test]
+    public function price_tier_can_be_deleted(): void
+    {
+        $product = $this->makeProduct();
+
+        $createRes = $this->postJson("/api/products/{$product->id}/price-tiers", [
+            'category' => 'Retail', 'price' => 18,
+        ], $this->auth());
+        $tierId = $createRes->json('id');
+
+        $res = $this->deleteJson("/api/products/{$product->id}/price-tiers/{$tierId}", [], $this->auth());
+        $res->assertStatus(200)->assertJsonPath('success', true);
+        $this->assertDatabaseMissing('product_price_tiers', ['id' => $tierId]);
+    }
 }
