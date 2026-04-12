@@ -222,9 +222,7 @@
           <div class="row pm-field-row">
             <div class="col-4"><label class="pm-label">Category</label><select class="form-select pm-input" id="pf-category"></select></div>
             <div class="col-4"><label class="pm-label">UOM</label><select class="form-select pm-input" id="pf-uom"></select></div>
-            <div class="col-4"><label class="pm-label">Item Type</label>
-              <select class="form-select pm-input" id="pf-type"><option value="Product">Product</option><option value="Service">Service</option></select>
-            </div>
+            <div class="col-4"><label class="pm-label">Item Type</label><select class="form-select pm-input" id="pf-type"><option value="Product">Product</option><option value="Service">Service</option></select></div>
           </div>
           <div class="row pm-field-row">
             <div class="col-4">
@@ -290,6 +288,10 @@
               <div class="erp-info-hint mt-2"><i class="ti ti-info-circle me-1"></i>Company-wide defaults used for journal posting on sales &amp; purchases.</div>
             </div>
           </div>
+          {{-- UOM Conversions (edit mode only, populated by JS) --}}
+          <div id="pf-uom-section" style="display:none;"></div>
+          {{-- Price Tiers (edit mode only, populated by JS) --}}
+          <div id="pf-price-tiers-section" style="display:none;"></div>
         </form>
       </div>
       <div class="modal-footer pm-modal-footer">
