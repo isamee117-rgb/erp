@@ -110,7 +110,7 @@ class SyncService
         $isSuper = $user->system_role === 'Super Admin';
         $coId    = $user->company_id;
 
-        $products   = $this->scopedQuery(Product::query(), $isSuper, $coId);
+        $products   = $this->scopedQuery(Product::with(['uomConversions.uom', 'priceTiers']), $isSuper, $coId);
         $parties    = $this->scopedQuery(Party::query(), $isSuper, $coId);
         $categories = $this->scopedQuery(Category::query(), $isSuper, $coId);
         $uoms       = $this->scopedQuery(UnitOfMeasure::query(), $isSuper, $coId);
