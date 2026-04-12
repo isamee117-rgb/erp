@@ -17,7 +17,9 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
+            $table->foreign('company_id')->references('id')->on('companies')->onDelete('cascade');
             $table->unique(['product_id', 'category'], 'unique_product_category_tier');
+            $table->index('company_id');
         });
     }
 

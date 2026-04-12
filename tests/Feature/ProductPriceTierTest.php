@@ -5,9 +5,9 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
-use Tests\TestCase;
+use Tests\Feature\ApiTestCase;
 
-class ProductPriceTierTest extends TestCase
+class ProductPriceTierTest extends ApiTestCase
 {
     use RefreshDatabase;
 
