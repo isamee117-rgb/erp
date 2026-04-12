@@ -18,6 +18,7 @@ class Product extends Model
         'name',
         'type',
         'uom',
+        'base_uom_id',
         'category_id',
         'current_stock',
         'reorder_level',
@@ -33,6 +34,16 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function uomConversions()
+    {
+        return $this->hasMany(ProductUomConversion::class);
+    }
+
+    public function priceTiers()
+    {
+        return $this->hasMany(ProductPriceTier::class);
     }
 
     public function scopeOutOfStock($query)
