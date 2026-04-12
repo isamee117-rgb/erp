@@ -11,6 +11,7 @@ use App\Models\SaleOrder;
 use App\Models\SaleReturn;
 use App\Models\SaleReturnItem;
 use App\Models\User;
+use App\Services\UomConversionService;
 use Illuminate\Support\Str;
 
 class SaleService
@@ -18,6 +19,7 @@ class SaleService
     public function __construct(
         protected InventoryCostingService $costingService,
         protected DocumentSequenceService $sequenceService,
+        protected UomConversionService $uomService,
     ) {}
 
     public function createSale(User $user, array $data): SaleOrder
@@ -28,30 +30,38 @@ class SaleService
         $mappedItems = [];
         $subtotal    = 0;
 
+        $customerId    = $data['customerId'] ?? $data['customer_id'] ?? null;
+        $paymentMethod = $data['paymentMethod'] ?? $data['payment_method'] ?? 'Cash';
+
         foreach ($data['items'] ?? [] as $item) {
-            $productId     = $item['productId'] ?? $item['product_id'];
-            $product       = Product::find($productId);
-            $unitPrice     = $product->unit_price ?? 0;
-            $quantity      = $item['quantity'] ?? 0;
-            $discount      = $item['discount'] ?? 0;
+            $productId   = $item['productId'] ?? $item['product_id'];
+            $product     = Product::with('priceTiers')->find($productId);
+            $uomId       = $item['uomId'] ?? $item['uom_id'] ?? null;
+            $multiplier  = $this->uomService->resolveMultiplier($productId, $uomId);
+            // Price per the selected UOM = tier or base unit price × multiplier
+            $unitPrice   = $this->resolveTierPrice($product, $customerId) * $multiplier;
+            $quantity    = $item['quantity'] ?? 0;
+            $discount    = $item['discount'] ?? 0;
+            // Base-unit qty used for stock/ledger/costing
+            $baseQty     = (int) round($quantity * $multiplier);
             $totalLinePrice = ($unitPrice * $quantity) - $discount;
-            $cogs          = $this->costingService->calculateCOGS($user->company_id, $productId, $quantity);
+            $cogs        = $this->costingService->calculateCOGS($user->company_id, $productId, $baseQty);
 
             $mappedItems[] = [
-                'id'              => 'SI-' . Str::random(9),
-                'product_id'      => $productId,
-                'quantity'        => $quantity,
-                'unit_price'      => $unitPrice,
-                'discount'        => $discount,
+                'id'               => 'SI-' . Str::random(9),
+                'product_id'       => $productId,
+                'uom_id'           => $uomId,
+                'uom_multiplier'   => $multiplier,
+                'quantity'         => $quantity,
+                'unit_price'       => $unitPrice,
+                'discount'         => $discount,
                 'total_line_price' => $totalLinePrice,
-                'cogs'            => $cogs,
+                'cogs'             => $cogs,
+                '_base_qty'        => $baseQty,  // internal, not persisted
             ];
 
             $subtotal += $totalLinePrice;
         }
-
-        $customerId    = $data['customerId'] ?? $data['customer_id'] ?? null;
-        $paymentMethod = $data['paymentMethod'] ?? $data['payment_method'] ?? 'Cash';
 
         $sale = SaleOrder::create([
             'id'             => $saleUUID,
@@ -64,11 +74,14 @@ class SaleService
         ]);
 
         foreach ($mappedItems as $item) {
+            $baseQty = $item['_base_qty'];
+            unset($item['_base_qty']);
+
             SaleItem::create(array_merge($item, ['sale_order_id' => $saleUUID]));
 
             $product = Product::find($item['product_id']);
             if ($product) {
-                $product->current_stock -= $item['quantity'];
+                $product->current_stock -= $baseQty;
                 $product->save();
 
                 InventoryLedger::create([
@@ -76,7 +89,7 @@ class SaleService
                     'company_id'       => $user->company_id,
                     'product_id'       => $product->id,
                     'transaction_type' => 'Sale',
-                    'quantity_change'  => -$item['quantity'],
+                    'quantity_change'  => -$baseQty,
                     'reference_id'     => $invoiceNo,
                 ]);
             }
@@ -126,13 +139,17 @@ class SaleService
         ]);
 
         foreach ($processedItems as $pi) {
+            $baseReturnQty = (int) round($pi['returnQty'] * $pi['multiplier']);
+
             SaleReturnItem::create([
-                'id'              => 'SRI-' . Str::random(9),
-                'sale_return_id'  => $returnUUID,
-                'product_id'      => $pi['productId'],
-                'quantity'        => $pi['returnQty'],
-                'unit_price'      => $pi['unitPrice'],
-                'discount'        => $pi['discount'],
+                'id'               => 'SRI-' . Str::random(9),
+                'sale_return_id'   => $returnUUID,
+                'product_id'       => $pi['productId'],
+                'uom_id'           => $pi['uomId'],
+                'uom_multiplier'   => $pi['multiplier'],
+                'quantity'         => $pi['returnQty'],
+                'unit_price'       => $pi['unitPrice'],
+                'discount'         => $pi['discount'],
                 'total_line_price' => $pi['lineTotal'],
             ]);
 
@@ -141,11 +158,11 @@ class SaleService
 
             $product = Product::find($pi['productId']);
             if ($product) {
-                $product->current_stock += $pi['returnQty'];
+                $product->current_stock += $baseReturnQty;
                 $product->save();
 
                 $this->costingService->restoreFIFOLayers(
-                    $user->company_id, $pi['productId'], $pi['returnQty'], $product->unit_cost, $returnNo
+                    $user->company_id, $pi['productId'], $baseReturnQty, $product->unit_cost, $returnNo
                 );
 
                 InventoryLedger::create([
@@ -153,7 +170,7 @@ class SaleService
                     'company_id'       => $user->company_id,
                     'product_id'       => $pi['productId'],
                     'transaction_type' => 'Sale_Return',
-                    'quantity_change'  => $pi['returnQty'],
+                    'quantity_change'  => $baseReturnQty,
                     'reference_id'     => $returnNo,
                 ]);
             }
@@ -218,11 +235,17 @@ class SaleService
             $returnQty     = min($returnQty, $maxReturnable);
             if ($returnQty <= 0) continue;
 
-            $unitPrice = $item['unitPrice'] ?? $item['unit_price'] ?? (float) $saleItem->unit_price;
-            $discount  = $item['discount'] ?? (float) $saleItem->discount;
+            // Inherit UOM snapshot from original sale item
+            $uomId      = $saleItem->uom_id ?? null;
+            $multiplier = (float) ($saleItem->uom_multiplier ?? 1);
+            $unitPrice  = $item['unitPrice'] ?? $item['unit_price'] ?? (float) $saleItem->unit_price;
+            $discount   = $item['discount'] ?? (float) $saleItem->discount;
             $lineTotal  = ($unitPrice * $returnQty) - ($discount * ($returnQty / $saleItem->quantity));
 
-            $processedItems[] = compact('productId', 'returnQty', 'unitPrice', 'discount', 'lineTotal', 'saleItem');
+            $processedItems[] = compact(
+                'productId', 'returnQty', 'uomId', 'multiplier',
+                'unitPrice', 'discount', 'lineTotal', 'saleItem'
+            );
             $totalAmount += $lineTotal;
         }
 
@@ -243,5 +266,19 @@ class SaleService
             $sale->is_returned   = false;
         }
         $sale->save();
+    }
+
+    private function resolveTierPrice(?Product $product, ?string $customerId): float
+    {
+        if (!$product) return 0.0;
+        if (!$customerId) return (float) $product->unit_price;
+
+        $customer = Party::find($customerId);
+        if (!$customer || empty($customer->category)) {
+            return (float) $product->unit_price;
+        }
+
+        $tier = $product->priceTiers->firstWhere('category', $customer->category);
+        return $tier ? (float) $tier->price : (float) $product->unit_price;
     }
 }

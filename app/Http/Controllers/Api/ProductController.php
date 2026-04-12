@@ -47,7 +47,7 @@ class ProductController extends Controller
             'type'         => $data['type'] ?? 'Product',
             'uom'          => $data['uom'] ?? '',
             'base_uom_id'  => $data['baseUomId'] ?? $data['base_uom_id'] ?? null,
-            'category_id'  => $data['categoryId'] ?? $data['category_id'] ?? '',
+            'category_id'  => $data['categoryId'] ?? $data['category_id'] ?? null,
             'current_stock' => $initialStock,
             'reorder_level' => $data['reorderLevel'] ?? $data['reorder_level'] ?? 0,
             'unit_cost'    => $data['unitCost'] ?? $data['unit_cost'] ?? 0,
