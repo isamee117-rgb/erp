@@ -2,6 +2,7 @@ var posCart = [];
 var posPayment = 'Cash';
 var posSelectedCategory = null;
 var lastSaleData = null;
+var posSelectedCustomerCategory = null;
 
 window.ERP.onReady = function() { renderPage(); };
 
@@ -63,6 +64,12 @@ function sddSelectCustomer(customerId, customerName) {
   var trigger = document.getElementById('pos-customer-trigger');
   trigger.classList.remove('is-invalid');
   document.querySelectorAll('.sdd-wrap.open').forEach(function(w) { w.classList.remove('open'); });
+  // Resolve customer category for tier pricing
+  var parties = window.ERP.state.parties || [];
+  var customer = parties.find(function(p) { return p.id === customerId; });
+  posSelectedCustomerCategory = customer ? (customer.category || null) : null;
+  renderProducts();
+  renderCart();
 }
 // Close SDD on outside click
 document.addEventListener('click', function(e) {
@@ -121,11 +128,29 @@ function renderProducts() {
       '<div class="pos-product-name mb-1">' + p.name + '</div>' +
       '<div class="pos-product-sku mb-2">Item No: ' + (p.itemNumber || p.sku || '') + '</div>' +
       '<div class="d-flex justify-content-between align-items-center">' +
-      '<span class="pos-product-price">' + ERP.formatCurrency(p.unitPrice || 0) + '</span>' +
+      '<span class="pos-product-price">' + ERP.formatCurrency(resolveProductPrice(p)) + '</span>' +
       stockBadge + '</div></div></div></div>';
   });
   html += '</div>';
   grid.innerHTML = html;
+}
+
+function getProductUomConversions(product) {
+  return product.uomConversions || [];
+}
+
+function getDefaultSalesConversion(product) {
+  var convs = getProductUomConversions(product);
+  return convs.find(function(c) { return c.isDefaultSalesUnit; }) || null;
+}
+
+function resolveProductPrice(product) {
+  if (!posSelectedCustomerCategory) return product.unitPrice || 0;
+  var tiers = product.priceTiers || [];
+  for (var i = 0; i < tiers.length; i++) {
+    if (tiers[i].category === posSelectedCustomerCategory) return tiers[i].price;
+  }
+  return product.unitPrice || 0;
 }
 
 function addToCart(productId) {
@@ -133,12 +158,20 @@ function addToCart(productId) {
   var p = products.find(function(x) { return x.id === productId; });
   if (!p || p.currentStock <= 0) return;
 
+  var defConv = getDefaultSalesConversion(p);
+  var uomId = defConv ? defConv.uomId : null;
+  var uomMultiplier = defConv ? defConv.multiplier : 1;
+  // Stock in the selected UOM
+  var maxInUom = Math.floor(p.currentStock / uomMultiplier);
+  if (maxInUom <= 0) return;
+
   var existing = posCart.find(function(c) { return c.productId === productId; });
   if (existing) {
-    if (existing.quantity >= p.currentStock) return;
+    var maxInUomExisting = Math.floor(p.currentStock / (existing.uomMultiplier || 1));
+    if (existing.quantity >= maxInUomExisting) return;
     existing.quantity++;
   } else {
-    posCart.push({ productId: productId, quantity: 1, discount: 0 });
+    posCart.push({ productId: productId, quantity: 1, discount: 0, uomId: uomId, uomMultiplier: uomMultiplier });
   }
   renderCart();
 }
@@ -148,7 +181,8 @@ function updateCartQty(productId, delta) {
   var p = products.find(function(x) { return x.id === productId; });
   var item = posCart.find(function(c) { return c.productId === productId; });
   if (!item || !p) return;
-  item.quantity = Math.max(1, Math.min(p.currentStock, item.quantity + delta));
+  var maxInUom = Math.floor(p.currentStock / (item.uomMultiplier || 1));
+  item.quantity = Math.max(1, Math.min(maxInUom, item.quantity + delta));
   renderCart();
 }
 
@@ -159,9 +193,24 @@ function setCartQtyDirect(productId, input) {
   if (!item || !p) return;
   var val = parseInt(input.value);
   if (isNaN(val) || val < 0) { renderCart(); return; }
-  if (val > p.currentStock) { val = p.currentStock; }
+  var maxInUom = Math.floor(p.currentStock / (item.uomMultiplier || 1));
+  if (val > maxInUom) { val = maxInUom; }
   if (val === 0) { removeFromCart(productId); return; }
   item.quantity = val;
+  renderCart();
+}
+
+function setCartItemUom(productId, uomId) {
+  var products = getCompanyProducts();
+  var p = products.find(function(x) { return x.id === productId; });
+  var item = posCart.find(function(c) { return c.productId === productId; });
+  if (!item || !p) return;
+  var conv = (getProductUomConversions(p)).find(function(c) { return c.uomId === uomId; });
+  item.uomId = uomId || null;
+  item.uomMultiplier = conv ? conv.multiplier : 1;
+  // Clamp quantity to what's available in the new unit
+  var maxInUom = Math.floor(p.currentStock / item.uomMultiplier);
+  if (item.quantity > maxInUom) item.quantity = Math.max(1, maxInUom);
   renderCart();
 }
 
@@ -185,6 +234,7 @@ function removeFromCart(productId) {
 }
 
 function clearCart() {
+  posSelectedCustomerCategory = null;
   posCart = [];
   renderCart();
 }
@@ -201,30 +251,46 @@ function renderCart() {
     posCart.forEach(function(item) {
       var p = products.find(function(x) { return x.id === item.productId; });
       if (!p) return;
-      var lineTotal = (p.unitPrice * item.quantity) - item.discount;
-      subtotal += p.unitPrice * item.quantity;
+      var multiplier = item.uomMultiplier || 1;
+      var unitPriceInUom = resolveProductPrice(p) * multiplier;
+      var lineTotal = (unitPriceInUom * item.quantity) - item.discount;
+      subtotal += unitPriceInUom * item.quantity;
       totalDiscount += item.discount;
+      var maxInUom = Math.floor(p.currentStock / multiplier);
+
+      // Build UOM selector — always shown; disabled if no conversions
+      var convs = getProductUomConversions(p);
+      var hasMultiple = convs.length > 0;
+      var uomSelHtml = '<select class="pos-uom-sel"' +
+        (hasMultiple ? ' onchange="setCartItemUom(\'' + item.productId + '\',this.value)"' : ' disabled') + '>' +
+        '<option value=""' + (!item.uomId ? ' selected' : '') + '>' + (p.uom || 'Base') + '</option>';
+      convs.forEach(function(c) {
+        uomSelHtml += '<option value="' + c.uomId + '"' + (item.uomId === c.uomId ? ' selected' : '') + '>' + c.uomName + '</option>';
+      });
+      uomSelHtml += '</select>';
 
       html += '<div class="pos-cart-item">' +
-        '<div class="flex-fill">' +
-        '<div class="pos-product-name">' + p.name + '</div>' +
-        '<div class="pos-product-price">' + ERP.formatCurrency(p.unitPrice) + ' /unit</div>' +
+        // Row 1: name only
+        '<div class="pos-ci-top">' +
+          '<div class="pos-product-name">' + p.name + '</div>' +
         '</div>' +
-        '<div class="d-flex flex-column align-items-end gap-1">' +
-        '<div class="pos-qty-group">' +
-        '<button class="pos-qty-btn" onclick="updateCartQty(\'' + item.productId + '\',-1)"><i class="ti ti-minus"></i></button>' +
-        '<input type="number" class="pos-qty-input" value="' + item.quantity + '" min="0" max="' + p.currentStock + '" onclick="this.select()" onchange="setCartQtyDirect(\'' + item.productId + '\',this)">' +
-        '<button class="pos-qty-btn" onclick="updateCartQty(\'' + item.productId + '\',1)"><i class="ti ti-plus"></i></button>' +
+        // Row 2: uom | disc | qty | amount | delete
+        '<div class="pos-ci-bottom">' +
+          uomSelHtml +
+          '<input type="number" class="pos-ci-input" placeholder="Disc." value="' + (item.discount || '') + '" onchange="setCartDiscount(\'' + item.productId + '\',this.value)">' +
+          '<div class="pos-qty-group">' +
+            '<button type="button" class="pos-qty-btn" onclick="updateCartQty(\'' + item.productId + '\',-1)"><i class="ti ti-minus"></i></button>' +
+            '<input type="number" class="pos-qty-input" value="' + item.quantity + '" min="0" max="' + maxInUom + '" onclick="this.select()" onchange="setCartQtyDirect(\'' + item.productId + '\',this)">' +
+            '<button type="button" class="pos-qty-btn" onclick="updateCartQty(\'' + item.productId + '\',1)"><i class="ti ti-plus"></i></button>' +
+          '</div>' +
+          '<div class="pos-line-price-wrap" title="Click to edit line total">' +
+            '<span class="pos-line-price-prefix">Rs.</span>' +
+            '<input type="number" class="pos-line-price" value="' + lineTotal.toFixed(2) + '" min="0" max="' + (unitPriceInUom * item.quantity).toFixed(2) + '" step="0.01" onclick="this.select()" onchange="setCartLineTotal(\'' + item.productId + '\',' + (unitPriceInUom * item.quantity).toFixed(2) + ',this)">' +
+            '<i class="ti ti-pencil pos-line-price-icon"></i>' +
+          '</div>' +
+          '<button type="button" class="pos-remove-btn" onclick="removeFromCart(\'' + item.productId + '\')"><i class="ti ti-trash"></i></button>' +
         '</div>' +
-        '<input type="number" class="form-control pos-input text-end pos-disc-input" placeholder="Disc." value="' + (item.discount || '') + '" onchange="setCartDiscount(\'' + item.productId + '\',this.value)">' +
-        '<div class="d-flex align-items-center gap-2">' +
-        '<div class="pos-line-price-wrap" title="Click to edit line total">' +
-          '<span class="pos-line-price-prefix">' + ERP.formatCurrency(0).replace('0.00','').replace('0','').trim() + '</span>' +
-          '<input type="number" class="pos-line-price" value="' + lineTotal.toFixed(2) + '" min="0" max="' + (p.unitPrice * item.quantity).toFixed(2) + '" step="0.01" onclick="this.select()" onchange="setCartLineTotal(\'' + item.productId + '\',' + (p.unitPrice * item.quantity).toFixed(2) + ',this)">' +
-          '<i class="ti ti-pencil pos-line-price-icon"></i>' +
-        '</div>' +
-        '<button class="pos-remove-btn erp-icon-sm" onclick="removeFromCart(\'' + item.productId + '\')"><i class="ti ti-trash"></i></button>' +
-        '</div></div></div>';
+      '</div>';
     });
     container.innerHTML = html;
   }
@@ -272,8 +338,7 @@ async function completeSale() {
       customerId: customerId,
       paymentMethod: posPayment,
       items: validCart.map(function(c) {
-        var p = getCompanyProducts().find(function(x) { return x.id === c.productId; });
-        return { productId: c.productId, quantity: c.quantity, unitPrice: p ? p.unitPrice : 0, discount: c.discount || 0 };
+        return { productId: c.productId, quantity: c.quantity, uomId: c.uomId || null, discount: c.discount || 0 };
       })
     };
     var result = await ERP.api.createSale(saleData);
