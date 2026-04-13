@@ -1337,3 +1337,48 @@
 .pm-tier-table td      { padding: .4rem .75rem; border-top: 1px solid #eef0f7; }
 .pm-tier-table th      { background: #f3f4fb; font-weight: 600; font-size: .78rem; color: #6163a0; }
 .pm-tier-add-form      { padding: .5rem .75rem; background: #f8f9fc; }
+
+/* ── Dynamic Fields ──────────────────────────────────────────────────── */
+.dynf-section-title         { font-size: 0.78rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; display: flex; align-items: center; gap: 4px; }
+.dynf-grid                  { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.dynf-group-label           { grid-column: 1 / -1; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; padding: 6px 0 2px; display: flex; align-items: center; gap: 6px; }
+.dynf-group-label::after    { content: ''; flex: 1; height: 1px; background: #EEF0F8; }
+
+.dynf-group-label.hint-retail       { color: #2563EB; }
+.dynf-group-label.hint-retail::after       { background: rgba(37,99,235,0.15); }
+.dynf-group-label.hint-grocery      { color: #059669; }
+.dynf-group-label.hint-grocery::after      { background: rgba(5,150,105,0.15); }
+.dynf-group-label.hint-pharmacy     { color: #0891B2; }
+.dynf-group-label.hint-pharmacy::after     { background: rgba(8,145,178,0.15); }
+.dynf-group-label.hint-automobile   { color: #D97706; }
+.dynf-group-label.hint-automobile::after   { background: rgba(217,119,6,0.15); }
+
+.dynf-card                  { background: #fff; border: 1.5px solid #EEF0F8; border-radius: 9px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s; }
+.dynf-card:hover            { border-color: #D0D4E8; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.dynf-card.pending-enable   { border-color: #86EFAC; background: #F0FDF4; box-shadow: 0 0 0 2px rgba(34,197,94,0.12); }
+.dynf-card.pending-disable  { border-color: #FCA5A5; background: #FFF5F5; box-shadow: 0 0 0 2px rgba(239,68,68,0.10); }
+.dynf-card-left             { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.dynf-card-name             { font-size: 0.8rem; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dynf-card-badges           { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dynf-badge-type            { font-size: 0.65rem; padding: 1px 6px; border-radius: 6px; background: #F1F5F9; color: #64748b; font-weight: 500; }
+.dynf-badge-industry        { font-size: 0.65rem; padding: 1px 6px; border-radius: 6px; font-weight: 600; }
+.dynf-badge-industry.hint-retail     { background: rgba(37,99,235,0.09); color: #2563EB; }
+.dynf-badge-industry.hint-grocery    { background: rgba(5,150,105,0.09); color: #059669; }
+.dynf-badge-industry.hint-pharmacy   { background: rgba(8,145,178,0.09); color: #0891B2; }
+.dynf-badge-industry.hint-automobile { background: rgba(217,119,6,0.09); color: #D97706; }
+
+.dynf-toggle                { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.dynf-toggle input          { opacity: 0; width: 0; height: 0; position: absolute; }
+.dynf-toggle-track          { position: absolute; inset: 0; border-radius: 20px; background: #CBD5E1; transition: background 0.2s; cursor: pointer; }
+.dynf-toggle input:checked  ~ .dynf-toggle-track { background: #3B4FE4; }
+.dynf-toggle-thumb          { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.2s; pointer-events: none; }
+.dynf-toggle input:checked  ~ .dynf-toggle-thumb { transform: translateX(16px); }
+.dynf-toggle input:disabled ~ .dynf-toggle-track { opacity: 0.5; cursor: not-allowed; }
+
+.dynf-pending-dot           { width: 6px; height: 6px; border-radius: 50%; background: #F59E0B; flex-shrink: 0; animation: dynf-pulse 1s ease-in-out infinite; }
+@keyframes dynf-pulse       { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.dynf-save-btn              { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; background: linear-gradient(135deg, #3B4FE4, #6366F1); color: #fff; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
+.dynf-save-btn:hover        { opacity: 0.9; transform: translateY(-1px); }
+.dynf-save-btn:active       { transform: translateY(0); }
+.dynf-save-badge            { background: rgba(255,255,255,0.3); border-radius: 10px; padding: 1px 7px; font-size: 0.72rem; font-weight: 800; min-width: 20px; text-align: center; }

@@ -458,23 +458,34 @@ function bkEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 
 // ── Dynamic Fields ────────────────────────────────────────────────────────────
 
+var _dynPending = {}; // { fieldKey: { entity, isEnabled } }
+
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function _hintClass(hint) {
+    if (!hint) return '';
+    var h = hint.toLowerCase();
+    if (h.indexOf('grocery') !== -1 || h.indexOf('pharmacy') === 0) return 'hint-grocery';
+    if (h === 'pharmacy') return 'hint-pharmacy';
+    if (h === 'retail')   return 'hint-retail';
+    if (h === 'automobile') return 'hint-automobile';
+    return '';
+}
+
 function renderDynamicFieldSettings() {
-    var fs = (window.ERP.state.fieldSettings) || { enabledKeys: { product: [], customer: [] }, definitions: [] };
+    var fs          = (window.ERP.state.fieldSettings) || { enabledKeys: { product: [], customer: [] }, definitions: [] };
     var definitions = fs.definitions || [];
-    var enabledProduct  = fs.enabledKeys ? (fs.enabledKeys.product  || []) : [];
-    var enabledCustomer = fs.enabledKeys ? (fs.enabledKeys.customer || []) : [];
+    var enabledProduct  = (fs.enabledKeys && fs.enabledKeys.product)  || [];
+    var enabledCustomer = (fs.enabledKeys && fs.enabledKeys.customer) || [];
 
     ['product', 'customer'].forEach(function(entity) {
-        var fields = definitions.filter(function(f) { return f.entity === entity; });
-        var enabled = entity === 'product' ? enabledProduct : enabledCustomer;
+        var fields    = definitions.filter(function(f) { return f.entity === entity; });
+        var enabled   = entity === 'product' ? enabledProduct : enabledCustomer;
         var container = document.getElementById('dynfields-' + entity);
         if (!container) return;
 
-        // Group by industry_hint
         var groups = {};
         fields.forEach(function(f) {
             var hint = f.industry_hint || 'general';
@@ -484,45 +495,133 @@ function renderDynamicFieldSettings() {
 
         var html = '';
         Object.keys(groups).forEach(function(hint) {
-            html += '<div class="dynfield-group-header">' + hint.charAt(0).toUpperCase() + hint.slice(1) + '</div>';
+            var hc = _hintClass(hint);
+            html += '<div class="dynf-group-label ' + hc + '">' + hint.charAt(0).toUpperCase() + hint.slice(1) + '</div>';
             groups[hint].forEach(function(f) {
-                var isOn = enabled.indexOf(f.key) !== -1;
+                var savedOn  = enabled.indexOf(f.key) !== -1;
+                var pending  = _dynPending[f.key];
+                var isOn     = pending !== undefined ? pending.isEnabled : savedOn;
+                var isPendingEnable  = pending !== undefined && pending.isEnabled  && !savedOn;
+                var isPendingDisable = pending !== undefined && !pending.isEnabled && savedOn;
+                var cardClass = isPendingEnable ? 'dynf-card pending-enable' :
+                                isPendingDisable ? 'dynf-card pending-disable' : 'dynf-card';
                 var toggleId = 'dynfield-toggle-' + f.key;
-                html += '<div class="dynfield-row">' +
-                    '<div class="dynfield-row-left">' +
-                        '<span class="dynfield-label">' + escHtml(f.label) + '</span>' +
-                        '<span class="dynfield-meta">' +
-                            '<span class="dynfield-type-badge">' + f.type + '</span>' +
-                            '<span class="dynfield-industry">' + escHtml(f.industry_hint) + '</span>' +
-                        '</span>' +
+                html += '<div class="' + cardClass + '">' +
+                    '<div class="dynf-card-left">' +
+                        '<span class="dynf-card-name">' + escHtml(f.label) + '</span>' +
+                        '<div class="dynf-card-badges">' +
+                            '<span class="dynf-badge-type">' + escHtml(f.type) + '</span>' +
+                            '<span class="dynf-badge-industry ' + hc + '">' + escHtml(f.industry_hint) + '</span>' +
+                            (pending !== undefined ? '<span class="dynf-pending-dot"></span>' : '') +
+                        '</div>' +
                     '</div>' +
-                    '<div class="form-check form-switch">' +
-                        '<input class="form-check-input" type="checkbox" id="' + toggleId + '" ' +
+                    '<label class="dynf-toggle">' +
+                        '<input type="checkbox" id="' + toggleId + '" ' +
                             'data-field-key="' + f.key + '" data-entity="' + f.entity + '" ' +
-                            (isOn ? 'checked' : '') + ' onchange="toggleDynamicField(this)">' +
-                    '</div>' +
+                            (isOn ? 'checked' : '') + ' onchange="queueDynamicFieldChange(this)">' +
+                        '<div class="dynf-toggle-track"></div>' +
+                        '<div class="dynf-toggle-thumb"></div>' +
+                    '</label>' +
                 '</div>';
             });
         });
-        container.innerHTML = html || '<p class="text-muted" style="font-size:0.82rem;">No fields available.</p>';
+        container.innerHTML = html || '<p class="text-muted">No fields available.</p>';
     });
+
+    _updateSaveBtn();
 }
 
-async function toggleDynamicField(checkbox) {
+function queueDynamicFieldChange(checkbox) {
     var fieldKey   = checkbox.dataset.fieldKey;
     var entityType = checkbox.dataset.entity;
     var isEnabled  = checkbox.checked;
 
-    checkbox.disabled = true;
-    try {
-        await ERP.api.updateFieldSetting(fieldKey, entityType, isEnabled);
-        await ERP.sync();
-        renderDynamicFieldSettings();
-    } catch(e) {
-        checkbox.checked = !isEnabled;
-        document.getElementById('dynFieldDisableErrorMsg').textContent = e.message || 'An error occurred.';
+    var fs         = (window.ERP.state.fieldSettings) || { enabledKeys: { product: [], customer: [] } };
+    var enabledArr = entityType === 'product'
+        ? ((fs.enabledKeys && fs.enabledKeys.product) || [])
+        : ((fs.enabledKeys && fs.enabledKeys.customer) || []);
+    var savedOn    = enabledArr.indexOf(fieldKey) !== -1;
+
+    if (isEnabled === savedOn) {
+        delete _dynPending[fieldKey]; // reverted to original
+    } else {
+        _dynPending[fieldKey] = { entity: entityType, isEnabled: isEnabled };
+    }
+
+    // Update card appearance immediately without full re-render
+    var card = checkbox.closest('.dynf-card');
+    if (card) {
+        card.className = 'dynf-card';
+        if (_dynPending[fieldKey] && isEnabled && !savedOn)  card.classList.add('pending-enable');
+        if (_dynPending[fieldKey] && !isEnabled && savedOn)  card.classList.add('pending-disable');
+        var dot = card.querySelector('.dynf-pending-dot');
+        if (_dynPending[fieldKey] && !dot) {
+            var badges = card.querySelector('.dynf-card-badges');
+            if (badges) { var d = document.createElement('span'); d.className = 'dynf-pending-dot'; badges.appendChild(d); }
+        } else if (!_dynPending[fieldKey] && dot) {
+            dot.remove();
+        }
+    }
+
+    _updateSaveBtn();
+}
+
+function _updateSaveBtn() {
+    var count = Object.keys(_dynPending).length;
+    var btn   = document.getElementById('dynSaveBtn');
+    var badge = document.getElementById('dynSaveBadge');
+    if (!btn) return;
+    badge.textContent = count;
+    if (count > 0) {
+        btn.classList.remove('d-none');
+    } else {
+        btn.classList.add('d-none');
+    }
+}
+
+function saveDynamicFields() {
+    var count = Object.keys(_dynPending).length;
+    if (count === 0) return;
+    var msg = 'You are about to ' + count + ' field change' + (count > 1 ? 's' : '') + '. This will affect all users in your company.';
+    document.getElementById('dynSaveConfirmMsg').textContent = msg;
+    document.getElementById('dynSaveConfirm').classList.remove('d-none');
+}
+
+async function confirmSaveDynamicFields() {
+    document.getElementById('dynSaveConfirm').classList.add('d-none');
+    var btn = document.getElementById('dynSaveBtn');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+
+    var keys    = Object.keys(_dynPending);
+    var errors  = [];
+    var saved   = 0;
+
+    for (var i = 0; i < keys.length; i++) {
+        var key  = keys[i];
+        var item = _dynPending[key];
+        try {
+            await ERP.api.updateFieldSetting(key, item.entity, item.isEnabled);
+            saved++;
+        } catch(e) {
+            errors.push(e.message || key);
+        }
+    }
+
+    _dynPending = {};
+    await ERP.sync();
+    renderDynamicFieldSettings();
+
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+
+    if (errors.length > 0) {
+        document.getElementById('dynFieldDisableErrorMsg').textContent = errors.join('; ');
         document.getElementById('dynFieldDisableError').classList.remove('d-none');
-    } finally {
-        checkbox.disabled = false;
+    } else {
+        var successMsg = saved + ' field setting' + (saved > 1 ? 's' : '') + ' saved successfully.';
+        document.getElementById('dynSaveSuccessMsg').textContent = successMsg;
+        document.getElementById('dynSaveSuccess').classList.remove('d-none');
+        setTimeout(function() {
+            document.getElementById('dynSaveSuccess').classList.add('d-none');
+        }, 3000);
     }
 }

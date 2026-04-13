@@ -365,20 +365,26 @@
   {{-- Dynamic Fields --}}
   <div class="col-12">
     <div class="card inv-section-card">
-      <div class="set-card-header"><i class="ti ti-layout-columns me-2 text-indigo"></i>Dynamic Fields</div>
+      <div class="set-card-header d-flex align-items-center justify-content-between">
+        <span><i class="ti ti-layout-columns me-2 text-indigo"></i>Dynamic Fields</span>
+        <button id="dynSaveBtn" class="dynf-save-btn d-none" onclick="saveDynamicFields()">
+          <i class="ti ti-device-floppy me-1"></i>Save Changes
+          <span id="dynSaveBadge" class="dynf-save-badge">0</span>
+        </button>
+      </div>
       <div class="set-card-body">
-        <p class="set-desc mb-3">Enable fields to appear in Product and Customer forms. Fields with data cannot be disabled.</p>
+        <p class="set-desc mb-3">Enable fields to appear in Product and Customer forms. Fields with data cannot be disabled. Toggle changes are pending until you click <strong>Save Changes</strong>.</p>
 
         {{-- Product Fields --}}
         <div class="mb-4">
-          <div class="fw-bold mb-2" style="font-size:0.82rem;color:#1e293b;">Product Fields</div>
-          <div id="dynfields-product"></div>
+          <div class="dynf-section-title"><i class="ti ti-box me-1"></i>Product Fields</div>
+          <div id="dynfields-product" class="dynf-grid"></div>
         </div>
 
         {{-- Customer Fields --}}
         <div>
-          <div class="fw-bold mb-2" style="font-size:0.82rem;color:#1e293b;">Customer Fields</div>
-          <div id="dynfields-customer"></div>
+          <div class="dynf-section-title"><i class="ti ti-users me-1"></i>Customer Fields</div>
+          <div id="dynfields-customer" class="dynf-grid"></div>
         </div>
       </div>
     </div>
@@ -397,6 +403,35 @@
     </div>
     <div class="ms-footer">
       <button class="ms-btn-ok" onclick="document.getElementById('dynFieldDisableError').classList.add('d-none')">OK</button>
+    </div>
+  </div>
+</div>
+
+{{-- Dynamic Fields Save Confirm Overlay --}}
+<div id="dynSaveConfirm" class="d-none ms-overlay">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-primary"><i class="ti ti-device-floppy"></i></div>
+      <div class="ms-title">Save Field Changes?</div>
+      <div class="ms-sub" id="dynSaveConfirmMsg">You are about to update field settings.</div>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-cancel" onclick="document.getElementById('dynSaveConfirm').classList.add('d-none')">Cancel</button>
+      <button class="ms-btn-confirm" onclick="confirmSaveDynamicFields()">Yes, Save</button>
+    </div>
+  </div>
+</div>
+
+{{-- Dynamic Fields Save Success Overlay --}}
+<div id="dynSaveSuccess" class="d-none ms-overlay">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-success"><i class="ti ti-circle-check"></i></div>
+      <div class="ms-title">Saved Successfully</div>
+      <div class="ms-sub" id="dynSaveSuccessMsg">Field settings have been updated.</div>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-ok" onclick="document.getElementById('dynSaveSuccess').classList.add('d-none')">OK</button>
     </div>
   </div>
 </div>
@@ -468,6 +503,7 @@
 .ms-icon-confirm{background:rgba(220,38,38,0.1);color:#dc2626;}
 .ms-icon-success{background:rgba(5,150,105,0.1);color:#059669;}
 .ms-icon-error{background:rgba(234,88,12,0.1);color:#ea580c;}
+.ms-icon-primary{background:rgba(59,79,228,0.1);color:#3B4FE4;}
 .ms-title{font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:8px;}
 .ms-sub{font-size:0.82rem;color:#64748b;line-height:1.5;}
 .ms-footer{padding:0 28px 24px;display:flex;gap:10px;justify-content:center;}
@@ -477,15 +513,7 @@
 .ms-btn-confirm:hover{opacity:0.9;}
 .ms-btn-ok{padding:9px 40px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10B981);color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;transition:all 0.15s;}
 .ms-btn-ok:hover{opacity:0.9;}
-/* Dynamic Fields */
-.dynfield-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F0F2F8;}
-.dynfield-row:last-child{border-bottom:none;}
-.dynfield-row-left{display:flex;flex-direction:column;gap:2px;}
-.dynfield-label{font-size:0.82rem;font-weight:600;color:#1e293b;}
-.dynfield-meta{font-size:0.72rem;color:#94a3b8;}
-.dynfield-industry{display:inline-block;font-size:0.68rem;font-weight:600;padding:2px 7px;border-radius:10px;background:rgba(59,79,228,0.08);color:#3B4FE4;margin-left:6px;}
-.dynfield-type-badge{display:inline-block;font-size:0.68rem;padding:2px 7px;border-radius:10px;background:#F1F5F9;color:#64748b;}
-.dynfield-group-header{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;padding:10px 0 4px;border-bottom:2px solid #E8EAF0;margin-bottom:4px;}
+/* Dynamic Fields styles are in public/css/app.css */
 </style>
 @endpush
 @push('scripts')
