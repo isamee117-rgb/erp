@@ -41,6 +41,8 @@ use App\Models\SaleReturn;
 use App\Models\Setting;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Config\DynamicFields;
+use App\Models\CompanyFieldSetting;
 use Illuminate\Support\Facades\DB;
 
 class SyncService
@@ -118,6 +120,24 @@ class SyncService
         $entityTypes        = EntityType::all();
         $businessCategories = BusinessCategory::all();
 
+        // Field settings payload
+        $fieldSettingsPayload = [
+            'enabledKeys' => ['product' => [], 'customer' => []],
+            'definitions' => DynamicFields::all(),
+        ];
+
+        if (!$isSuper && $coId) {
+            CompanyFieldSetting::where('company_id', $coId)
+                ->where('is_enabled', true)
+                ->get()
+                ->each(function ($row) use (&$fieldSettingsPayload) {
+                    $entityType = $row->entity_type; // 'product' or 'customer'
+                    if (isset($fieldSettingsPayload['enabledKeys'][$entityType])) {
+                        $fieldSettingsPayload['enabledKeys'][$entityType][] = $row->field_key;
+                    }
+                });
+        }
+
         return [
             'products'           => ProductResource::collection($products),
             'parties'            => PartyResource::collection($parties),
@@ -125,6 +145,7 @@ class SyncService
             'uoms'               => UnitOfMeasureResource::collection($uoms),
             'entityTypes'        => EntityTypeResource::collection($entityTypes),
             'businessCategories' => BusinessCategoryResource::collection($businessCategories),
+            'fieldSettings'      => $fieldSettingsPayload,
         ];
     }
 

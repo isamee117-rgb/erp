@@ -265,6 +265,15 @@
         },
         getBalanceSheet: function(asOf) {
             return request('GET', '/reports/balance-sheet?as_of=' + asOf);
+        },
+        getFieldSettings: function() {
+            return request('GET', '/field-settings');
+        },
+        updateFieldSetting: function(fieldKey, entityType, isEnabled) {
+            return request('PUT', '/field-settings/' + fieldKey, {
+                entity_type: entityType,
+                is_enabled: isEnabled,
+            });
         }
     };
 
