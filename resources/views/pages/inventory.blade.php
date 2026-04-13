@@ -80,7 +80,7 @@
       </div>
       <div class="col-6 col-md-2">
         <select class="form-select inv-input" id="inv-type">
-          <option value="all">All Types</option><option value="Product">Product</option><option value="Service">Service</option>
+          <option value="all">All Types</option><option value="Product">Product</option><option value="Service">Service</option><option value="Non-inventory">Non-inventory</option>
         </select>
       </div>
       <div class="col-auto ms-md-auto">
@@ -231,7 +231,7 @@
           <div class="row pm-field-row">
             <div class="col-4"><label class="pm-label">Category</label><select class="form-select pm-input" id="pf-category"></select></div>
             <div class="col-4"><label class="pm-label">UOM</label><select class="form-select pm-input" id="pf-uom"></select></div>
-            <div class="col-4"><label class="pm-label">Item Type</label><select class="form-select pm-input" id="pf-type"><option value="Product">Product</option><option value="Service">Service</option></select></div>
+            <div class="col-4"><label class="pm-label">Item Type</label><select class="form-select pm-input" id="pf-type"><option value="Product">Product</option><option value="Service">Service</option><option value="Non-inventory">Non-inventory</option></select></div>
           </div>
           <div class="row pm-field-row">
             <div class="col-4">

@@ -3,6 +3,9 @@ var editingProductId = null, adjustProductId = null;
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// Returns true for product types that have no inventory tracking (same behaviour)
+function isNonInventoryType(type) { return type === 'Service' || type === 'Non-inventory'; }
+
 // ── Dynamic Fields Rendering ──────────────────────────────────────────────────
 
 function renderProductDynamicFields(productData) {
@@ -202,7 +205,7 @@ function computeStats() {
   var total = products.length;
   var inStock = 0, outStock = 0, lowStock = 0;
   products.forEach(function(p) {
-    if (p.type === 'Service') return;
+    if (isNonInventoryType(p.type)) return;
     if (p.currentStock <= 0) outStock++;
     else if (p.currentStock <= p.reorderLevel) lowStock++;
     else inStock++;
@@ -340,13 +343,15 @@ function renderPage() {
     page.forEach(function(p) {
       var catName = '';
       for (var i = 0; i < cats.length; i++) { if (cats[i].id === p.categoryId) { catName = cats[i].name; break; } }
-      var isLow = p.type === 'Product' && p.currentStock <= p.reorderLevel && p.currentStock > 0;
-      var isOut = p.type === 'Product' && p.currentStock <= 0;
+      var isLow = !isNonInventoryType(p.type) && p.currentStock <= p.reorderLevel && p.currentStock > 0;
+      var isOut = !isNonInventoryType(p.type) && p.currentStock <= 0;
 
       var statusBadge = '';
       var rowClass = '';
       if (p.type === 'Service') {
         statusBadge = '<span class="badge badge-status badge-status-service">Service</span>';
+      } else if (p.type === 'Non-inventory') {
+        statusBadge = '<span class="badge badge-status badge-status-noninventory">Non-inventory</span>';
       } else if (isOut) {
         statusBadge = '<span class="badge badge-status badge-status-outofstock">Out of Stock</span>';
         rowClass = 'inv-row-outofstock';
@@ -359,7 +364,9 @@ function renderPage() {
 
       var typeBadge = p.type === 'Service'
         ? '<span class="badge-type-service">Service</span>'
-        : '<span class="badge-type-product">Product</span>';
+        : (p.type === 'Non-inventory'
+          ? '<span class="badge-type-noninventory">Non-inventory</span>'
+          : '<span class="badge-type-product">Product</span>');
 
       // Build dynamic field cells
       var dynCells = visibleDynFields.map(function(f) {
@@ -379,13 +386,13 @@ function renderPage() {
         '<td><span class="inv-category-text">' + (p.uom || '') + '</span></td>' +
         '<td class="text-end inv-cost">' + ERP.formatCurrency(p.unitCost || 0) + '</td>' +
         '<td class="text-end inv-price">' + ERP.formatCurrency(p.unitPrice || 0) + '</td>' +
-        '<td class="text-center inv-stock-num">' + (p.type === 'Service' ? '<span class="text-muted">\u2014</span>' : (p.currentStock || 0)) + '</td>' +
+        '<td class="text-center inv-stock-num">' + (isNonInventoryType(p.type) ? '<span class="text-muted">\u2014</span>' : (p.currentStock || 0)) + '</td>' +
         '<td class="text-center inv-reorder-num">' + (p.reorderLevel || 0) + '</td>' +
         '<td>' + statusBadge + '</td>' +
         dynCells +
         '<td class="text-center"><div class="d-flex gap-1 justify-content-center">' +
         '<button class="inv-action-btn" onclick="openProductModal(\'edit\',\'' + p.id + '\')" title="Edit Product"><i class="ti ti-pencil"></i></button>' +
-        (p.type !== 'Service' ? '<button class="inv-action-btn inv-action-warn" onclick="openAdjustModal(\'' + p.id + '\')" title="Adjust Stock"><i class="ti ti-adjustments"></i></button>' : '') +
+        (!isNonInventoryType(p.type) ? '<button class="inv-action-btn inv-action-warn" onclick="openAdjustModal(\'' + p.id + '\')" title="Adjust Stock"><i class="ti ti-adjustments"></i></button>' : '') +
         '<button class="inv-action-btn inv-action-danger" onclick="confirmDeleteProduct(\'' + p.id + '\')" title="Delete Product"><i class="ti ti-trash"></i></button>' +
         '</div></td></tr>';
     });

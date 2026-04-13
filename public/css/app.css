@@ -1437,9 +1437,11 @@
 .inv-reorder-num { font-size: 0.85rem; color: #64748b; }
 .badge-type-product { background: transparent; color: #2563eb; font-weight: 600; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; border: 1px solid #2563eb; }
 .badge-type-service { background: transparent; color: #7c3aed; font-weight: 600; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; border: 1px solid #7c3aed; }
+.badge-type-noninventory { background: transparent; color: #0891b2; font-weight: 600; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; border: 1px solid #0891b2; }
 .badge-status { font-weight: 600; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; letter-spacing: 0.03em; }
 .badge-status-instock { background: rgba(16,185,129,0.1); color: #059669; }
 .badge-status-outofstock { background: rgba(239,68,68,0.1); color: #dc2626; }
+.badge-status-noninventory { background: rgba(8,145,178,0.1); color: #0e7490; }
 .badge-status-lowstock { background: rgba(245,158,11,0.1); color: #d97706; }
 .badge-status-service { background: rgba(100,116,139,0.1); color: #64748b; }
 .inv-action-btn { width: 28px; height: 28px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; color: #64748b; transition: all 0.15s ease; padding: 0; font-size: 15px; }
