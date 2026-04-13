@@ -91,7 +91,16 @@
           <span class="inv-toggle-label">Low Stock Only</span>
         </label>
       </div>
+      <div class="ms-auto d-flex align-items-center">
+        <div class="dropdown">
+          <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="invColsDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.8rem;border:1px solid #DDE1EC;">
+            <i class="ti ti-columns me-1"></i>Columns
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" id="invColsMenu" style="min-width:220px;padding:8px 12px;font-size:0.82rem;"></ul>
+        </div>
+      </div>
     </div>
+    <div id="inv-dyn-filters" class="d-flex flex-wrap gap-2 mt-2"></div>
   </div>
 </div>
 
@@ -107,7 +116,7 @@
   <div class="table-responsive">
     <table class="table table-hover table-vcenter inv-table mb-0">
       <thead>
-        <tr>
+        <tr id="inv-thead-row">
           <th class="inv-th inv-chk-col" class="col-erp-checkbox"><input type="checkbox" class="inv-chk" id="inv-select-all" onclick="toggleSelectAllProducts(this)" title="Select all"></th>
           <th class="cursor-pointer inv-th" onclick="toggleSort('itemNumber')">Item No. <i class="ti ti-arrows-sort ms-1"></i></th>
           <th class="cursor-pointer inv-th" onclick="toggleSort('name')">Name <i class="ti ti-arrows-sort ms-1"></i></th>
@@ -288,6 +297,7 @@
               <div class="erp-info-hint mt-2"><i class="ti ti-info-circle me-1"></i>Company-wide defaults used for journal posting on sales &amp; purchases.</div>
             </div>
           </div>
+          <div id="pf-dynamic-fields" class="row pm-field-row g-3"></div>
           {{-- UOM Conversions (edit mode only, populated by JS) --}}
           <div id="pf-uom-section" style="display:none;"></div>
           {{-- Price Tiers (edit mode only, populated by JS) --}}

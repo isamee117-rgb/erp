@@ -3,6 +3,129 @@ var editingProductId = null, adjustProductId = null;
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// ── Dynamic Fields Rendering ──────────────────────────────────────────────────
+
+function renderProductDynamicFields(productData) {
+    var container = document.getElementById('pf-dynamic-fields');
+    if (!container) return;
+
+    var fs = window.ERP.state.fieldSettings || { enabledKeys: { product: [] }, definitions: [] };
+    var enabledKeys = (fs.enabledKeys && fs.enabledKeys.product) ? fs.enabledKeys.product : [];
+    var definitions = fs.definitions || [];
+
+    var enabledFields = definitions.filter(function(f) {
+        return f.entity === 'product' && enabledKeys.indexOf(f.key) !== -1;
+    });
+
+    if (enabledFields.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    var html = '';
+    enabledFields.forEach(function(f) {
+        var val = (productData && productData[f.key] !== undefined && productData[f.key] !== null)
+            ? productData[f.key]
+            : '';
+        html += '<div class="col-md-6"><label class="pm-label">' + escHtml(f.label) + '</label>';
+        html += buildDynamicInput(f, val, 'pf-dyn-');
+        html += '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function buildDynamicInput(field, value, idPrefix) {
+    var id = idPrefix + field.key;
+    var attrs = 'id="' + id + '" data-dynamic-field="' + field.key + '" ';
+    switch (field.type) {
+        case 'date':
+            return '<input type="date" class="form-control pm-input" ' + attrs + 'value="' + escHtml(String(value || '')) + '">';
+        case 'number':
+            return '<input type="number" step="0.01" class="form-control pm-input" ' + attrs + 'value="' + escHtml(String(value || '')) + '">';
+        case 'textarea':
+            return '<textarea class="form-control pm-input" ' + attrs + 'rows="2" style="height:auto;">' + escHtml(String(value || '')) + '</textarea>';
+        case 'dropdown':
+            var opts = '<option value="">— Select —</option>';
+            (field.options || []).forEach(function(o) {
+                opts += '<option value="' + escHtml(o) + '"' + (value === o ? ' selected' : '') + '>' + escHtml(o) + '</option>';
+            });
+            return '<select class="form-select pm-input" ' + attrs + '>' + opts + '</select>';
+        case 'boolean':
+            return '<div class="form-check mt-2"><input class="form-check-input" type="checkbox" ' + attrs +
+                (value ? ' checked' : '') + '><label class="form-check-label" for="' + id + '">' + escHtml(field.label) + '</label></div>';
+        default:
+            return '<input type="text" class="form-control pm-input" ' + attrs + 'value="' + escHtml(String(value || '')) + '">';
+    }
+}
+
+function collectDynamicFields(idPrefix) {
+    var result = {};
+    var inputs = document.querySelectorAll('[data-dynamic-field]');
+    inputs.forEach(function(input) {
+        var key = input.getAttribute('data-dynamic-field');
+        if (!key || input.id.indexOf(idPrefix) !== 0) return;
+        if (input.type === 'checkbox') {
+            result[key] = input.checked;
+        } else {
+            var v = input.value.trim();
+            result[key] = v === '' ? null : v;
+        }
+    });
+    return result;
+}
+
+// ── Column Visibility ─────────────────────────────────────────────────────────
+
+var _invVisibleDynCols = null;
+
+function getInvVisibleDynCols() {
+    if (_invVisibleDynCols !== null) return _invVisibleDynCols;
+    var companyId = (window.ERP.state.currentUser || {}).companyId || 'default';
+    var stored = localStorage.getItem('inv_dyn_cols_' + companyId);
+    _invVisibleDynCols = stored ? JSON.parse(stored) : {};
+    return _invVisibleDynCols;
+}
+
+function saveInvVisibleDynCols() {
+    var companyId = (window.ERP.state.currentUser || {}).companyId || 'default';
+    localStorage.setItem('inv_dyn_cols_' + companyId, JSON.stringify(_invVisibleDynCols));
+}
+
+function renderInvColumnsMenu() {
+    var menu = document.getElementById('invColsMenu');
+    if (!menu) return;
+    var fs = window.ERP.state.fieldSettings || { enabledKeys: { product: [] }, definitions: [] };
+    var enabledKeys = (fs.enabledKeys && fs.enabledKeys.product) ? fs.enabledKeys.product : [];
+    var definitions = fs.definitions || [];
+    var enabledFields = definitions.filter(function(f) {
+        return f.entity === 'product' && enabledKeys.indexOf(f.key) !== -1;
+    });
+    var visible = getInvVisibleDynCols();
+
+    if (enabledFields.length === 0) {
+        menu.innerHTML = '<li class="text-muted" style="font-size:0.78rem;padding:4px 0;">No dynamic fields enabled</li>';
+        return;
+    }
+
+    var html = '';
+    enabledFields.forEach(function(f) {
+        var checked = visible[f.key] !== false;
+        html += '<li><label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0;">' +
+            '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleInvDynCol(\'' + f.key + '\',this.checked)">' +
+            escHtml(f.label) + '</label></li>';
+    });
+    menu.innerHTML = html;
+}
+
+function toggleInvDynCol(key, visible) {
+    var cols = getInvVisibleDynCols();
+    cols[key] = visible;
+    _invVisibleDynCols = cols;
+    saveInvVisibleDynCols();
+    renderPage();
+}
+
 window.ERP.onReady = function() { renderPage(); };
 
 function computeStats() {
@@ -35,12 +158,27 @@ function getFilteredProducts() {
     });
   }
 
+  // Dynamic field filters
+  var dynFilters = {};
+  document.querySelectorAll('[data-dyn-filter]').forEach(function(el) {
+    var key = el.getAttribute('data-dyn-filter');
+    var val = el.value ? el.value.trim() : '';
+    if (val) dynFilters[key] = val.toLowerCase();
+  });
+
   var list = (state.products || []).filter(function(p) {
     var ms = p.name.toLowerCase().indexOf(search) !== -1 || (p.itemNumber||'').toLowerCase().indexOf(search) !== -1 || (p.barcode || '').toLowerCase().indexOf(search) !== -1;
     var mc = cat === 'all' || p.categoryId === cat;
     var mt = type === 'all' || p.type === type;
     var ml = !lowOnly || (p.currentStock <= p.reorderLevel);
-    return ms && mc && mt && ml;
+    // Dynamic filter check
+    var dynMatch = true;
+    Object.keys(dynFilters).forEach(function(key) {
+      var pval = p[key];
+      if (pval === null || pval === undefined) { dynMatch = false; return; }
+      if (String(pval).toLowerCase().indexOf(dynFilters[key]) === -1) dynMatch = false;
+    });
+    return ms && mc && mt && ml && dynMatch;
   });
 
   list.sort(function(a, b) {
@@ -63,6 +201,58 @@ function toggleSort(key) {
 function renderPage() {
   var state = window.ERP.state;
   computeStats();
+
+  // Dynamic field column visibility setup
+  var fs = window.ERP.state.fieldSettings || { enabledKeys: { product: [] }, definitions: [] };
+  var enabledProdKeys = (fs.enabledKeys && fs.enabledKeys.product) ? fs.enabledKeys.product : [];
+  var definitions = fs.definitions || [];
+  var visible = getInvVisibleDynCols();
+  var visibleDynFields = definitions.filter(function(f) {
+      return f.entity === 'product' && enabledProdKeys.indexOf(f.key) !== -1 && visible[f.key] !== false;
+  });
+
+  // Update thead dynamic columns
+  var theadRow = document.getElementById('inv-thead-row');
+  if (theadRow) {
+      theadRow.querySelectorAll('.inv-dyn-th').forEach(function(th) { th.remove(); });
+      var lastTh = theadRow.querySelector('th:last-child');
+      visibleDynFields.forEach(function(f) {
+          var th = document.createElement('th');
+          th.className = 'inv-th inv-dyn-th';
+          th.style.cursor = 'pointer';
+          th.textContent = f.label;
+          theadRow.insertBefore(th, lastTh);
+      });
+  }
+
+  renderInvColumnsMenu();
+
+  // Render dynamic filter inputs
+  var dynFiltersContainer = document.getElementById('inv-dyn-filters');
+  if (dynFiltersContainer) {
+      if (visibleDynFields.length > 0) {
+          dynFiltersContainer.style.removeProperty('display');
+          var filterHtml = visibleDynFields.map(function(f) {
+              var existing = document.querySelector('[data-dyn-filter="' + f.key + '"]');
+              var currentVal = existing ? existing.value : '';
+              if (f.type === 'dropdown') {
+                  var opts = '<option value="">All ' + escHtml(f.label) + '</option>';
+                  (f.options || []).forEach(function(o) {
+                      opts += '<option value="' + escHtml(o) + '"' + (currentVal === o ? ' selected' : '') + '>' + escHtml(o) + '</option>';
+                  });
+                  return '<select class="form-select inv-input" data-dyn-filter="' + f.key + '" style="min-width:140px;max-width:180px;" onchange="currentPage=1;renderPage();">' + opts + '</select>';
+              }
+              return '<input type="' + (f.type === 'date' ? 'date' : 'text') + '" class="form-control inv-input" ' +
+                  'data-dyn-filter="' + f.key + '" placeholder="Filter ' + escHtml(f.label) + '..." ' +
+                  'value="' + escHtml(currentVal) + '" oninput="currentPage=1;renderPage();" style="min-width:140px;max-width:200px;">';
+          }).join('');
+          dynFiltersContainer.innerHTML = filterHtml;
+      } else {
+          dynFiltersContainer.style.display = 'none';
+          dynFiltersContainer.innerHTML = '';
+      }
+  }
+
   var filtered = getFilteredProducts();
   var totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   if (currentPage > totalPages) currentPage = totalPages;
@@ -99,6 +289,15 @@ function renderPage() {
         ? '<span class="badge-type-service">Service</span>'
         : '<span class="badge-type-product">Product</span>';
 
+      // Build dynamic field cells
+      var dynCells = visibleDynFields.map(function(f) {
+          var val = p[f.key];
+          var display = (val === null || val === undefined || val === '') ? '<span class="text-muted">\u2014</span>' :
+              (f.type === 'boolean' ? (val ? '<i class="ti ti-check text-success"></i>' : '<i class="ti ti-x text-danger"></i>') :
+              escHtml(String(val)));
+          return '<td>' + display + '</td>';
+      }).join('');
+
       html += '<tr class="' + rowClass + '">' +
         '<td class="inv-chk-col" class="erp-col-chk-pad"><input type="checkbox" class="inv-chk inv-row-chk" data-id="' + p.id + '" ' + (selectedProducts.has(p.id) ? 'checked' : '') + ' onclick="toggleSelectProduct(\'' + p.id + '\',this)"></td>' +
         '<td><span class="inv-sku">' + (p.itemNumber || '') + '</span></td>' +
@@ -111,6 +310,7 @@ function renderPage() {
         '<td class="text-center inv-stock-num">' + (p.type === 'Service' ? '<span class="text-muted">\u2014</span>' : (p.currentStock || 0)) + '</td>' +
         '<td class="text-center inv-reorder-num">' + (p.reorderLevel || 0) + '</td>' +
         '<td>' + statusBadge + '</td>' +
+        dynCells +
         '<td class="text-center"><div class="d-flex gap-1 justify-content-center">' +
         '<button class="inv-action-btn" onclick="openProductModal(\'edit\',\'' + p.id + '\')" title="Edit Product"><i class="ti ti-pencil"></i></button>' +
         (p.type !== 'Service' ? '<button class="inv-action-btn inv-action-warn" onclick="openAdjustModal(\'' + p.id + '\')" title="Adjust Stock"><i class="ti ti-adjustments"></i></button>' : '') +
@@ -185,6 +385,7 @@ function openProductModal(mode, productId) {
       uomSection.style.display = '';
       renderUomConversionsSection(p);
       renderPriceTiersSection(p);
+      renderProductDynamicFields(p);
     }
   } else {
     document.getElementById('pf-id').value = '';
@@ -203,6 +404,7 @@ function openProductModal(mode, productId) {
     var tierSection = document.getElementById('pf-price-tiers-section');
     tierSection.style.display = 'none';
     tierSection.innerHTML = '';
+    renderProductDynamicFields(null);
   }
   new bootstrap.Modal(document.getElementById('productModal')).show();
 }
@@ -223,6 +425,8 @@ async function doSaveProduct() {
     unitPrice: parseFloat(document.getElementById('pf-price').value) || 0,
     reorderLevel: parseInt(document.getElementById('pf-reorder').value) || 0
   };
+  var dynFields = collectDynamicFields('pf-dyn-');
+  Object.keys(dynFields).forEach(function(k) { data[k] = dynFields[k]; });
   try {
     if (editingProductId) {
       data.id = editingProductId;
