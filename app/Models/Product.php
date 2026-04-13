@@ -24,6 +24,25 @@ class Product extends Model
         'reorder_level',
         'unit_cost',
         'unit_price',
+        // dynamic fields
+        'brand_name',
+        'size',
+        'color',
+        'style',
+        'bin_shelf_location',
+        'expiry_date',
+        'batch_lot_number',
+        'storage_condition',
+        'drug_composition',
+        'schedule_category',
+        'manufacturer_name',
+        'dosage_form',
+        'storage_temp_req',
+        'part_number',
+        'vehicle_compatibility',
+        'core_charge_flag',
+        'warranty_period',
+        'technical_specs',
     ];
 
     public function company()

@@ -26,6 +26,11 @@ class Party extends Model
         'category',
         'opening_balance',
         'current_balance',
+        // dynamic fields
+        'vehicle_reg_number',
+        'vin_chassis_number',
+        'engine_number',
+        'last_odometer_reading',
     ];
 
     public function company()

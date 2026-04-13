@@ -9,7 +9,7 @@ return new class extends Migration
     {
         Schema::create('company_field_settings', function (Blueprint $table) {
             $table->string('id', 20)->primary();
-            $table->string('company_id', 20);
+            $table->string('company_id');
             $table->string('entity_type', 20); // 'product' | 'customer'
             $table->string('field_key', 50);
             $table->boolean('is_enabled')->default(false);

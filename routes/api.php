@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\FieldSettingController;
 use App\Http\Controllers\Api\ChartOfAccountController;
 use App\Http\Controllers\Api\AccountMappingController;
 use App\Http\Controllers\Api\JournalEntryController;
@@ -87,6 +88,9 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
     Route::post('/roles', [RoleController::class, 'store']);
     Route::put('/roles/{id}', [RoleController::class, 'update']);
     Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
+
+    Route::get('/field-settings', [FieldSettingController::class, 'index']);
+    Route::put('/field-settings/{fieldKey}', [FieldSettingController::class, 'update']);
 
     // Accounting — Chart of Accounts
     Route::get('/accounting/coa', [ChartOfAccountController::class, 'index']);
