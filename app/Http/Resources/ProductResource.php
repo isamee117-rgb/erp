@@ -32,6 +32,25 @@ class ProductResource extends JsonResource
             'priceTiers' => ProductPriceTierResource::collection(
                 $this->whenLoaded('priceTiers')
             ),
+            // Dynamic fields
+            'brand_name'            => $this->brand_name           ?? null,
+            'size'                  => $this->size                 ?? null,
+            'color'                 => $this->color                ?? null,
+            'style'                 => $this->style                ?? null,
+            'bin_shelf_location'    => $this->bin_shelf_location   ?? null,
+            'expiry_date'           => $this->expiry_date          ?? null,
+            'batch_lot_number'      => $this->batch_lot_number     ?? null,
+            'storage_condition'     => $this->storage_condition    ?? null,
+            'drug_composition'      => $this->drug_composition     ?? null,
+            'schedule_category'     => $this->schedule_category    ?? null,
+            'manufacturer_name'     => $this->manufacturer_name    ?? null,
+            'dosage_form'           => $this->dosage_form          ?? null,
+            'storage_temp_req'      => $this->storage_temp_req     ?? null,
+            'part_number'           => $this->part_number          ?? null,
+            'vehicle_compatibility' => $this->vehicle_compatibility ?? null,
+            'core_charge_flag'      => $this->core_charge_flag !== null ? (bool) $this->core_charge_flag : null,
+            'warranty_period'       => $this->warranty_period      ?? null,
+            'technical_specs'       => $this->technical_specs      ?? null,
         ];
     }
 }

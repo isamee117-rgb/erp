@@ -14,6 +14,9 @@ use App\Models\SaleItem;
 use App\Models\PurchaseItem;
 use App\Models\SaleReturnItem;
 use App\Models\PurchaseReturnItem;
+use App\Config\DynamicFields;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use App\Services\DocumentSequenceService;
 use App\Services\UomConversionService;
 use Illuminate\Http\Request;
@@ -26,33 +29,42 @@ class ProductController extends Controller
         protected UomConversionService $uomService,
     ) {}
 
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
-        $user = $request->get('auth_user');
-        $data = $request->all();
+        $user      = $request->get('auth_user');
+        $validated = $request->validated();
         $productId = $this->sequenceService->getNextNumber($user->company_id, 'item_no');
-        $sku = $data['sku'] ?? '';
+        $sku = $validated['sku'] ?? '';
         if (empty($sku)) {
             $sku = $this->sequenceService->getNextNumber($user->company_id, 'sku');
         }
-        $initialStock = $data['initialStock'] ?? 0;
+        $initialStock = $validated['initialStock'] ?? 0;
 
-        $product = Product::create([
+        $dynamicFields = [];
+        foreach (DynamicFields::productFields() as $field) {
+            $key = $field['key'];
+            if (array_key_exists($key, $validated)) {
+                $val = $validated[$key];
+                $dynamicFields[$key] = ($val === '' || $val === null) ? null : $val;
+            }
+        }
+
+        $product = Product::create(array_merge([
             'id'           => 'PRD-' . Str::random(9),
             'company_id'   => $user->company_id,
             'sku'          => $sku,
-            'barcode'      => $data['barcode'] ?? null,
+            'barcode'      => $validated['barcode'] ?? null,
             'item_number'  => $productId,
-            'name'         => $data['name'] ?? '',
-            'type'         => $data['type'] ?? 'Product',
-            'uom'          => $data['uom'] ?? '',
-            'base_uom_id'  => $data['baseUomId'] ?? $data['base_uom_id'] ?? null,
-            'category_id'  => $data['categoryId'] ?? $data['category_id'] ?? null,
+            'name'         => $validated['name'] ?? '',
+            'type'         => $validated['type'] ?? 'Product',
+            'uom'          => $validated['uom'] ?? '',
+            'base_uom_id'  => $validated['baseUomId'] ?? null,
+            'category_id'  => $validated['categoryId'] ?? null,
             'current_stock' => $initialStock,
-            'reorder_level' => $data['reorderLevel'] ?? $data['reorder_level'] ?? 0,
-            'unit_cost'    => $data['unitCost'] ?? $data['unit_cost'] ?? 0,
-            'unit_price'   => $data['unitPrice'] ?? $data['unit_price'] ?? 0,
-        ]);
+            'reorder_level' => $validated['reorderLevel'] ?? 0,
+            'unit_cost'    => $validated['unitCost'] ?? 0,
+            'unit_price'   => $validated['unitPrice'] ?? 0,
+        ], $dynamicFields));
 
         if ($initialStock > 0) {
             InventoryLedger::create([
@@ -68,26 +80,35 @@ class ProductController extends Controller
         return new ProductResource($product);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateProductRequest $request, $id)
     {
-        $product = Product::findOrFail($id);
-        $data = $request->all();
+        $product   = Product::findOrFail($id);
+        $validated = $request->validated();
 
-        $product->update([
-            'sku'          => $data['sku']         ?? $product->sku,
-            'barcode'      => array_key_exists('barcode', $data) ? $data['barcode'] : $product->barcode,
-            'name'         => $data['name']         ?? $product->name,
-            'type'         => $data['type']         ?? $product->type,
-            'uom'          => $data['uom']          ?? $product->uom,
-            'base_uom_id'  => array_key_exists('baseUomId', $data)    ? $data['baseUomId']
-                            : (array_key_exists('base_uom_id', $data) ? $data['base_uom_id']
-                            : $product->base_uom_id),
-            'category_id'  => $data['categoryId']  ?? $data['category_id']  ?? $product->category_id,
-            'current_stock' => $data['currentStock'] ?? $data['current_stock'] ?? $product->current_stock,
-            'reorder_level' => $data['reorderLevel'] ?? $data['reorder_level'] ?? $product->reorder_level,
-            'unit_cost'    => $data['unitCost']     ?? $data['unit_cost']     ?? $product->unit_cost,
-            'unit_price'   => $data['unitPrice']    ?? $data['unit_price']    ?? $product->unit_price,
-        ]);
+        $updateData = [
+            'sku'          => $validated['sku']          ?? $product->sku,
+            'barcode'      => array_key_exists('barcode', $validated) ? $validated['barcode'] : $product->barcode,
+            'name'         => $validated['name']         ?? $product->name,
+            'type'         => $validated['type']         ?? $product->type,
+            'uom'          => $validated['uom']          ?? $product->uom,
+            'base_uom_id'  => array_key_exists('baseUomId', $validated) ? $validated['baseUomId'] : $product->base_uom_id,
+            'category_id'  => $validated['categoryId']  ?? $product->category_id,
+            'current_stock' => $validated['currentStock'] ?? $product->current_stock,
+            'reorder_level' => $validated['reorderLevel'] ?? $product->reorder_level,
+            'unit_cost'    => $validated['unitCost']     ?? $product->unit_cost,
+            'unit_price'   => $validated['unitPrice']    ?? $product->unit_price,
+        ];
+
+        // Dynamic fields
+        foreach (DynamicFields::productFields() as $field) {
+            $key = $field['key'];
+            if (array_key_exists($key, $validated)) {
+                $val = $validated[$key];
+                $updateData[$key] = ($val === '' || $val === null) ? null : $val;
+            }
+        }
+
+        $product->update($updateData);
 
         return new ProductResource($product);
     }
