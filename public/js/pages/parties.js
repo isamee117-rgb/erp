@@ -1,4 +1,124 @@
 var currentPage=1, perPage=15;
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Dynamic Fields ────────────────────────────────────────────────────────────
+
+function buildDynamicInput(field, value, idPrefix) {
+    var id = idPrefix + field.key;
+    var attrs = 'id="' + id + '" data-dynamic-field="' + field.key + '" ';
+    switch (field.type) {
+        case 'date':
+            return '<input type="date" class="form-control pm-input" ' + attrs + 'value="' + escHtml(String(value || '')) + '">';
+        case 'number':
+            return '<input type="number" step="0.01" class="form-control pm-input" ' + attrs + 'value="' + escHtml(String(value || '')) + '">';
+        case 'textarea':
+            return '<textarea class="form-control pm-input" ' + attrs + 'rows="2" style="height:auto;">' + escHtml(String(value || '')) + '</textarea>';
+        case 'dropdown':
+            var opts = '<option value="">— Select —</option>';
+            (field.options || []).forEach(function(o) {
+                opts += '<option value="' + escHtml(o) + '"' + (value === o ? ' selected' : '') + '>' + escHtml(o) + '</option>';
+            });
+            return '<select class="form-select pm-input" ' + attrs + '>' + opts + '</select>';
+        case 'boolean':
+            return '<div class="form-check mt-2"><input class="form-check-input" type="checkbox" ' + attrs +
+                (value ? ' checked' : '') + '><label class="form-check-label" for="' + id + '">' + escHtml(field.label) + '</label></div>';
+        default:
+            return '<input type="text" class="form-control pm-input" ' + attrs + 'value="' + escHtml(String(value || '')) + '">';
+    }
+}
+
+function collectDynamicFields(idPrefix) {
+    var result = {};
+    var inputs = document.querySelectorAll('[data-dynamic-field]');
+    inputs.forEach(function(input) {
+        var key = input.getAttribute('data-dynamic-field');
+        if (!key || input.id.indexOf(idPrefix) !== 0) return;
+        if (input.type === 'checkbox') {
+            result[key] = input.checked;
+        } else {
+            var v = input.value.trim();
+            result[key] = v === '' ? null : v;
+        }
+    });
+    return result;
+}
+
+function renderPartyDynamicFields(partyData) {
+    var container = document.getElementById('pty-dynamic-fields');
+    if (!container) return;
+
+    var fs = window.ERP.state.fieldSettings || { enabledKeys: { customer: [] }, definitions: [] };
+    var enabledKeys = (fs.enabledKeys && fs.enabledKeys.customer) ? fs.enabledKeys.customer : [];
+    var definitions = fs.definitions || [];
+
+    var enabledFields = definitions.filter(function(f) {
+        return f.entity === 'customer' && enabledKeys.indexOf(f.key) !== -1;
+    });
+
+    if (enabledFields.length === 0) { container.innerHTML = ''; return; }
+
+    var html = '';
+    enabledFields.forEach(function(f) {
+        var val = (partyData && partyData[f.key] !== undefined && partyData[f.key] !== null)
+            ? partyData[f.key] : '';
+        html += '<div class="col-md-6"><label class="pm-label">' + escHtml(f.label) + '</label>';
+        html += buildDynamicInput(f, val, 'pty-dyn-');
+        html += '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+// ── Party Column Visibility ───────────────────────────────────────────────────
+
+var _ptyVisibleDynCols = null;
+
+function getPtyVisibleDynCols() {
+    if (_ptyVisibleDynCols !== null) return _ptyVisibleDynCols;
+    var companyId = (window.ERP.state.currentUser || {}).companyId || 'default';
+    var stored = localStorage.getItem('pty_dyn_cols_' + companyId);
+    _ptyVisibleDynCols = stored ? JSON.parse(stored) : {};
+    return _ptyVisibleDynCols;
+}
+
+function savePtyVisibleDynCols() {
+    var companyId = (window.ERP.state.currentUser || {}).companyId || 'default';
+    localStorage.setItem('pty_dyn_cols_' + companyId, JSON.stringify(_ptyVisibleDynCols));
+}
+
+function renderPtyColumnsMenu() {
+    var menu = document.getElementById('ptyColsMenu');
+    if (!menu) return;
+    var fs = window.ERP.state.fieldSettings || { enabledKeys: { customer: [] }, definitions: [] };
+    var enabledKeys = (fs.enabledKeys && fs.enabledKeys.customer) ? fs.enabledKeys.customer : [];
+    var definitions = fs.definitions || [];
+    var enabledFields = definitions.filter(function(f) {
+        return f.entity === 'customer' && enabledKeys.indexOf(f.key) !== -1;
+    });
+    var visible = getPtyVisibleDynCols();
+
+    if (enabledFields.length === 0) {
+        menu.innerHTML = '<li class="text-muted" style="font-size:0.78rem;padding:4px 0;">No dynamic fields enabled</li>';
+        return;
+    }
+
+    var html = '';
+    enabledFields.forEach(function(f) {
+        var checked = visible[f.key] !== false;
+        html += '<li><label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0;">' +
+            '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="togglePtyDynCol(\'' + f.key + '\',this.checked)">' +
+            escHtml(f.label) + '</label></li>';
+    });
+    menu.innerHTML = html;
+}
+
+function togglePtyDynCol(key, visible) {
+    var cols = getPtyVisibleDynCols();
+    cols[key] = visible;
+    _ptyVisibleDynCols = cols;
+    savePtyVisibleDynCols();
+    renderPage();
+}
 var selectedParties=new Set();
 function getType(){ return (document.getElementById('party-type').getAttribute('data-type')||'Customer'); }
 window.ERP.onReady = function(){ renderPage(); };
@@ -10,15 +130,76 @@ document.addEventListener('DOMContentLoaded', function(){
 function getFiltered(){
     var state=window.ERP.state, type=getType(), search=(document.getElementById('searchInput').value||'').toLowerCase(),
         etFilter=document.getElementById('entityTypeFilter').value;
+    var dynFilters = {};
+    document.querySelectorAll('[data-dyn-filter]').forEach(function(el) {
+        var key = el.getAttribute('data-dyn-filter');
+        var val = el.value ? el.value.trim() : '';
+        if (val) dynFilters[key] = val.toLowerCase();
+    });
     return (state.parties||[]).filter(function(p){
         if(p.type!==type) return false;
         var str=(p.code+' '+p.name+' '+(p.phone||'')+' '+(p.email||'')).toLowerCase();
         if(search && str.indexOf(search)===-1) return false;
         if(etFilter && p.subType!==etFilter) return false;
-        return true;
+        var dynMatch = true;
+        Object.keys(dynFilters).forEach(function(key) {
+            var pval = p[key];
+            if (pval === null || pval === undefined) { dynMatch = false; return; }
+            if (String(pval).toLowerCase().indexOf(dynFilters[key]) === -1) dynMatch = false;
+        });
+        return dynMatch;
     });
 }
 function renderPage(){
+    // Dynamic field column visibility setup
+    var fs = window.ERP.state.fieldSettings || { enabledKeys: { customer: [] }, definitions: [] };
+    var enabledCustKeys = (fs.enabledKeys && fs.enabledKeys.customer) ? fs.enabledKeys.customer : [];
+    var definitions = fs.definitions || [];
+    var visible = getPtyVisibleDynCols();
+    var visibleDynFields = definitions.filter(function(f) {
+        return f.entity === 'customer' && enabledCustKeys.indexOf(f.key) !== -1 && visible[f.key] !== false;
+    });
+
+    // Update thead dynamic columns
+    var theadRow = document.getElementById('pty-thead-row');
+    if (theadRow) {
+        theadRow.querySelectorAll('.pty-dyn-th').forEach(function(th) { th.remove(); });
+        var lastTh = theadRow.querySelector('th:last-child');
+        visibleDynFields.forEach(function(f) {
+            var th = document.createElement('th');
+            th.className = 'pty-dyn-th';
+            th.textContent = f.label;
+            theadRow.insertBefore(th, lastTh);
+        });
+    }
+
+    renderPtyColumnsMenu();
+
+    var dynFiltersContainer = document.getElementById('pty-dyn-filters');
+    if (dynFiltersContainer) {
+        if (visibleDynFields.length > 0) {
+            dynFiltersContainer.style.removeProperty('display');
+            var filterHtml = visibleDynFields.map(function(f) {
+                var existing = document.querySelector('[data-dyn-filter="' + f.key + '"]');
+                var currentVal = existing ? existing.value : '';
+                if (f.type === 'dropdown') {
+                    var opts = '<option value="">All ' + escHtml(f.label) + '</option>';
+                    (f.options || []).forEach(function(o) {
+                        opts += '<option value="' + escHtml(o) + '"' + (currentVal === o ? ' selected' : '') + '>' + escHtml(o) + '</option>';
+                    });
+                    return '<select class="form-select inv-input" data-dyn-filter="' + f.key + '" style="min-width:140px;max-width:180px;" onchange="currentPage=1;renderPage();">' + opts + '</select>';
+                }
+                return '<input type="text" class="form-control inv-input" ' +
+                    'data-dyn-filter="' + f.key + '" placeholder="Filter ' + escHtml(f.label) + '..." ' +
+                    'value="' + escHtml(currentVal) + '" oninput="currentPage=1;renderPage();" style="min-width:140px;max-width:200px;">';
+            }).join('');
+            dynFiltersContainer.innerHTML = filterHtml;
+        } else {
+            dynFiltersContainer.style.display = 'none';
+            dynFiltersContainer.innerHTML = '';
+        }
+    }
+
     var state=window.ERP.state, type=getType(), filtered=getFiltered(), total=filtered.length,
         totalPages=Math.max(1,Math.ceil(total/perPage)), start=(currentPage-1)*perPage, page=filtered.slice(start,start+perPage);
     var etSel=document.getElementById('entityTypeFilter');
@@ -27,6 +208,13 @@ function renderPage(){
     etSel.innerHTML=etHtml;
     var html='';
     page.forEach(function(p){
+        var dynCells = visibleDynFields.map(function(f) {
+            var val = p[f.key];
+            var display = (val === null || val === undefined || val === '') ? '<span class="text-muted">—</span>' :
+                (f.type === 'boolean' ? (val ? '<i class="ti ti-check text-success"></i>' : '<i class="ti ti-x text-danger"></i>') :
+                escHtml(String(val)));
+            return '<td>' + display + '</td>';
+        }).join('');
         html+='<tr>';
         html+='<td class="pty-chk-col" class="erp-col-chk-pad"><input type="checkbox" class="pty-chk pty-row-chk" data-id="'+p.id+'" '+(selectedParties.has(p.id)?'checked':'')+' onclick="toggleSelectParty(\''+p.id+'\',this)"></td>';
         html+='<td><span class="pty-code">'+(p.code||'—')+'</span></td>';
@@ -37,6 +225,7 @@ function renderPage(){
         html+='<td>'+(p.category||'—')+'</td>';
         html+='<td class="text-end">'+ERP.formatCurrency(p.currentBalance||p.openingBalance||0)+'</td>';
         html+='<td class="text-end">'+ERP.formatCurrency(p.creditLimit||0)+'</td>';
+        html+=dynCells;
         html+='<td class="text-center"><div class="d-flex justify-content-center gap-1">';
         html+='<button class="pty-action-btn" onclick="openEditModal(\''+p.id+'\')"><i class="ti ti-edit"></i></button>';
         html+='<button class="pty-action-btn pty-action-danger" onclick="deleteParty(\''+p.id+'\')"><i class="ti ti-trash"></i></button>';
@@ -89,6 +278,7 @@ function openAddModal(){
     document.getElementById('pBizCat').value='';
     resetPartyAccountingSection(type);
     populatePartyAccountingDropdowns(type);
+    renderPartyDynamicFields(null);
 }
 function openEditModal(id){
     var p=(window.ERP.state.parties||[]).find(function(x){return x.id===id;});
@@ -109,6 +299,7 @@ function openEditModal(id){
     document.getElementById('pBank').value=p.bankDetails||'';
     resetPartyAccountingSection(type);
     populatePartyAccountingDropdowns(type);
+    renderPartyDynamicFields(p);
     new bootstrap.Modal(document.getElementById('partyModal')).show();
 }
 function confirmSaveParty(){
@@ -127,6 +318,8 @@ async function doSaveParty(){
         creditLimit:parseFloat(document.getElementById('pCreditLimit').value)||0, openingBalance:parseFloat(document.getElementById('pOpenBal').value)||0,
         bankDetails:document.getElementById('pBank').value
     };
+    var dynFields = collectDynamicFields('pty-dyn-');
+    Object.keys(dynFields).forEach(function(k) { data[k] = dynFields[k]; });
     try{
         if(editId){ data.id=editId; await ERP.api.updateParty(data); }
         else{ await ERP.api.addParty(data); }

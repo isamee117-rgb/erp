@@ -39,7 +39,16 @@
       <div class="col-auto">
         <button class="btn btn-sm" class="btn btn-sm btn-erp-clear" onclick="clearFilters()"><i class="ti ti-x me-1"></i>Clear</button>
       </div>
+      <div class="ms-auto d-flex align-items-center">
+        <div class="dropdown">
+          <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="ptyColsDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.8rem;border:1px solid #DDE1EC;">
+            <i class="ti ti-columns me-1"></i>Columns
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" id="ptyColsMenu" style="min-width:220px;padding:8px 12px;font-size:0.82rem;"></ul>
+        </div>
+      </div>
     </div>
+    <div id="pty-dyn-filters" class="d-flex flex-wrap gap-2 mt-2"></div>
   </div>
 </div>
 
@@ -55,7 +64,7 @@
   <div class="table-responsive">
     <table class="table table-hover table-vcenter pty-table mb-0">
       <thead>
-        <tr>
+        <tr id="pty-thead-row">
           <th class="pty-th pty-chk-col" class="col-erp-checkbox"><input type="checkbox" class="pty-chk" id="pty-select-all" onclick="toggleSelectAllParties(this)" title="Select all"></th>
           <th class="pty-th">Code</th>
           <th class="pty-th">Name</th>
@@ -201,6 +210,8 @@
         <div class="pm-field-row" class="mb-0">
           <label class="pm-label">Bank Details</label><input type="text" class="form-control pm-input" id="pBank" placeholder="Bank name, account no., IFSC">
         </div>
+
+        <div id="pty-dynamic-fields" class="row pm-field-row g-3 mt-1"></div>
 
         {{-- Accounting Mappings (collapsible) --}}
         <div class="pm-acct-wrap">
