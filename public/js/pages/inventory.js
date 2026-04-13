@@ -612,6 +612,8 @@ async function savePriceTierRow() {
     if (product) { renderPriceTiersSection(product); }
     var body = document.getElementById('priceTierBody');
     if (body) body.style.display = 'block';
+    var chevron = document.getElementById('priceTierChevron');
+    if (chevron) { chevron.classList.remove('ti-chevron-down'); chevron.classList.add('ti-chevron-up'); }
   } catch(e) {
     alert('Error: ' + e.message);
   }
@@ -631,6 +633,8 @@ async function deletePriceTierById(tierId) {
     if (product) { renderPriceTiersSection(product); }
     var body = document.getElementById('priceTierBody');
     if (body) body.style.display = 'block';
+    var chevron = document.getElementById('priceTierChevron');
+    if (chevron) { chevron.classList.remove('ti-chevron-down'); chevron.classList.add('ti-chevron-up'); }
   } catch(e) {
     alert('Error: ' + e.message);
   }
