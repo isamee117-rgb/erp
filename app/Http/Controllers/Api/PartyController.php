@@ -42,8 +42,14 @@ class PartyController extends Controller
             'credit_limit'    => $data['creditLimit']  ?? 0,
             'bank_details'    => $request->input('bankDetails')   ?? '',
             'category'        => $request->input('category')      ?? '',
-            'opening_balance' => $openingBalance,
-            'current_balance' => $openingBalance,
+            'opening_balance'     => $openingBalance,
+            'current_balance'     => $openingBalance,
+            'vehicle_reg_number'  => $data['vehicle_reg_number']    ?? null,
+            'vin_chassis_number'  => $data['vin_chassis_number']    ?? null,
+            'engine_number'       => $data['engine_number']         ?? null,
+            'last_odometer_reading' => isset($data['last_odometer_reading'])
+                ? (float) $data['last_odometer_reading']
+                : null,
         ]);
 
         return new PartyResource($party);
@@ -66,8 +72,16 @@ class PartyController extends Controller
             'credit_limit'    => $data['creditLimit']             ?? $party->credit_limit,
             'bank_details'    => $request->input('bankDetails',   $party->bank_details),
             'category'        => $request->input('category',      $party->category),
-            'opening_balance' => $data['openingBalance']          ?? $party->opening_balance,
-            'current_balance' => $data['currentBalance']          ?? $party->current_balance,
+            'opening_balance'     => $data['openingBalance']          ?? $party->opening_balance,
+            'current_balance'     => $data['currentBalance']          ?? $party->current_balance,
+            'vehicle_reg_number'  => $request->input('vehicle_reg_number',    $party->vehicle_reg_number),
+            'vin_chassis_number'  => $request->input('vin_chassis_number',    $party->vin_chassis_number),
+            'engine_number'       => $request->input('engine_number',         $party->engine_number),
+            'last_odometer_reading' => $request->has('last_odometer_reading')
+                ? ($request->input('last_odometer_reading') !== null
+                    ? (float) $request->input('last_odometer_reading')
+                    : null)
+                : $party->last_odometer_reading,
         ]);
 
         return new PartyResource($party);

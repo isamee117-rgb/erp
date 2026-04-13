@@ -13,11 +13,16 @@ class StorePartyRequest extends FormRequest
         return [
             'name'          => 'required|string|max:255',
             'type'          => 'required|string|in:Customer,Vendor',
-            'phone'         => 'sometimes|string|max:50',
+            'phone'         => 'sometimes|nullable|string|max:50',
             'email'         => 'sometimes|nullable|email|max:255',
-            'address'       => 'sometimes|string|max:500',
+            'address'       => 'sometimes|nullable|string|max:500',
             'creditLimit'   => 'sometimes|numeric|min:0',
             'openingBalance' => 'sometimes|numeric',
+            // Dynamic customer fields
+            'vehicle_reg_number'    => 'nullable|string|max:100',
+            'vin_chassis_number'    => 'nullable|string|max:100',
+            'engine_number'         => 'nullable|string|max:100',
+            'last_odometer_reading' => 'nullable|numeric|min:0',
         ];
     }
 }

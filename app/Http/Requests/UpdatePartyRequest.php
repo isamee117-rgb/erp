@@ -19,6 +19,11 @@ class UpdatePartyRequest extends FormRequest
             'creditLimit'   => 'sometimes|numeric|min:0',
             'openingBalance' => 'sometimes|numeric',
             'currentBalance' => 'sometimes|numeric',
+            // Dynamic customer fields
+            'vehicle_reg_number'    => 'nullable|string|max:100',
+            'vin_chassis_number'    => 'nullable|string|max:100',
+            'engine_number'         => 'nullable|string|max:100',
+            'last_odometer_reading' => 'nullable|numeric|min:0',
         ];
     }
 }

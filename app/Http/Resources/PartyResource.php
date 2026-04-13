@@ -25,6 +25,13 @@ class PartyResource extends JsonResource
             'category'       => $this->category       ?? '',
             'openingBalance' => (float) $this->opening_balance,
             'currentBalance' => (float) $this->current_balance,
+            // Dynamic customer fields
+            'vehicle_reg_number'    => $this->vehicle_reg_number    ?? null,
+            'vin_chassis_number'    => $this->vin_chassis_number    ?? null,
+            'engine_number'         => $this->engine_number         ?? null,
+            'last_odometer_reading' => $this->last_odometer_reading !== null
+                ? (float) $this->last_odometer_reading
+                : null,
         ];
     }
 }
