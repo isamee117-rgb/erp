@@ -44,7 +44,7 @@ function buildDynamicInput(field, value, idPrefix) {
         case 'number':
             return '<input type="number" step="0.01" class="form-control pm-input" ' + attrs + 'value="' + escHtml(String(value || '')) + '">';
         case 'textarea':
-            return '<textarea class="form-control pm-input" ' + attrs + 'rows="2" style="height:auto;">' + escHtml(String(value || '')) + '</textarea>';
+            return '<textarea class="form-control pm-input pm-textarea" ' + attrs + 'rows="2">' + escHtml(String(value || '')) + '</textarea>';
         case 'dropdown':
             var opts = '<option value="">— Select —</option>';
             (field.options || []).forEach(function(o) {
@@ -104,18 +104,21 @@ function renderInvColumnsMenu() {
     var visible = getInvVisibleDynCols();
 
     if (enabledFields.length === 0) {
-        menu.innerHTML = '<li class="text-muted" style="font-size:0.78rem;padding:4px 0;">No dynamic fields enabled</li>';
+        menu.innerHTML = '<li class="text-muted inv-cols-empty">No dynamic fields enabled</li>';
         return;
     }
 
     var html = '';
     enabledFields.forEach(function(f) {
         var checked = visible[f.key] !== false;
-        html += '<li><label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0;">' +
-            '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleInvDynCol(\'' + f.key + '\',this.checked)">' +
+        html += '<li><label class="inv-cols-label">' +
+            '<input type="checkbox" data-dyn-col-key="' + f.key + '" ' + (checked ? 'checked' : '') + '>' +
             escHtml(f.label) + '</label></li>';
     });
     menu.innerHTML = html;
+    menu.querySelectorAll('[data-dyn-col-key]').forEach(function(cb) {
+        cb.addEventListener('change', function() { toggleInvDynCol(cb.dataset.dynColKey, cb.checked); });
+    });
 }
 
 function toggleInvDynCol(key, visible) {
@@ -127,6 +130,72 @@ function toggleInvDynCol(key, visible) {
 }
 
 window.ERP.onReady = function() { renderPage(); };
+
+// ── Static event bindings (replaces inline onclick/oninput/onchange in blade) ──
+document.addEventListener('DOMContentLoaded', function() {
+  // Header buttons
+  var selBtn = document.getElementById('inv-sel-toggle-btn');
+  if (selBtn) selBtn.addEventListener('click', toggleInvSelectMode);
+  var addBtn = document.getElementById('inv-add-product-btn');
+  if (addBtn) addBtn.addEventListener('click', function() { openProductModal('add'); });
+
+  // Filter controls
+  var search = document.getElementById('inv-search');
+  if (search) search.addEventListener('input', function() { currentPage = 1; renderPage(); });
+  var cat = document.getElementById('inv-category');
+  if (cat) cat.addEventListener('change', function() { currentPage = 1; renderPage(); });
+  var type = document.getElementById('inv-type');
+  if (type) type.addEventListener('change', function() { currentPage = 1; renderPage(); });
+  var low = document.getElementById('inv-lowstock');
+  if (low) low.addEventListener('change', function() { currentPage = 1; renderPage(); });
+
+  // Bulk bar
+  var bulkDel = document.getElementById('inv-bulk-del-btn');
+  if (bulkDel) bulkDel.addEventListener('click', confirmDeleteSelectedProducts);
+  var bulkClear = document.getElementById('inv-bulk-clear-btn');
+  if (bulkClear) bulkClear.addEventListener('click', clearProductSelection);
+
+  // Select-all checkbox
+  var selAll = document.getElementById('inv-select-all');
+  if (selAll) selAll.addEventListener('click', function() { toggleSelectAllProducts(this); });
+
+  // Sort headers
+  document.querySelectorAll('[data-sort]').forEach(function(th) {
+    th.addEventListener('click', function() { toggleSort(th.dataset.sort); });
+  });
+
+  // Delete overlay buttons
+  var delCancel = document.getElementById('invDeleteConfirmCancel');
+  if (delCancel) delCancel.addEventListener('click', function() { document.getElementById('invDeleteConfirm').classList.add('d-none'); });
+  var delOk = document.getElementById('invDeleteConfirmOk');
+  if (delOk) delOk.addEventListener('click', doDeleteProduct);
+  var delErrOk = document.getElementById('invDeleteErrorOk');
+  if (delErrOk) delErrOk.addEventListener('click', function() { document.getElementById('invDeleteError').classList.add('d-none'); });
+  var delSuccOk = document.getElementById('invDeleteSuccessOk');
+  if (delSuccOk) delSuccOk.addEventListener('click', function() { document.getElementById('invDeleteSuccess').classList.add('d-none'); });
+
+  // Save overlay buttons
+  var saveCancel = document.getElementById('invSaveConfirmCancel');
+  if (saveCancel) saveCancel.addEventListener('click', function() { document.getElementById('invSaveConfirm').classList.add('d-none'); });
+  var saveOk = document.getElementById('invSaveConfirmOk');
+  if (saveOk) saveOk.addEventListener('click', doSaveProduct);
+  var saveSuccOk = document.getElementById('invSaveSuccessOk');
+  if (saveSuccOk) saveSuccOk.addEventListener('click', function() { document.getElementById('invSaveSuccess').classList.add('d-none'); });
+
+  // Product form
+  var barcodeBtn = document.getElementById('pf-barcode-scan-btn');
+  if (barcodeBtn) barcodeBtn.addEventListener('click', function() {
+    openBarcodeScanner(function(c) { document.getElementById('pf-barcode').value = c; });
+  });
+  var pfAcctToggle = document.getElementById('pfAcctToggle');
+  if (pfAcctToggle) pfAcctToggle.addEventListener('click', toggleProductAccounting);
+  var pfSubmit = document.getElementById('pf-submit');
+  if (pfSubmit) pfSubmit.addEventListener('click', confirmSaveProduct);
+
+  // Adjust modal
+  var adjCommit = document.getElementById('adj-commit-btn');
+  if (adjCommit) adjCommit.addEventListener('click', submitAdjustment);
+});
 
 function computeStats() {
   var products = window.ERP.state.products || [];
@@ -218,8 +287,7 @@ function renderPage() {
       var lastTh = theadRow.querySelector('th:last-child');
       visibleDynFields.forEach(function(f) {
           var th = document.createElement('th');
-          th.className = 'inv-th inv-dyn-th';
-          th.style.cursor = 'pointer';
+          th.className = 'inv-th inv-dyn-th cursor-pointer';
           th.textContent = f.label;
           theadRow.insertBefore(th, lastTh);
       });
@@ -231,7 +299,7 @@ function renderPage() {
   var dynFiltersContainer = document.getElementById('inv-dyn-filters');
   if (dynFiltersContainer) {
       if (visibleDynFields.length > 0) {
-          dynFiltersContainer.style.removeProperty('display');
+          dynFiltersContainer.classList.remove('d-none');
           var filterHtml = visibleDynFields.map(function(f) {
               var existing = document.querySelector('[data-dyn-filter="' + f.key + '"]');
               var currentVal = existing ? existing.value : '';
@@ -240,15 +308,19 @@ function renderPage() {
                   (f.options || []).forEach(function(o) {
                       opts += '<option value="' + escHtml(o) + '"' + (currentVal === o ? ' selected' : '') + '>' + escHtml(o) + '</option>';
                   });
-                  return '<select class="form-select inv-input" data-dyn-filter="' + f.key + '" style="min-width:140px;max-width:180px;" onchange="currentPage=1;renderPage();">' + opts + '</select>';
+                  return '<select class="form-select inv-input inv-dyn-filter-select" data-dyn-filter="' + f.key + '">' + opts + '</select>';
               }
-              return '<input type="' + (f.type === 'date' ? 'date' : 'text') + '" class="form-control inv-input" ' +
+              return '<input type="' + (f.type === 'date' ? 'date' : 'text') + '" class="form-control inv-input inv-dyn-filter-input" ' +
                   'data-dyn-filter="' + f.key + '" placeholder="Filter ' + escHtml(f.label) + '..." ' +
-                  'value="' + escHtml(currentVal) + '" oninput="currentPage=1;renderPage();" style="min-width:140px;max-width:200px;">';
+                  'value="' + escHtml(currentVal) + '">';
           }).join('');
           dynFiltersContainer.innerHTML = filterHtml;
+          dynFiltersContainer.querySelectorAll('[data-dyn-filter]').forEach(function(el) {
+              var evtType = el.tagName === 'SELECT' ? 'change' : 'input';
+              el.addEventListener(evtType, function() { currentPage = 1; renderPage(); });
+          });
       } else {
-          dynFiltersContainer.style.display = 'none';
+          dynFiltersContainer.classList.add('d-none');
           dynFiltersContainer.innerHTML = '';
       }
   }
@@ -351,7 +423,7 @@ function openProductModal(mode, productId) {
 
   // Reset accounting section collapsed state
   var acctSection = document.getElementById('pfAcctSection');
-  acctSection.style.display = 'none';
+  acctSection.classList.add('d-none');
   acctSection.previousElementSibling.classList.remove('open');
 
   populateProductAccountingDropdowns();
@@ -381,8 +453,8 @@ function openProductModal(mode, productId) {
       document.getElementById('pf-cost').value = p.unitCost || 0;
       document.getElementById('pf-price').value = p.unitPrice || 0;
       document.getElementById('pf-reorder').value = p.reorderLevel || 0;
-      document.getElementById('pf-opening-row').style.display = 'none';
-      uomSection.style.display = '';
+      document.getElementById('pf-opening-row').classList.add('d-none');
+      uomSection.classList.remove('d-none');
       renderUomConversionsSection(p);
       renderPriceTiersSection(p);
       renderProductDynamicFields(p);
@@ -398,11 +470,11 @@ function openProductModal(mode, productId) {
     document.getElementById('pf-price').value = '0';
     document.getElementById('pf-reorder').value = '0';
     document.getElementById('pf-opening').value = '0';
-    document.getElementById('pf-opening-row').style.display = '';
-    uomSection.style.display = 'none';
+    document.getElementById('pf-opening-row').classList.remove('d-none');
+    uomSection.classList.add('d-none');
     uomSection.innerHTML = '';
     var tierSection = document.getElementById('pf-price-tiers-section');
-    tierSection.style.display = 'none';
+    tierSection.classList.add('d-none');
     tierSection.innerHTML = '';
     renderProductDynamicFields(null);
   }
@@ -473,8 +545,8 @@ function populateProductAccountingDropdowns() {
 function toggleProductAccounting() {
   var section = document.getElementById('pfAcctSection');
   var btn = document.querySelector('.pm-acct-wrap .pm-acct-toggle');
-  var open = section.style.display !== 'none';
-  section.style.display = open ? 'none' : 'block';
+  var open = !section.classList.contains('d-none');
+  section.classList.toggle('d-none', open);
   btn.classList.toggle('open', !open);
 }
 
@@ -647,7 +719,7 @@ function renderUomConversionsSection(product) {
       var multCell =
         '<span id="uom-mult-display-' + esc(cid) + '" class="uom-mult-display">× ' + conv.multiplier + '</span>' +
         '<button type="button" id="uom-edit-btn-' + esc(cid) + '" class="uom-conv-edit-btn ms-1" onclick="startUomConvEdit(\'' + esc(cid) + '\',' + conv.multiplier + ')" title="Edit multiplier"><i class="ti ti-pencil"></i></button>' +
-        '<span id="uom-mult-edit-' + esc(cid) + '" class="uom-mult-edit-wrap" style="display:none;">' +
+        '<span id="uom-mult-edit-' + esc(cid) + '" class="uom-mult-edit-wrap d-none">' +
           '<input type="number" id="uom-mult-inp-' + esc(cid) + '" class="uom-mult-edit-inp" step="0.001" min="0.001">' +
           '<button type="button" class="uom-conv-save-btn" onclick="saveUomConvMult(\'' + esc(pid) + '\',\'' + esc(cid) + '\')"><i class="ti ti-check"></i></button>' +
           '<button type="button" class="uom-conv-cancel-btn" onclick="cancelUomConvEdit(\'' + esc(cid) + '\')"><i class="ti ti-x"></i></button>' +
@@ -674,7 +746,7 @@ function renderUomConversionsSection(product) {
         '<span><i class="ti ti-arrows-exchange me-2"></i>UOM Conversions</span>' +
         '<i class="ti ti-chevron-down" id="uomConvChevron"></i>' +
       '</button>' +
-      '<div id="uomConvBody" class="pm-acct-body" style="display:none;">' +
+      '<div id="uomConvBody" class="pm-acct-body d-none">' +
         '<table class="table table-sm uom-conv-table mb-2">' +
           '<thead><tr>' +
             '<th class="uom-conv-th">Unit</th>' +
@@ -710,7 +782,7 @@ function renderUomConversionsSection(product) {
 
 function renderPriceTiersSection(product) {
   var section = document.getElementById('pf-price-tiers-section');
-  section.style.display = '';
+  section.classList.remove('d-none');
   var tiers = product.priceTiers || [];
   var allCats = window.ERP.state.businessCategories || [];
   var usedCats = tiers.map(function(t) { return t.category; });
@@ -771,7 +843,7 @@ function renderPriceTiersSection(product) {
         '<span><i class="ti ti-tag me-2"></i>Customer Category Pricing</span>' +
         '<i class="ti ti-chevron-down" id="priceTierChevron"></i>' +
       '</button>' +
-      '<div id="priceTierBody" class="pm-acct-body" style="display:none;">' +
+      '<div id="priceTierBody" class="pm-acct-body d-none">' +
         '<table class="table table-sm uom-conv-table mb-2">' +
           '<thead><tr>' +
             '<th class="uom-conv-th">Customer Category</th>' +
@@ -795,8 +867,8 @@ function togglePriceTierSection() {
   var body = document.getElementById('priceTierBody');
   var chevron = document.getElementById('priceTierChevron');
   if (!body) return;
-  var open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
+  var open = !body.classList.contains('d-none');
+  body.classList.toggle('d-none', open);
   if (chevron) {
     chevron.classList.toggle('ti-chevron-down', open);
     chevron.classList.toggle('ti-chevron-up', !open);
@@ -815,7 +887,7 @@ async function savePriceTierRow() {
     var product = (window.ERP.state.products || []).find(function(p) { return p.id === productId; });
     if (product) { renderPriceTiersSection(product); }
     var body = document.getElementById('priceTierBody');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('d-none');
     var chevron = document.getElementById('priceTierChevron');
     if (chevron) { chevron.classList.remove('ti-chevron-down'); chevron.classList.add('ti-chevron-up'); }
   } catch(e) {
@@ -836,7 +908,7 @@ async function deletePriceTierById(tierId) {
     var product = (window.ERP.state.products || []).find(function(p) { return p.id === productId; });
     if (product) { renderPriceTiersSection(product); }
     var body = document.getElementById('priceTierBody');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('d-none');
     var chevron = document.getElementById('priceTierChevron');
     if (chevron) { chevron.classList.remove('ti-chevron-down'); chevron.classList.add('ti-chevron-up'); }
   } catch(e) {
@@ -848,8 +920,8 @@ function toggleUomSection() {
   var body = document.getElementById('uomConvBody');
   var chevron = document.getElementById('uomConvChevron');
   if (!body) return;
-  var open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
+  var open = !body.classList.contains('d-none');
+  body.classList.toggle('d-none', open);
   if (chevron) {
     chevron.classList.toggle('ti-chevron-down', open);
     chevron.classList.toggle('ti-chevron-up', !open);
@@ -868,7 +940,7 @@ async function doAddUomConv(productId) {
     if (p) renderUomConversionsSection(p);
     // Keep section open
     var body = document.getElementById('uomConvBody');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('d-none');
   } catch(e) { alert(e.message || 'Failed to add conversion'); }
 }
 
@@ -879,7 +951,7 @@ async function doDeleteUomConv(productId, cid) {
     var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
     if (p) renderUomConversionsSection(p);
     var body = document.getElementById('uomConvBody');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('d-none');
   } catch(e) { alert(e.message || 'Failed to delete conversion'); }
 }
 
@@ -893,15 +965,15 @@ async function setUomConvDefault(productId, cid, type, value) {
     var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
     if (p) renderUomConversionsSection(p);
     var body = document.getElementById('uomConvBody');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('d-none');
   } catch(e) { alert(e.message || 'Failed to update default'); }
 }
 
 function startUomConvEdit(cid, currentMult) {
-  document.getElementById('uom-mult-display-' + cid).style.display = 'none';
-  document.getElementById('uom-edit-btn-' + cid).style.display = 'none';
+  document.getElementById('uom-mult-display-' + cid).classList.add('d-none');
+  document.getElementById('uom-edit-btn-' + cid).classList.add('d-none');
   var editWrap = document.getElementById('uom-mult-edit-' + cid);
-  editWrap.style.display = 'inline-flex';
+  editWrap.classList.remove('d-none');
   var inp = document.getElementById('uom-mult-inp-' + cid);
   inp.value = currentMult;
   inp.focus();
@@ -909,9 +981,9 @@ function startUomConvEdit(cid, currentMult) {
 }
 
 function cancelUomConvEdit(cid) {
-  document.getElementById('uom-mult-display-' + cid).style.display = '';
-  document.getElementById('uom-edit-btn-' + cid).style.display = '';
-  document.getElementById('uom-mult-edit-' + cid).style.display = 'none';
+  document.getElementById('uom-mult-display-' + cid).classList.remove('d-none');
+  document.getElementById('uom-edit-btn-' + cid).classList.remove('d-none');
+  document.getElementById('uom-mult-edit-' + cid).classList.add('d-none');
 }
 
 async function saveUomConvMult(productId, cid) {
@@ -923,6 +995,6 @@ async function saveUomConvMult(productId, cid) {
     var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
     if (p) renderUomConversionsSection(p);
     var body = document.getElementById('uomConvBody');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('d-none');
   } catch(e) { alert(e.message || 'Failed to update multiplier'); }
 }
