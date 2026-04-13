@@ -508,48 +508,95 @@ function renderPriceTiersSection(product) {
   var section = document.getElementById('pf-price-tiers-section');
   section.style.display = '';
   var tiers = product.priceTiers || [];
+  var allCats = window.ERP.state.businessCategories || [];
+  var usedCats = tiers.map(function(t) { return t.category; });
+  var availableCats = allCats.filter(function(c) { return usedCats.indexOf(c.name) === -1; });
 
-  var html = '<div class="pm-tier-wrap">' +
-    '<div class="pm-tier-header">' +
-      '<span><i class="ti ti-tag me-1"></i>Customer Category Pricing</span>' +
-      '<button type="button" class="pm-tier-add-btn" onclick="openAddPriceTierRow()"><i class="ti ti-plus me-1"></i>Add Tier</button>' +
-    '</div>';
-
+  // Table rows
+  var rowsHtml = '';
   if (tiers.length === 0) {
-    html += '<div class="pm-tier-empty">No price tiers — all customers pay the base unit price.</div>';
+    rowsHtml = '<tr><td colspan="3" class="text-center text-muted uom-conv-empty">No price tiers — all customers pay the base unit price.</td></tr>';
   } else {
-    html += '<table class="pm-tier-table"><thead><tr><th>Customer Category</th><th class="text-end">Price</th><th></th></tr></thead><tbody>';
     tiers.forEach(function(t) {
-      html += '<tr>' +
-        '<td>' + escHtml(t.category) + '</td>' +
-        '<td class="text-end">' + ERP.formatCurrency(t.price) + '</td>' +
-        '<td class="text-center">' +
-          '<button class="inv-action-btn inv-action-danger" onclick="confirmDeletePriceTier(\'' + escHtml(t.id) + '\',\'' + escHtml(t.category) + '\')" title="Remove tier"><i class="ti ti-trash"></i></button>' +
-        '</td></tr>';
+      rowsHtml +=
+        '<tr>' +
+          '<td class="uom-conv-td">' + escHtml(t.category) + '</td>' +
+          '<td class="uom-conv-td text-end">' + ERP.formatCurrency(t.price) + '</td>' +
+          '<td class="uom-conv-td text-center">' +
+            '<button type="button" class="uom-conv-del-btn pm-tier-del-btn" data-tier-id="' + escHtml(t.id) + '" data-tier-cat="' + escHtml(t.category) + '" title="Remove tier">' +
+              '<i class="ti ti-trash"></i>' +
+            '</button>' +
+          '</td>' +
+        '</tr>';
     });
-    html += '</tbody></table>';
   }
 
-  html += '<div id="pm-tier-add-row" style="display:none;">' +
-    '<div class="pm-tier-add-form row g-2 mt-1">' +
-      '<div class="col-5"><input type="text" class="form-control pm-input" id="pm-tier-cat" placeholder="e.g. Wholesale, VIP, Retail"></div>' +
-      '<div class="col-4"><div class="input-group"><span class="input-group-text pm-prefix">Rs.</span><input type="number" step="0.01" min="0" class="form-control pm-input" id="pm-tier-price" placeholder="0.00"></div></div>' +
-      '<div class="col-3 d-flex gap-1">' +
-        '<button type="button" class="pm-btn-save" onclick="savePriceTierRow()"><i class="ti ti-check me-1"></i>Add</button>' +
-        '<button type="button" class="pm-btn-cancel" onclick="document.getElementById(\'pm-tier-add-row\').style.display=\'none\'">Cancel</button>' +
-      '</div>' +
-    '</div>' +
-  '</div>' +
-  '</div>';
+  // Dropdown options (available categories only)
+  var catOptHtml = '<option value="">Select category...</option>';
+  availableCats.forEach(function(c) {
+    catOptHtml += '<option value="' + escHtml(c.name) + '">' + escHtml(c.name) + '</option>';
+  });
 
-  section.innerHTML = html;
+  // Add card — hidden when no categories left to assign
+  var addCardHtml = '';
+  if (availableCats.length > 0) {
+    addCardHtml =
+      '<div class="uom-add-card" id="pm-tier-add-card">' +
+        '<div class="uom-add-grid">' +
+          '<div>' +
+            '<div class="pm-label mb-1">Customer Category</div>' +
+            '<select class="form-select pm-input" id="pm-tier-cat">' + catOptHtml + '</select>' +
+          '</div>' +
+          '<div>' +
+            '<div class="pm-label mb-1">Price</div>' +
+            '<div class="input-group">' +
+              '<span class="input-group-text pm-prefix">Rs.</span>' +
+              '<input type="number" step="0.01" min="0" class="form-control pm-input" id="pm-tier-price" placeholder="0.00">' +
+            '</div>' +
+          '</div>' +
+          '<div class="uom-add-btn-wrap">' +
+            '<button type="button" class="pm-btn-save uom-conv-add-btn" onclick="savePriceTierRow()"><i class="ti ti-plus me-1"></i>Add</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  section.innerHTML =
+    '<div class="pm-acct-wrap mt-1">' +
+      '<button type="button" class="pm-acct-toggle" onclick="togglePriceTierSection()">' +
+        '<span><i class="ti ti-tag me-2"></i>Customer Category Pricing</span>' +
+        '<i class="ti ti-chevron-down" id="priceTierChevron"></i>' +
+      '</button>' +
+      '<div id="priceTierBody" class="pm-acct-body" style="display:none;">' +
+        '<table class="table table-sm uom-conv-table mb-2">' +
+          '<thead><tr>' +
+            '<th class="uom-conv-th">Customer Category</th>' +
+            '<th class="uom-conv-th text-end">Price</th>' +
+            '<th class="uom-conv-th"></th>' +
+          '</tr></thead>' +
+          '<tbody>' + rowsHtml + '</tbody>' +
+        '</table>' +
+        addCardHtml +
+      '</div>' +
+    '</div>';
+
+  section.querySelectorAll('.pm-tier-del-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      confirmDeletePriceTier(btn.dataset.tierId, btn.dataset.tierCat);
+    });
+  });
 }
 
-function openAddPriceTierRow() {
-  document.getElementById('pm-tier-add-row').style.display = '';
-  document.getElementById('pm-tier-cat').value = '';
-  document.getElementById('pm-tier-price').value = '';
-  document.getElementById('pm-tier-cat').focus();
+function togglePriceTierSection() {
+  var body = document.getElementById('priceTierBody');
+  var chevron = document.getElementById('priceTierChevron');
+  if (!body) return;
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chevron) {
+    chevron.classList.toggle('ti-chevron-down', open);
+    chevron.classList.toggle('ti-chevron-up', !open);
+  }
 }
 
 async function savePriceTierRow() {
@@ -563,6 +610,8 @@ async function savePriceTierRow() {
     await ERP.sync();
     var product = (window.ERP.state.products || []).find(function(p) { return p.id === productId; });
     if (product) { renderPriceTiersSection(product); }
+    var body = document.getElementById('priceTierBody');
+    if (body) body.style.display = 'block';
   } catch(e) {
     alert('Error: ' + e.message);
   }
@@ -580,6 +629,8 @@ async function deletePriceTierById(tierId) {
     await ERP.sync();
     var product = (window.ERP.state.products || []).find(function(p) { return p.id === productId; });
     if (product) { renderPriceTiersSection(product); }
+    var body = document.getElementById('priceTierBody');
+    if (body) body.style.display = 'block';
   } catch(e) {
     alert('Error: ' + e.message);
   }
