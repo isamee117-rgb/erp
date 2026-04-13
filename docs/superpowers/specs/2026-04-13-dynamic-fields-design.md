@@ -21,12 +21,14 @@ A feature that allows company admins to enable/disable a predefined list of indu
 
 Stored as a hardcoded PHP array in `app/Config/DynamicFields.php`. No DB table for field definitions.
 
-### Product Fields (16 total)
+### Product Fields (18 total)
 
 | key | label | type | industry hint | options |
 |-----|-------|------|---------------|---------|
 | `brand_name` | Brand Name | text | retail | — |
-| `size_color_style` | Size/Color/Style (Variants) | text | retail | — |
+| `size` | Size | text | retail, automobile | — |
+| `color` | Color | text | retail, automobile | — |
+| `style` | Style | text | retail, automobile | — |
 | `bin_shelf_location` | Bin/Shelf Location | text | retail, pharmacy, automobile | — |
 | `expiry_date` | Expiry Date | date | grocery/pharmacy | — |
 | `batch_lot_number` | Batch/Lot Number | text | grocery/pharmacy | — |
@@ -59,7 +61,9 @@ Stored as a hardcoded PHP array in `app/Config/DynamicFields.php`. No DB table f
 
 ```sql
 brand_name            VARCHAR(255) NULL
-size_color_style      VARCHAR(255) NULL
+size                  VARCHAR(100) NULL
+color                 VARCHAR(100) NULL
+style                 VARCHAR(100) NULL
 bin_shelf_location    VARCHAR(255) NULL
 batch_lot_number      VARCHAR(255) NULL
 drug_composition      VARCHAR(255) NULL
@@ -155,11 +159,13 @@ PUT  /api/field-settings/{field_key}
 Returns: `fieldKey`, `entityType`, `isEnabled`, `label`, `type`, `options`, `industryHint`
 
 ### 4.6 Updated Resources
-- **`ProductResource`** — add all 16 product field keys to toArray()
+- **`ProductResource`** — add all 18 product field keys to toArray()
 - **`PartyResource`** — add all 4 customer field keys to toArray()
 
+> **Note:** Total fields are now 18 product + 4 customer = 22 predefined fields.
+
 ### 4.7 Updated Form Requests
-- **`StoreProductRequest`** (new — does not exist yet) — create for product store validation, include all 16 dynamic fields as `nullable` rules with type-appropriate validation (`date`, `numeric`, `in:Ambient,Chilled,Frozen`, etc.)
+- **`StoreProductRequest`** (new — does not exist yet) — create for product store validation, include all 18 dynamic fields as `nullable` rules with type-appropriate validation (`date`, `numeric`, `in:Ambient,Chilled,Frozen`, etc.)
 - **`UpdateProductRequest`** (new — does not exist yet) — same rules as StoreProductRequest for update
 - **`StorePartyRequest`** (existing) — add 4 customer fields as nullable rules
 - **`UpdatePartyRequest`** (existing) — add 4 customer fields as nullable rules
