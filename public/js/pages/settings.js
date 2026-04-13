@@ -39,6 +39,7 @@ function renderPage(){
     renderTags('entityTypesList',state.entityTypes||[],'deleteEntityType');
     renderTags('bizCatsList',state.businessCategories||[],'deleteBizCat');
     renderSequences();
+    renderDynamicFieldSettings();
 }
 function renderTags(containerId,items,deleteFn){
     var html='';
@@ -454,3 +455,74 @@ function bkDownloadTemplate() {
 }
 
 function bkEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Dynamic Fields ────────────────────────────────────────────────────────────
+
+function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderDynamicFieldSettings() {
+    var fs = (window.ERP.state.fieldSettings) || { enabledKeys: { product: [], customer: [] }, definitions: [] };
+    var definitions = fs.definitions || [];
+    var enabledProduct  = fs.enabledKeys ? (fs.enabledKeys.product  || []) : [];
+    var enabledCustomer = fs.enabledKeys ? (fs.enabledKeys.customer || []) : [];
+
+    ['product', 'customer'].forEach(function(entity) {
+        var fields = definitions.filter(function(f) { return f.entity === entity; });
+        var enabled = entity === 'product' ? enabledProduct : enabledCustomer;
+        var container = document.getElementById('dynfields-' + entity);
+        if (!container) return;
+
+        // Group by industry_hint
+        var groups = {};
+        fields.forEach(function(f) {
+            var hint = f.industry_hint || 'general';
+            if (!groups[hint]) groups[hint] = [];
+            groups[hint].push(f);
+        });
+
+        var html = '';
+        Object.keys(groups).forEach(function(hint) {
+            html += '<div class="dynfield-group-header">' + hint.charAt(0).toUpperCase() + hint.slice(1) + '</div>';
+            groups[hint].forEach(function(f) {
+                var isOn = enabled.indexOf(f.key) !== -1;
+                var toggleId = 'dynfield-toggle-' + f.key;
+                html += '<div class="dynfield-row">' +
+                    '<div class="dynfield-row-left">' +
+                        '<span class="dynfield-label">' + escHtml(f.label) + '</span>' +
+                        '<span class="dynfield-meta">' +
+                            '<span class="dynfield-type-badge">' + f.type + '</span>' +
+                            '<span class="dynfield-industry">' + escHtml(f.industry_hint) + '</span>' +
+                        '</span>' +
+                    '</div>' +
+                    '<div class="form-check form-switch">' +
+                        '<input class="form-check-input" type="checkbox" id="' + toggleId + '" ' +
+                            'data-field-key="' + f.key + '" data-entity="' + f.entity + '" ' +
+                            (isOn ? 'checked' : '') + ' onchange="toggleDynamicField(this)">' +
+                    '</div>' +
+                '</div>';
+            });
+        });
+        container.innerHTML = html || '<p class="text-muted" style="font-size:0.82rem;">No fields available.</p>';
+    });
+}
+
+async function toggleDynamicField(checkbox) {
+    var fieldKey   = checkbox.dataset.fieldKey;
+    var entityType = checkbox.dataset.entity;
+    var isEnabled  = checkbox.checked;
+
+    checkbox.disabled = true;
+    try {
+        await ERP.api.updateFieldSetting(fieldKey, entityType, isEnabled);
+        await ERP.sync();
+        renderDynamicFieldSettings();
+    } catch(e) {
+        checkbox.checked = !isEnabled;
+        document.getElementById('dynFieldDisableErrorMsg').textContent = e.message || 'An error occurred.';
+        document.getElementById('dynFieldDisableError').classList.remove('d-none');
+    } finally {
+        checkbox.disabled = false;
+    }
+}
