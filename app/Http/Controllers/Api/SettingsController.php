@@ -34,6 +34,13 @@ class SettingsController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function updateJobCardMode(Request $request)
+    {
+        $mode = $request->input('jobCardMode') ? '1' : '0';
+        Setting::updateOrCreate(['key' => 'job_card_mode'], ['value' => $mode]);
+        return response()->json(['success' => true, 'jobCardMode' => (bool) $mode]);
+    }
+
     public function updateCostingMethod(Request $request)
     {
         $user = $request->get('auth_user');
