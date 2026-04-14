@@ -5,34 +5,168 @@ var jcActiveId = null; // currently visible tab id
 
 window.ERP.onReady = function() { jcInit(); };
 
-// ── Init ─────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 
 function jcInit() {
     jcTabs = (window.ERP.state.jobCards || []).slice();
-
-    if (jcTabs.length > 0) {
-        jcActiveId = jcTabs[0].id;
-    }
-
+    if (jcTabs.length > 0) { jcActiveId = jcTabs[0].id; }
     jcRenderTabBar();
     jcRenderPanel();
     jcBindStaticEvents();
 }
 
 function jcBindStaticEvents() {
-    document.getElementById('jc-new-tab-btn').addEventListener('click', jcNewTab);
+    // New Job Card button → open modal
+    document.getElementById('jc-new-tab-btn').addEventListener('click', jcOpenNewModal);
+    // Modal save
+    document.getElementById('jcm-save-btn').addEventListener('click', jcSaveNewModal);
+    // Modal customer search
+    document.getElementById('jcm-search').addEventListener('input', jcModalCustomerSearch);
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        var sugg = document.getElementById('jcm-suggestions');
+        if (sugg && !sugg.contains(e.target) && e.target.id !== 'jcm-search') {
+            sugg.style.display = 'none';
+        }
+    });
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
+// ── New Job Card Modal ────────────────────────────────────────────────────────
 
-function jcNewTab() {
-    ERP.api.createJobCard({}).then(function(card) {
+function jcOpenNewModal() {
+    // Clear modal
+    ['jcm-search','jcm-name','jcm-phone','jcm-vreg','jcm-make','jcm-vin','jcm-engine','jcm-lift'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    var odom = document.getElementById('jcm-odometer');
+    if (odom) odom.value = '';
+    document.getElementById('jcm-customer-id').value = '';
+    document.getElementById('jcm-suggestions').style.display = 'none';
+    new bootstrap.Modal(document.getElementById('jcNewCardModal')).show();
+}
+
+function jcModalCustomerSearch() {
+    var q    = (document.getElementById('jcm-search').value || '').trim().toLowerCase();
+    var sugg = document.getElementById('jcm-suggestions');
+
+    if (!q || q.length < 2) { sugg.style.display = 'none'; return; }
+
+    var user    = window.ERP.state.currentUser || {};
+    var parties = (window.ERP.state.parties || []).filter(function(p) {
+        return p.type === 'Customer' &&
+               (p.companyId === user.companyId || !p.companyId) &&
+               (
+                   (p.name  && p.name.toLowerCase().indexOf(q)  !== -1) ||
+                   (p.phone && p.phone.toLowerCase().indexOf(q) !== -1)
+               );
+    }).slice(0, 8);
+
+    sugg.innerHTML = '';
+    if (parties.length === 0) {
+        sugg.style.display = 'none';
+        return;
+    }
+
+    parties.forEach(function(p) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2';
+        btn.innerHTML = '<i class="ti ti-user text-muted" style="font-size:0.85rem"></i>' +
+            '<span><strong>' + escHtml(p.name) + '</strong>' +
+            (p.phone ? ' <span class="text-muted" style="font-size:0.8rem">· ' + escHtml(p.phone) + '</span>' : '') +
+            '</span>';
+        btn.addEventListener('click', function() {
+            jcModalFillCustomer(p);
+            sugg.style.display = 'none';
+            document.getElementById('jcm-search').value = '';
+        });
+        sugg.appendChild(btn);
+    });
+    sugg.style.display = 'block';
+}
+
+function jcModalFillCustomer(party) {
+    document.getElementById('jcm-customer-id').value = party.id || '';
+    document.getElementById('jcm-name').value         = party.name || '';
+    document.getElementById('jcm-phone').value        = party.phone || '';
+
+    // Prefill vehicle info from last job card for this customer
+    var history = window.ERP.state.jobCardHistory || [];
+    for (var i = 0; i < history.length; i++) {
+        if (history[i].customerId === party.id) {
+            document.getElementById('jcm-vreg').value  = history[i].vehicleRegNumber || '';
+            document.getElementById('jcm-make').value  = history[i].makeModelYear    || '';
+            document.getElementById('jcm-vin').value   = history[i].vinChassisNumber  || '';
+            document.getElementById('jcm-engine').value= history[i].engineNumber      || '';
+            break;
+        }
+    }
+}
+
+function jcSaveNewModal() {
+    var saveBtn    = document.getElementById('jcm-save-btn');
+    var customerId = document.getElementById('jcm-customer-id').value.trim();
+    var name       = document.getElementById('jcm-name').value.trim();
+    var phone      = document.getElementById('jcm-phone').value.trim();
+    var vreg       = document.getElementById('jcm-vreg').value.trim();
+    var make       = document.getElementById('jcm-make').value.trim();
+    var vin        = document.getElementById('jcm-vin').value.trim();
+    var engine     = document.getElementById('jcm-engine').value.trim();
+    var odometer   = document.getElementById('jcm-odometer').value.trim();
+    var lift       = document.getElementById('jcm-lift').value.trim();
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Creating...';
+
+    // Step 1: create customer if no id but name given
+    var customerPromise;
+    if (!customerId && name) {
+        customerPromise = ERP.api.addParty({
+            companyId: (window.ERP.state.currentUser || {}).companyId,
+            name:      name,
+            phone:     phone || null,
+            type:      'Customer',
+        }).then(function(party) {
+            window.ERP.state.parties = (window.ERP.state.parties || []).concat([party]);
+            return party.id;
+        });
+    } else {
+        customerPromise = Promise.resolve(customerId || null);
+    }
+
+    // Step 2: create job card with all data
+    customerPromise.then(function(resolvedCustomerId) {
+        var payload = {};
+        if (resolvedCustomerId) payload.customerId   = resolvedCustomerId;
+        if (name)     payload.customerName     = name;
+        if (phone)    payload.phone            = phone;
+        if (vreg)     payload.vehicleRegNumber = vreg;
+        if (make)     payload.makeModelYear    = make;
+        if (vin)      payload.vinChassisNumber = vin;
+        if (engine)   payload.engineNumber     = engine;
+        if (lift)     payload.liftNumber       = lift;
+        if (odometer) payload.currentOdometer  = parseFloat(odometer) || null;
+
+        return ERP.api.createJobCard(payload);
+    }).then(function(card) {
+        // Close modal
+        var modal = bootstrap.Modal.getInstance(document.getElementById('jcNewCardModal'));
+        if (modal) modal.hide();
+        // Open as tab
         jcTabs.push(card);
         jcActiveId = card.id;
         jcRenderTabBar();
         jcRenderPanel();
-    }).catch(function(e) { alert('Error: ' + e.message); });
+    }).catch(function(e) {
+        alert('Error: ' + e.message);
+    }).finally(function() {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="ti ti-circle-check me-1"></i>Create Job Card';
+    });
 }
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
 
 function jcSwitchTab(id) {
     jcActiveId = id;
@@ -58,43 +192,41 @@ function jcGetActive() {
 
 function jcUpdateTabState(updated) {
     for (var i = 0; i < jcTabs.length; i++) {
-        if (jcTabs[i].id === updated.id) {
-            jcTabs[i] = updated;
-            return;
-        }
+        if (jcTabs[i].id === updated.id) { jcTabs[i] = updated; return; }
     }
 }
 
 // ── Render Tab Bar ────────────────────────────────────────────────────────────
 
 function jcRenderTabBar() {
-    var bar    = document.getElementById('jc-tab-bar');
-    var newBtn = document.getElementById('jc-new-tab-btn');
+    var bar = document.getElementById('jc-tab-bar');
     bar.innerHTML = '';
-    bar.appendChild(newBtn);
 
     jcTabs.forEach(function(card) {
         var label = card.jobCardNo || 'New';
-        if (card.vehicleRegNumber) label += ' \u00b7 ' + card.vehicleRegNumber;
+        if (card.vehicleRegNumber) label += ' · ' + card.vehicleRegNumber;
 
         var tab = document.createElement('div');
         tab.className = 'jc-tab' + (card.id === jcActiveId ? ' active' : '');
-        tab.dataset.id = card.id;
-        tab.innerHTML = escHtml(label) +
-            '<span class="jc-tab-close" data-id="' + escHtml(card.id) + '">&times;</span>';
+        tab.innerHTML = '<i class="ti ti-clipboard-list" style="font-size:0.8rem;opacity:0.7"></i>' +
+            escHtml(label) +
+            '<span class="jc-tab-close" title="Close">&times;</span>';
 
         tab.addEventListener('click', function(e) {
             if (e.target.classList.contains('jc-tab-close')) return;
             jcSwitchTab(card.id);
         });
-
         tab.querySelector('.jc-tab-close').addEventListener('click', function(e) {
             e.stopPropagation();
             jcCloseTab(card.id);
         });
-
-        bar.insertBefore(tab, newBtn);
+        bar.appendChild(tab);
     });
+
+    // Show hint if no tabs
+    if (jcTabs.length === 0) {
+        bar.innerHTML = '<span style="font-size:0.8rem;color:#94a3b8;padding:0 4px">No open job cards</span>';
+    }
 }
 
 // ── Render Active Panel ───────────────────────────────────────────────────────
@@ -104,8 +236,10 @@ function jcRenderPanel() {
     var card = jcGetActive();
 
     if (!card) {
-        wrap.innerHTML = '<div class="jc-empty-state"><i class="ti ti-clipboard-list"></i>' +
-            '<p>No open job cards. Click <strong>+ New Job Card</strong> to begin.</p></div>';
+        wrap.innerHTML = '<div class="jc-empty-state">' +
+            '<i class="ti ti-clipboard-list"></i>' +
+            '<p>No open job cards.<br>Click <strong>+ New Job Card</strong> to begin.</p>' +
+            '</div>';
         return;
     }
 
@@ -119,84 +253,83 @@ function jcBuildPanelHtml(card) {
 
     return '<div class="jc-panel" id="jc-panel-' + escHtml(card.id) + '">' +
 
-        // LEFT
+        // LEFT COLUMN
         '<div class="jc-left">' +
 
-            // Header Fields
+            // Header Info (read-only summary + editable fields)
             '<div class="jc-header-card">' +
-                '<div class="jc-section-title">Vehicle &amp; Customer</div>' +
+                '<div class="jc-section-title"><i class="ti ti-car me-1"></i>Vehicle &amp; Customer</div>' +
                 '<div class="row g-2">' +
-                    jcField('Customer Search', 'jc-customer-search', 'text', '', 'col-md-6', 'Search by reg no / phone / name...') +
-                    jcField('Customer Name', 'jc-customer-name', 'text', card.customerName || '') +
-                    jcField('Phone', 'jc-phone', 'text', card.phone || '') +
-                    jcField('Vehicle Reg No', 'jc-vehicle-reg', 'text', card.vehicleRegNumber || '') +
-                    jcField('VIN / Chassis No', 'jc-vin', 'text', card.vinChassisNumber || '') +
-                    jcField('Engine No', 'jc-engine', 'text', card.engineNumber || '') +
-                    jcField('Make / Model / Year', 'jc-make-model', 'text', card.makeModelYear || '') +
-                    jcField('Lift No', 'jc-lift', 'text', card.liftNumber || '') +
-                    jcField('Current Odometer', 'jc-odometer', 'number', card.currentOdometer || '') +
+                    jcField('Customer Name',      'jc-customer-name', 'text',   card.customerName   || '') +
+                    jcField('Phone',              'jc-phone',         'text',   card.phone          || '') +
+                    jcField('Vehicle Reg No',     'jc-vehicle-reg',   'text',   card.vehicleRegNumber|| '') +
+                    jcField('Make / Model / Year','jc-make-model',    'text',   card.makeModelYear  || '') +
+                    jcField('VIN / Chassis No',   'jc-vin',           'text',   card.vinChassisNumber|| '') +
+                    jcField('Engine No',          'jc-engine',        'text',   card.engineNumber   || '') +
+                    jcField('Current Odometer',   'jc-odometer',      'number', card.currentOdometer|| '') +
+                    jcField('Lift No',            'jc-lift',          'text',   card.liftNumber     || '') +
                 '</div>' +
-                '<div id="jc-customer-suggestions" class="list-group mt-1"></div>' +
             '</div>' +
 
             // Parts
             '<div class="jc-items-card">' +
-                '<div class="jc-section-title">Parts</div>' +
+                '<div class="jc-section-title"><i class="ti ti-tool me-1"></i>Parts</div>' +
                 '<div class="jc-search-row">' +
-                    '<input type="text" class="form-control jc-search-input" id="jc-parts-search" placeholder="Search parts...">' +
+                    '<input type="text" class="form-control pm-input" id="jc-parts-search" placeholder="Search parts by name...">' +
                 '</div>' +
-                '<div id="jc-parts-suggestions" class="list-group mb-2"></div>' +
+                '<div id="jc-parts-suggestions" class="list-group mb-2" style="position:relative;z-index:10"></div>' +
                 jcItemsTable('jc-parts-table', parts) +
             '</div>' +
 
             // Services
             '<div class="jc-items-card">' +
-                '<div class="jc-section-title">Services</div>' +
+                '<div class="jc-section-title"><i class="ti ti-briefcase me-1"></i>Services</div>' +
                 '<div class="jc-search-row">' +
-                    '<input type="text" class="form-control jc-search-input" id="jc-services-search" placeholder="Search services...">' +
+                    '<input type="text" class="form-control pm-input" id="jc-services-search" placeholder="Search services by name...">' +
                 '</div>' +
-                '<div id="jc-services-suggestions" class="list-group mb-2"></div>' +
+                '<div id="jc-services-suggestions" class="list-group mb-2" style="position:relative;z-index:10"></div>' +
                 jcItemsTable('jc-services-table', services) +
             '</div>' +
 
         '</div>' +
 
-        // RIGHT
+        // RIGHT COLUMN — Totals & Actions
         '<div class="jc-right">' +
             '<div class="jc-totals-card">' +
-                '<div class="jc-total-row"><span>Parts</span><span>' + ERP.formatCurrency(card.partsSubtotal || 0) + '</span></div>' +
-                '<div class="jc-total-row"><span>Services</span><span>' + ERP.formatCurrency(card.servicesSubtotal || 0) + '</span></div>' +
-                '<div class="jc-total-row"><span>Subtotal</span><span>' + ERP.formatCurrency(card.subtotal || 0) + '</span></div>' +
-                '<div class="jc-total-row">' +
-                    '<span>Discount</span>' +
+                '<div class="jc-section-title"><i class="ti ti-receipt me-1"></i>Summary</div>' +
+                '<div class="jc-total-row"><span class="text-muted">Parts</span><span>' + ERP.formatCurrency(card.partsSubtotal || 0) + '</span></div>' +
+                '<div class="jc-total-row"><span class="text-muted">Services</span><span>' + ERP.formatCurrency(card.servicesSubtotal || 0) + '</span></div>' +
+                '<div class="jc-total-row"><span class="text-muted">Subtotal</span><span>' + ERP.formatCurrency(card.subtotal || 0) + '</span></div>' +
+                '<div class="jc-total-row align-items-center">' +
+                    '<span class="text-muted">Discount</span>' +
                     '<div class="d-flex gap-1">' +
-                        '<select class="form-select form-select-sm" id="jc-discount-type" style="width:75px">' +
-                            '<option value="fixed"' + (card.discountType === 'fixed' ? ' selected' : '') + '>Rs.</option>' +
+                        '<select class="form-select form-select-sm pm-input" id="jc-discount-type" style="width:70px;height:32px!important;padding:4px 6px!important">' +
+                            '<option value="fixed"'   + (card.discountType === 'fixed'   ? ' selected' : '') + '>Rs.</option>' +
                             '<option value="percent"' + (card.discountType === 'percent' ? ' selected' : '') + '>%</option>' +
                         '</select>' +
-                        '<input type="number" class="form-control form-control-sm" id="jc-discount-value" value="' + (card.discountValue || 0) + '" min="0" style="width:80px">' +
+                        '<input type="number" class="form-control form-control-sm pm-input" id="jc-discount-value" value="' + (card.discountValue || 0) + '" min="0" style="width:75px;height:32px!important">' +
                     '</div>' +
                 '</div>' +
                 '<div class="jc-total-row grand"><span>Grand Total</span><span id="jc-grand-total">' + ERP.formatCurrency(card.grandTotal || 0) + '</span></div>' +
             '</div>' +
+
             '<div class="jc-payment-btns">' +
-                '<button class="jc-payment-btn' + (card.paymentMethod === 'Cash' ? ' active' : '') + '" data-method="Cash">Cash</button>' +
-                '<button class="jc-payment-btn' + (card.paymentMethod === 'Credit' ? ' active' : '') + '" data-method="Credit">Credit</button>' +
+                '<button class="jc-payment-btn' + (card.paymentMethod === 'Cash'   ? ' active' : '') + '" data-method="Cash"><i class="ti ti-cash me-1"></i>Cash</button>' +
+                '<button class="jc-payment-btn' + (card.paymentMethod === 'Credit' ? ' active' : '') + '" data-method="Credit"><i class="ti ti-credit-card me-1"></i>Credit</button>' +
             '</div>' +
+
             '<button class="jc-finalize-btn" id="jc-finalize-btn"><i class="ti ti-check me-1"></i>Finalize Job Card</button>' +
-            '<button class="jc-print-btn" id="jc-print-btn"><i class="ti ti-printer me-1"></i>Print</button>' +
-            '<button class="jc-discard-btn" id="jc-discard-btn"><i class="ti ti-trash me-1"></i>Discard</button>' +
+            '<button class="jc-print-btn"    id="jc-print-btn"><i class="ti ti-printer me-1"></i>Print</button>' +
+            '<button class="jc-discard-btn"  id="jc-discard-btn"><i class="ti ti-trash me-1"></i>Discard</button>' +
         '</div>' +
 
     '</div>';
 }
 
-function jcField(label, id, type, value, colClass, placeholder) {
-    colClass    = colClass    || 'col-md-6';
-    placeholder = placeholder || '';
-    return '<div class="' + colClass + '">' +
-        '<label class="form-label mb-1" style="font-size:0.8rem">' + escHtml(label) + '</label>' +
-        '<input type="' + type + '" class="form-control form-control-sm" id="' + id + '" value="' + escHtml(String(value)) + '" placeholder="' + escHtml(placeholder) + '">' +
+function jcField(label, id, type, value) {
+    return '<div class="col-md-6">' +
+        '<label class="pm-label">' + escHtml(label) + '</label>' +
+        '<input type="' + type + '" class="form-control pm-input" id="' + id + '" value="' + escHtml(String(value)) + '">' +
         '</div>';
 }
 
@@ -204,23 +337,23 @@ function jcItemsTable(tableId, items) {
     var rows = '';
     items.forEach(function(item) {
         rows += '<tr>' +
-            '<td>' + escHtml(item.productName) + '</td>' +
-            '<td><input type="number" class="form-control form-control-sm jc-qty-inp" data-item-id="' + escHtml(item.id) + '" value="' + item.quantity + '" min="0.001" style="width:65px"></td>' +
-            '<td>' + ERP.formatCurrency(item.unitPrice) + '</td>' +
-            '<td>' + ERP.formatCurrency(item.totalLinePrice) + '</td>' +
-            '<td><button class="jc-remove-btn" data-item-id="' + escHtml(item.id) + '"><i class="ti ti-x"></i></button></td>' +
+            '<td>' + escHtml(item.productName || '') + '</td>' +
+            '<td style="width:80px"><input type="number" class="form-control form-control-sm pm-input jc-qty-inp" data-item-id="' + escHtml(item.id) + '" value="' + item.quantity + '" min="0.001" style="height:30px!important;padding:2px 6px!important"></td>' +
+            '<td class="text-end">' + ERP.formatCurrency(item.unitPrice) + '</td>' +
+            '<td class="text-end fw-semibold">' + ERP.formatCurrency(item.totalLinePrice) + '</td>' +
+            '<td class="text-center" style="width:36px"><button class="jc-remove-btn" data-item-id="' + escHtml(item.id) + '" title="Remove"><i class="ti ti-x"></i></button></td>' +
             '</tr>';
     });
     return '<table class="jc-items-table" id="' + tableId + '">' +
-        '<thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>' +
-        '<tbody>' + (rows || '<tr><td colspan="5" class="text-muted text-center py-2">No items</td></tr>') + '</tbody>' +
+        '<thead><tr><th>Item</th><th>Qty</th><th class="text-end">Price</th><th class="text-end">Total</th><th></th></tr></thead>' +
+        '<tbody>' + (rows || '<tr><td colspan="5" class="text-center text-muted py-3" style="font-size:0.82rem">No items added</td></tr>') + '</tbody>' +
         '</table>';
 }
 
 // ── Panel Event Binding ───────────────────────────────────────────────────────
 
 function jcBindPanelEvents(card) {
-    // Header auto-save on change
+    // Header auto-save on blur/change
     var headerFields = {
         'jc-customer-name': 'customerName',
         'jc-phone':         'phone',
@@ -242,14 +375,6 @@ function jcBindPanelEvents(card) {
         }
     });
 
-    // Customer search
-    var csearch = document.getElementById('jc-customer-search');
-    if (csearch) {
-        csearch.addEventListener('input', function() {
-            jcFilterCustomers(card.id, csearch.value);
-        });
-    }
-
     // Discount
     var dtype  = document.getElementById('jc-discount-type');
     var dvalue = document.getElementById('jc-discount-value');
@@ -259,7 +384,7 @@ function jcBindPanelEvents(card) {
             discountValue: parseFloat(dvalue.value) || 0,
         });
     }
-    if (dtype)  dtype.addEventListener('change', onDiscountChange);
+    if (dtype)  dtype.addEventListener('change',  onDiscountChange);
     if (dvalue) dvalue.addEventListener('change', onDiscountChange);
 
     // Payment method
@@ -269,13 +394,11 @@ function jcBindPanelEvents(card) {
         });
     });
 
-    // Parts search
-    jcBindProductSearch('jc-parts-search', 'jc-parts-suggestions', 'part', card.id);
-
-    // Services search
+    // Product search
+    jcBindProductSearch('jc-parts-search',    'jc-parts-suggestions',    'part',    card.id);
     jcBindProductSearch('jc-services-search', 'jc-services-suggestions', 'service', card.id);
 
-    // Remove item buttons
+    // Remove item
     document.querySelectorAll('.jc-remove-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             jcRemoveItem(card.id, btn.dataset.itemId);
@@ -291,104 +414,15 @@ function jcBindPanelEvents(card) {
 
     // Finalize
     var finalizeBtn = document.getElementById('jc-finalize-btn');
-    if (finalizeBtn) {
-        finalizeBtn.addEventListener('click', function() { jcFinalize(card.id); });
-    }
+    if (finalizeBtn) finalizeBtn.addEventListener('click', function() { jcFinalize(card.id); });
 
     // Print
     var printBtn = document.getElementById('jc-print-btn');
-    if (printBtn) {
-        printBtn.addEventListener('click', function() { jcPrint(card); });
-    }
+    if (printBtn) printBtn.addEventListener('click', function() { jcPrint(card); });
 
     // Discard
     var discardBtn = document.getElementById('jc-discard-btn');
-    if (discardBtn) {
-        discardBtn.addEventListener('click', function() { jcDiscard(card.id); });
-    }
-}
-
-// ── Customer Search ───────────────────────────────────────────────────────────
-
-function jcFilterCustomers(cardId, query) {
-    var sugg = document.getElementById('jc-customer-suggestions');
-    if (!query || query.length < 2) { sugg.innerHTML = ''; return; }
-
-    var q       = query.toLowerCase();
-    var parties = (window.ERP.state.parties || []);
-    var user    = window.ERP.state.currentUser || {};
-    var matches = parties.filter(function(p) {
-        return p.companyId === user.companyId &&
-               p.type === 'Customer' &&
-               (
-                   (p.name  && p.name.toLowerCase().indexOf(q)  !== -1) ||
-                   (p.phone && p.phone.toLowerCase().indexOf(q) !== -1)
-               );
-    }).slice(0, 6);
-
-    sugg.innerHTML = '';
-    matches.forEach(function(p) {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'list-group-item list-group-item-action';
-        btn.textContent = p.name + (p.phone ? ' \u00b7 ' + p.phone : '');
-        btn.addEventListener('click', function() {
-            jcSelectCustomer(cardId, p);
-            sugg.innerHTML = '';
-            document.getElementById('jc-customer-search').value = '';
-        });
-        sugg.appendChild(btn);
-    });
-
-    if (matches.length === 0) {
-        var newBtn = document.createElement('button');
-        newBtn.type = 'button';
-        newBtn.className = 'list-group-item list-group-item-action text-primary';
-        newBtn.innerHTML = '<i class="ti ti-user-plus me-1"></i>Create new customer "' + escHtml(query) + '"';
-        newBtn.addEventListener('click', function() {
-            jcCreateCustomer(cardId, query);
-            sugg.innerHTML = '';
-            document.getElementById('jc-customer-search').value = '';
-        });
-        sugg.appendChild(newBtn);
-    }
-}
-
-function jcSelectCustomer(cardId, party) {
-    var history  = window.ERP.state.jobCardHistory || [];
-    var lastCard = null;
-    for (var i = 0; i < history.length; i++) {
-        if (history[i].customerId === party.id) { lastCard = history[i]; break; }
-    }
-
-    var payload = {
-        customerId:   party.id,
-        customerName: party.name,
-        phone:        party.phone || null,
-    };
-
-    if (lastCard) {
-        payload.vehicleRegNumber = lastCard.vehicleRegNumber || null;
-        payload.vinChassisNumber = lastCard.vinChassisNumber || null;
-        payload.engineNumber     = lastCard.engineNumber     || null;
-        payload.makeModelYear    = lastCard.makeModelYear    || null;
-    }
-
-    jcSaveHeaderField(cardId, payload);
-}
-
-function jcCreateCustomer(cardId, name) {
-    ERP.api.createParty({
-        companyId: (window.ERP.state.currentUser || {}).companyId,
-        name:      name,
-        type:      'Customer',
-    }).then(function(party) {
-        window.ERP.state.parties = (window.ERP.state.parties || []).concat([party]);
-        jcSaveHeaderField(cardId, {
-            customerId:   party.id,
-            customerName: party.name,
-        });
-    }).catch(function(e) { alert('Error creating customer: ' + e.message); });
+    if (discardBtn) discardBtn.addEventListener('click', function() { jcDiscard(card.id); });
 }
 
 // ── Product Search ────────────────────────────────────────────────────────────
@@ -398,26 +432,28 @@ function jcBindProductSearch(inputId, suggId, itemType, cardId) {
     var sugg  = document.getElementById(suggId);
     if (!input || !sugg) return;
 
+    var typeFilter = itemType === 'part' ? 'Product' : 'Service';
+
     input.addEventListener('input', function() {
-        var q          = input.value.toLowerCase().trim();
-        var products   = (window.ERP.state.products || []);
-        var user       = window.ERP.state.currentUser || {};
-        var typeFilter = itemType === 'part' ? 'Product' : 'Service';
+        var q        = input.value.toLowerCase().trim();
+        var user     = window.ERP.state.currentUser || {};
+        var products = (window.ERP.state.products || []);
 
         sugg.innerHTML = '';
         if (!q) return;
 
         var matches = products.filter(function(p) {
-            return p.companyId === user.companyId &&
-                   p.type === typeFilter &&
+            return p.type === typeFilter &&
+                   (p.companyId === user.companyId || !p.companyId) &&
                    p.name.toLowerCase().indexOf(q) !== -1;
-        }).slice(0, 6);
+        }).slice(0, 7);
 
         matches.forEach(function(p) {
             var btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'list-group-item list-group-item-action';
-            btn.textContent = p.name + ' \u2014 ' + ERP.formatCurrency(p.unitPrice || 0);
+            btn.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+            btn.innerHTML = '<span>' + escHtml(p.name) + '</span>' +
+                '<span class="text-muted" style="font-size:0.8rem">' + ERP.formatCurrency(p.unitPrice || 0) + '</span>';
             btn.addEventListener('click', function() {
                 jcAddItem(cardId, itemType, p);
                 sugg.innerHTML = '';
@@ -425,6 +461,13 @@ function jcBindProductSearch(inputId, suggId, itemType, cardId) {
             });
             sugg.appendChild(btn);
         });
+    });
+
+    // Hide suggestions on outside click
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !sugg.contains(e.target)) {
+            sugg.innerHTML = '';
+        }
     });
 }
 
@@ -470,7 +513,6 @@ function jcSaveHeaderField(cardId, payload) {
 
 function jcFinalize(cardId) {
     if (!confirm('Finalize this Job Card? This will deduct inventory and cannot be undone.')) return;
-
     ERP.api.finalizeJobCard(cardId)
         .then(function() {
             jcCloseTab(cardId);
@@ -481,7 +523,6 @@ function jcFinalize(cardId) {
 
 function jcDiscard(cardId) {
     if (!confirm('Discard this Job Card? All entries will be lost.')) return;
-
     ERP.api.discardJobCard(cardId)
         .then(function() { jcCloseTab(cardId); })
         .catch(function(e) { alert('Error: ' + e.message); });
@@ -490,12 +531,19 @@ function jcDiscard(cardId) {
 function jcPrint(card) {
     var ph = document.getElementById('jc-print-header');
     if (ph) {
-        ph.innerHTML = '<h3>' + escHtml((window.ERP.state.currentUser || {}).companyName || 'Job Card') + '</h3>' +
-            '<p><strong>Job Card No:</strong> ' + escHtml(card.jobCardNo || '') + '</p>' +
-            '<p><strong>Customer:</strong> ' + escHtml(card.customerName || '') + ' &nbsp; <strong>Phone:</strong> ' + escHtml(card.phone || '') + '</p>' +
-            '<p><strong>Vehicle Reg:</strong> ' + escHtml(card.vehicleRegNumber || '') + ' &nbsp; <strong>Make/Model:</strong> ' + escHtml(card.makeModelYear || '') + '</p>' +
-            '<p><strong>VIN:</strong> ' + escHtml(card.vinChassisNumber || '') + ' &nbsp; <strong>Engine:</strong> ' + escHtml(card.engineNumber || '') + '</p>' +
-            '<p><strong>Odometer:</strong> ' + escHtml(String(card.currentOdometer || '')) + ' &nbsp; <strong>Lift No:</strong> ' + escHtml(card.liftNumber || '') + '</p>';
+        var co = window.ERP.state.currentUser || {};
+        ph.innerHTML =
+            '<h3>' + escHtml(co.companyName || 'Workshop') + '</h3>' +
+            '<p><strong>Job Card No:</strong> ' + escHtml(card.jobCardNo || '') +
+            ' &nbsp; <strong>Date:</strong> ' + new Date().toLocaleDateString() + '</p>' +
+            '<p><strong>Customer:</strong> ' + escHtml(card.customerName || '') +
+            ' &nbsp; <strong>Phone:</strong> ' + escHtml(card.phone || '') + '</p>' +
+            '<p><strong>Vehicle Reg:</strong> ' + escHtml(card.vehicleRegNumber || '') +
+            ' &nbsp; <strong>Make/Model:</strong> ' + escHtml(card.makeModelYear || '') + '</p>' +
+            '<p><strong>VIN:</strong> ' + escHtml(card.vinChassisNumber || '') +
+            ' &nbsp; <strong>Engine:</strong> ' + escHtml(card.engineNumber || '') + '</p>' +
+            '<p><strong>Odometer:</strong> ' + escHtml(String(card.currentOdometer || '—')) +
+            ' km &nbsp; <strong>Lift No:</strong> ' + escHtml(card.liftNumber || '—') + '</p>';
     }
     window.print();
 }
