@@ -17,6 +17,7 @@ use App\Http\Resources\ProductResource;
 use App\Http\Resources\PurchaseOrderResource;
 use App\Http\Resources\PurchaseReturnResource;
 use App\Http\Resources\SaleOrderResource;
+use App\Http\Resources\JobCardResource;
 use App\Http\Resources\SaleReturnResource;
 use App\Http\Resources\UnitOfMeasureResource;
 use App\Http\Resources\UserResource;
@@ -35,6 +36,7 @@ use App\Models\Party;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use App\Models\JobCard;
 use App\Models\PurchaseReturn;
 use App\Models\SaleOrder;
 use App\Models\SaleReturn;
@@ -62,6 +64,7 @@ class SyncService
 
         $currencySetting      = Setting::where('key', 'currency')->first();
         $invoiceFormatSetting = Setting::where('key', 'invoice_format')->first();
+        $jobCardModeSetting   = Setting::where('key', 'job_card_mode')->first();
 
         $costingMethod     = 'moving_average';
         $documentSequences = collect();
@@ -96,6 +99,7 @@ class SyncService
             'currency'           => $currencySetting?->value  ?? 'Rs.',
             'invoiceFormat'      => $invoiceFormatSetting?->value ?? 'A4',
             'costingMethod'      => $costingMethod,
+            'jobCardMode'        => (bool) ($jobCardModeSetting?->value ?? false),
             'chartOfAccounts'    => ChartOfAccountResource::collection($chartOfAccounts),
             'accountMappings'    => $accountMappings->keyBy('mapping_key')->map(fn($m) => [
                 'accountId' => $m->account_id,
@@ -164,14 +168,27 @@ class SyncService
         $purchaseReturns = $this->scopedQuery(PurchaseReturn::with('items'), $isSuper, $coId);
         $costLayers      = $this->scopedQuery(InventoryCostLayer::query(), $isSuper, $coId);
 
+        $openJobCards = $isSuper ? collect() : JobCard::with('items')
+            ->where('company_id', $coId)
+            ->where('status', 'open')
+            ->get();
+
+        $recentJobCards = $isSuper ? collect() : JobCard::where('company_id', $coId)
+            ->where('status', 'closed')
+            ->orderByDesc('closed_at')
+            ->limit(100)
+            ->get();
+
         return [
-            'sales'          => SaleOrderResource::collection($sales),
-            'purchaseOrders' => PurchaseOrderResource::collection($purchaseOrders),
-            'payments'       => PaymentResource::collection($payments),
-            'ledger'         => InventoryLedgerResource::collection($ledger),
-            'salesReturns'   => SaleReturnResource::collection($salesReturns),
+            'sales'           => SaleOrderResource::collection($sales),
+            'purchaseOrders'  => PurchaseOrderResource::collection($purchaseOrders),
+            'payments'        => PaymentResource::collection($payments),
+            'ledger'          => InventoryLedgerResource::collection($ledger),
+            'salesReturns'    => SaleReturnResource::collection($salesReturns),
             'purchaseReturns' => PurchaseReturnResource::collection($purchaseReturns),
-            'costLayers'     => InventoryCostLayerResource::collection($costLayers),
+            'costLayers'      => InventoryCostLayerResource::collection($costLayers),
+            'jobCards'        => JobCardResource::collection($openJobCards),
+            'jobCardHistory'  => JobCardResource::collection($recentJobCards),
         ];
     }
 

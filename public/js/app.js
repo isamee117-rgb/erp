@@ -25,9 +25,12 @@
         payments: [],
         ledger: [],
         costLayers: [],
+        jobCards: [],
+        jobCardHistory: [],
         currency: 'Rs.',
         invoiceFormat: 'A4',
         costingMethod: 'moving_average',
+        jobCardMode: false,
         documentSequences: [],
         chartOfAccounts: [],
         accountMappings: {}
@@ -159,6 +162,16 @@
         if (sidebarRole) sidebarRole.textContent = user.systemRole || '';
         if (sidebarAvatar) sidebarAvatar.textContent = initial;
         if (mobileAvatar) mobileAvatar.textContent = initial;
+
+        applySidebarMode();
+    }
+
+    function applySidebarMode() {
+        var jobCardMode = window.ERP.state.jobCardMode;
+        var posNav      = document.querySelector('[data-nav-mode="pos"]');
+        var jcNav       = document.querySelector('[data-nav-mode="job-card"]');
+        if (posNav) posNav.style.display = jobCardMode ? 'none' : '';
+        if (jcNav)  jcNav.style.display  = jobCardMode ? '' : 'none';
     }
 
     function applyPermissions() {
