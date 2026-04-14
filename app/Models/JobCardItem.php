@@ -21,12 +21,15 @@ class JobCardItem extends Model
         'total_line_price',
     ];
 
-    protected $casts = [
-        'quantity'         => 'float',
-        'unit_price'       => 'float',
-        'discount'         => 'float',
-        'total_line_price' => 'float',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'quantity'         => 'float',
+            'unit_price'       => 'float',
+            'discount'         => 'float',
+            'total_line_price' => 'float',
+        ];
+    }
 
     public function jobCard()
     {
