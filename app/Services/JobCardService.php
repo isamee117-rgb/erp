@@ -6,7 +6,10 @@ use App\Models\InventoryLedger;
 use App\Models\JobCard;
 use App\Models\JobCardItem;
 use App\Models\Party;
+use App\Models\Payment;
 use App\Models\Product;
+use App\Models\SaleItem;
+use App\Models\SaleOrder;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -78,7 +81,7 @@ class JobCardService
             throw new \RuntimeException('Cannot modify a closed job card.');
         }
 
-        $itemType = $data['itemType']; // 'part' or 'service'
+        $itemType = $data['itemType'];
 
         $product = Product::where('company_id', $card->company_id)
                           ->where('id', $data['productId'])
@@ -157,33 +160,96 @@ class JobCardService
                 throw new \RuntimeException('Job card is already finalized.');
             }
 
-            foreach ($card->items()->where('item_type', 'part')->get() as $item) {
-                $product = Product::find($item->product_id);
-                if (!$product) continue;
+            $items = $card->items()->get();
+            if ($items->isEmpty()) {
+                throw new \RuntimeException('Cannot finalize an empty job card.');
+            }
 
-                $baseQty = (int) round($item->quantity);
-                $this->costingService->calculateCOGS($card->company_id, $item->product_id, $baseQty);
+            // ── 1. Create Sale Order ──────────────────────────────────────────
+            $invoiceNo = $this->sequenceService->getNextNumber($user->company_id, 'sale_invoice');
+            $saleId    = 'SO-' . Str::random(9);
 
-                $product->current_stock -= $baseQty;
-                $product->save();
+            SaleOrder::create([
+                'id'             => $saleId,
+                'invoice_no'     => $invoiceNo,
+                'company_id'     => $card->company_id,
+                'customer_id'    => $card->customer_id,
+                'payment_method' => $card->payment_method,
+                'total_amount'   => $card->grand_total,
+                'is_returned'    => false,
+            ]);
 
-                InventoryLedger::create([
-                    'id'               => 'LEG-' . Str::random(9),
-                    'company_id'       => $card->company_id,
+            // ── 2. Create Sale Items; deduct stock only for parts ─────────────
+            foreach ($items as $item) {
+                $cogs = 0;
+
+                if ($item->item_type === 'part') {
+                    $product = Product::find($item->product_id);
+                    if ($product) {
+                        $baseQty = (int) round($item->quantity);
+                        $cogs    = $this->costingService->calculateCOGS(
+                            $card->company_id, $item->product_id, $baseQty
+                        );
+
+                        $product->current_stock -= $baseQty;
+                        $product->save();
+
+                        InventoryLedger::create([
+                            'id'               => 'LEG-' . Str::random(9),
+                            'company_id'       => $card->company_id,
+                            'product_id'       => $item->product_id,
+                            'transaction_type' => 'Sale',
+                            'quantity_change'  => -$baseQty,
+                            'reference_id'     => $invoiceNo,
+                        ]);
+                    }
+                }
+
+                SaleItem::create([
+                    'id'               => 'SI-' . Str::random(9),
+                    'sale_order_id'    => $saleId,
                     'product_id'       => $item->product_id,
-                    'transaction_type' => 'Sale',
-                    'quantity_change'  => -$baseQty,
-                    'reference_id'     => $card->job_card_no,
+                    'uom_id'           => null,
+                    'uom_multiplier'   => 1,
+                    'quantity'         => $item->quantity,
+                    'unit_price'       => $item->unit_price,
+                    'discount'         => $item->discount,
+                    'total_line_price' => $item->total_line_price,
+                    'cogs'             => $cogs,
                 ]);
             }
 
+            // ── 3. Record payment / update customer balance ───────────────────
+            $grandTotal = $card->grand_total;
+
+            if ($card->payment_method === 'Cash') {
+                Payment::create([
+                    'id'             => 'PAY-' . Str::random(9),
+                    'company_id'     => $card->company_id,
+                    'party_id'       => $card->customer_id,
+                    'date'           => now()->getTimestampMs(),
+                    'amount'         => $grandTotal,
+                    'payment_method' => 'Cash',
+                    'type'           => 'Payment Received',
+                    'reference_no'   => $invoiceNo,
+                    'notes'          => 'Auto-recorded from Job Card ' . $card->job_card_no,
+                ]);
+            } elseif ($card->customer_id) {
+                // Credit — add to customer outstanding balance
+                Party::where('id', $card->customer_id)
+                     ->increment('current_balance', $grandTotal);
+            }
+
+            // ── 4. Update customer odometer ───────────────────────────────────
             if ($card->customer_id && $card->current_odometer !== null) {
                 Party::where('id', $card->customer_id)
                      ->update(['last_odometer_reading' => $card->current_odometer]);
             }
 
+            // ── 5. Close job card with sale reference ─────────────────────────
             $card->update([
                 'status'    => 'closed',
+                'sale_id'   => $saleId,
                 'closed_at' => now(),
             ]);
 

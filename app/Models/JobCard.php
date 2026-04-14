@@ -32,6 +32,7 @@ class JobCard extends Model
         'discount',
         'grand_total',
         'created_by',
+        'sale_id',
         'closed_at',
     ];
 

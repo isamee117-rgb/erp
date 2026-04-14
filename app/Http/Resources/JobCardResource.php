@@ -14,6 +14,7 @@ class JobCardResource extends JsonResource
             'companyId'         => $this->company_id,
             'jobCardNo'         => $this->job_card_no,
             'status'            => $this->status,
+            'saleId'            => $this->sale_id,
             'customerId'        => $this->customer_id,
             'customerName'      => $this->customer_name,
             'phone'             => $this->phone,
