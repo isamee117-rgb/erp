@@ -35,6 +35,10 @@ Route::middleware([WebAuth::class])->group(function () {
         return view('pages.pos');
     });
 
+    Route::get('/job-card', function () {
+        return view('pages.job-card');
+    });
+
     Route::get('/sales', function () {
         return view('pages.sales');
     });

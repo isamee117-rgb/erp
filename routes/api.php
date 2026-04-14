@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\ChartOfAccountController;
 use App\Http\Controllers\Api\AccountMappingController;
 use App\Http\Controllers\Api\JournalEntryController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\JobCardController;
 use App\Http\Middleware\ApiTokenAuth;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -65,6 +66,20 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
 
     Route::post('/payments', [PaymentController::class, 'store']);
     Route::delete('/payments/{id}', [PaymentController::class, 'destroy']);
+
+    // Job Cards
+    Route::get('/job-cards', [JobCardController::class, 'index']);
+    Route::post('/job-cards', [JobCardController::class, 'store']);
+    Route::get('/job-cards/history', [JobCardController::class, 'history']);
+    Route::get('/job-cards/{id}', [JobCardController::class, 'show']);
+    Route::put('/job-cards/{id}', [JobCardController::class, 'update']);
+    Route::post('/job-cards/{id}/items', [JobCardController::class, 'addItem']);
+    Route::put('/job-cards/{id}/items/{itemId}', [JobCardController::class, 'updateItem']);
+    Route::delete('/job-cards/{id}/items/{itemId}', [JobCardController::class, 'removeItem']);
+    Route::post('/job-cards/{id}/finalize', [JobCardController::class, 'finalize']);
+    Route::delete('/job-cards/{id}', [JobCardController::class, 'destroy']);
+
+    Route::put('/settings/job-card-mode', [SettingsController::class, 'updateJobCardMode']);
 
     Route::put('/settings/currency', [SettingsController::class, 'updateCurrency']);
     Route::put('/settings/invoice-format', [SettingsController::class, 'updateInvoiceFormat']);
