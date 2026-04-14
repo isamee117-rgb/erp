@@ -74,6 +74,10 @@ class JobCardService
 
     public function addItem(JobCard $card, array $data): JobCardItem
     {
+        if ($card->status !== 'open') {
+            throw new \RuntimeException('Cannot modify a closed job card.');
+        }
+
         $itemType = $data['itemType']; // 'part' or 'service'
 
         $product = Product::where('company_id', $card->company_id)
@@ -108,6 +112,10 @@ class JobCardService
 
     public function updateItem(JobCard $card, string $itemId, array $data): JobCardItem
     {
+        if ($card->status !== 'open') {
+            throw new \RuntimeException('Cannot modify a closed job card.');
+        }
+
         $item = JobCardItem::where('job_card_id', $card->id)
                            ->where('id', $itemId)
                            ->firstOrFail();
@@ -130,6 +138,10 @@ class JobCardService
 
     public function removeItem(JobCard $card, string $itemId): void
     {
+        if ($card->status !== 'open') {
+            throw new \RuntimeException('Cannot modify a closed job card.');
+        }
+
         JobCardItem::where('job_card_id', $card->id)
                    ->where('id', $itemId)
                    ->firstOrFail()
@@ -141,6 +153,10 @@ class JobCardService
     public function finalize(JobCard $card, User $user): JobCard
     {
         return DB::transaction(function () use ($card, $user) {
+            if ($card->status === 'closed') {
+                throw new \RuntimeException('Job card is already finalized.');
+            }
+
             foreach ($card->items()->where('item_type', 'part')->get() as $item) {
                 $product = Product::find($item->product_id);
                 if (!$product) continue;
