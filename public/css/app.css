@@ -1507,3 +1507,123 @@
 .pm-acct-toggle.open .ti-chevron-down { transform: rotate(180deg); }
 .pm-acct-body { padding: 10px 0 4px; }
 .uom-mult-edit-wrap { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ── Job Card Module ────────────────────────────────────────────────────── */
+
+.jc-page-wrap { display: flex; flex-direction: column; height: calc(100vh - 60px); }
+
+/* Tab Bar */
+.jc-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: #fff;
+    border-bottom: 1px solid #e6e7e9;
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+.jc-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    background: #f9fafb;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.jc-tab.active {
+    background: #206bc4;
+    color: #fff;
+    border-color: #206bc4;
+}
+.jc-tab-close {
+    opacity: 0.6;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.jc-tab-close:hover { opacity: 1; }
+.jc-new-tab-btn {
+    padding: 6px 12px;
+    border: 1px dashed #206bc4;
+    border-radius: 6px;
+    color: #206bc4;
+    background: transparent;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.jc-new-tab-btn:hover { background: #e8f0fb; }
+
+/* Card Panel */
+.jc-panel { display: flex; gap: 16px; flex: 1; overflow: hidden; padding: 12px; }
+.jc-left  { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.jc-right { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* Header Fields */
+.jc-header-card { background: #fff; border: 1px solid #e6e7e9; border-radius: 8px; padding: 14px; }
+.jc-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.04em;
+    margin-bottom: 10px;
+}
+
+/* Items sections */
+.jc-items-card { background: #fff; border: 1px solid #e6e7e9; border-radius: 8px; padding: 14px; }
+.jc-search-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.jc-search-input { flex: 1; }
+.jc-items-table { width: 100%; font-size: 0.8125rem; }
+.jc-items-table th { color: #6c757d; font-weight: 600; padding: 4px 6px; border-bottom: 1px solid #e6e7e9; }
+.jc-items-table td { padding: 6px 6px; border-bottom: 1px solid #f1f3f5; vertical-align: middle; }
+.jc-remove-btn { background: none; border: none; color: #dc3545; cursor: pointer; padding: 0 4px; }
+.jc-remove-btn:hover { color: #a71d2a; }
+
+/* Right panel — totals */
+.jc-totals-card { background: #fff; border: 1px solid #e6e7e9; border-radius: 8px; padding: 14px; }
+.jc-total-row { display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 6px; }
+.jc-total-row.grand { font-weight: 700; font-size: 1rem; border-top: 1px solid #e6e7e9; padding-top: 8px; margin-top: 4px; }
+.jc-payment-btns { display: flex; gap: 6px; margin: 8px 0; }
+.jc-payment-btn { flex: 1; padding: 6px; border: 1px solid #d0d5dd; border-radius: 6px; background: #f9fafb; font-size: 0.8125rem; cursor: pointer; }
+.jc-payment-btn.active { background: #206bc4; color: #fff; border-color: #206bc4; }
+
+/* Action buttons */
+.jc-finalize-btn { width: 100%; padding: 10px; background: #2fb344; color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+.jc-finalize-btn:hover { background: #26953a; }
+.jc-print-btn    { width: 100%; padding: 8px; background: #206bc4; color: #fff; border: none; border-radius: 6px; cursor: pointer; margin-top: 4px; }
+.jc-discard-btn  { width: 100%; padding: 8px; background: transparent; color: #dc3545; border: 1px solid #dc3545; border-radius: 6px; cursor: pointer; margin-top: 4px; }
+.jc-discard-btn:hover { background: #fff0f0; }
+
+/* Empty state */
+.jc-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: #6c757d; gap: 12px; padding: 40px; }
+.jc-empty-state i { font-size: 3rem; opacity: 0.3; }
+
+/* History tab */
+.jc-history-wrap { padding: 12px; }
+
+/* ── Print Layout ────────────────────────────────────────────────────────── */
+@media print {
+    .navbar-vertical,
+    .jc-tab-bar,
+    .jc-right,
+    .navbar,
+    [data-nav-mode="pos"],
+    [data-nav-mode="job-card"] { display: none !important; }
+
+    .jc-panel { display: block; padding: 0; }
+    .jc-left  { overflow: visible; }
+
+    .jc-print-header { display: block !important; margin-bottom: 16px; }
+    .jc-items-table td,
+    .jc-items-table th { padding: 4px 6px; font-size: 11pt; }
+
+    body { background: #fff; }
+    .card { border: none; box-shadow: none; }
+}
+.jc-print-header { display: none; }

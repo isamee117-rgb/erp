@@ -76,10 +76,16 @@
                             </a>
                         </li>
                         <li class="nav-item pt-2"><small class="nav-link-title text-uppercase text-muted fw-bold ps-3" class="erp-nav-section-label">Supply Chain &amp; Operations</small></li>
-                        <li class="nav-item" data-module="POS">
+                        <li class="nav-item" data-module="POS" data-nav-mode="pos">
                             <a class="nav-link" href="{{ $base }}/pos" data-nav-path="/pos">
                                 <span class="nav-link-icon"><i class="ti ti-shopping-bag"></i></span>
                                 <span class="nav-link-title">POS Terminal</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-nav-mode="job-card">
+                            <a class="nav-link" href="{{ $base }}/job-card" data-nav-path="/job-card">
+                                <span class="nav-link-icon"><i class="ti ti-clipboard-list"></i></span>
+                                <span class="nav-link-title">Job Card</span>
                             </a>
                         </li>
                         <li class="nav-item" data-module="Sales">

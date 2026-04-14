@@ -40,6 +40,23 @@ function renderPage(){
     renderTags('bizCatsList',state.businessCategories||[],'deleteBizCat');
     renderSequences();
     renderDynamicFieldSettings();
+    initJobCardModeToggle();
+}
+function initJobCardModeToggle(){
+    var toggle = document.getElementById('setting-job-card-mode');
+    if (!toggle) return;
+    toggle.checked = !!(window.ERP.state.jobCardMode);
+    toggle.addEventListener('change', function(){
+        var enabled = toggle.checked;
+        ERP.api.updateJobCardMode(enabled).then(function(){
+            window.ERP.state.jobCardMode = enabled;
+            // Update sidebar visibility
+            var posNav = document.querySelector('[data-nav-mode="pos"]');
+            var jcNav  = document.querySelector('[data-nav-mode="job-card"]');
+            if (posNav) posNav.style.display = enabled ? 'none' : '';
+            if (jcNav)  jcNav.style.display  = enabled ? '' : 'none';
+        }).catch(function(e){ alert('Error: ' + e.message); toggle.checked = !enabled; });
+    });
 }
 function renderTags(containerId,items,deleteFn){
     var html='';
@@ -511,7 +528,6 @@ function renderDynamicFieldSettings() {
                         '<span class="dynf-card-name">' + escHtml(f.label) + '</span>' +
                         '<div class="dynf-card-badges">' +
                             '<span class="dynf-badge-type">' + escHtml(f.type) + '</span>' +
-                            '<span class="dynf-badge-industry ' + hc + '">' + escHtml(f.industry_hint) + '</span>' +
                             (pending !== undefined ? '<span class="dynf-pending-dot"></span>' : '') +
                         '</div>' +
                     '</div>' +

@@ -362,6 +362,24 @@
     </div>
   </div>
 
+  {{-- Module Settings --}}
+  <div class="col-12">
+    <div class="card inv-section-card">
+      <div class="set-card-header"><i class="ti ti-layout-grid me-2 text-teal"></i>Module Settings</div>
+      <div class="set-card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="fw-semibold" style="font-size:0.9rem">Job Card Mode</div>
+            <div class="text-muted" style="font-size:0.82rem">Replace POS Terminal with Job Card in the sidebar</div>
+          </div>
+          <div class="form-check form-switch ms-3">
+            <input class="form-check-input" type="checkbox" id="setting-job-card-mode" role="switch" style="width:2.5em;height:1.4em;cursor:pointer">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   {{-- Dynamic Fields --}}
   <div class="col-12">
     <div class="card inv-section-card">

@@ -274,6 +274,37 @@
                 entity_type: entityType,
                 is_enabled: isEnabled,
             });
+        },
+        // ── Job Cards ─────────────────────────────────────────────────────────
+        createJobCard: function(data) {
+            return request('POST', '/job-cards', data);
+        },
+        updateJobCard: function(id, data) {
+            return request('PUT', '/job-cards/' + id, data);
+        },
+        addJobCardItem: function(id, data) {
+            return request('POST', '/job-cards/' + id + '/items', data);
+        },
+        updateJobCardItem: function(id, itemId, data) {
+            return request('PUT', '/job-cards/' + id + '/items/' + itemId, data);
+        },
+        removeJobCardItem: function(id, itemId) {
+            return request('DELETE', '/job-cards/' + id + '/items/' + itemId);
+        },
+        finalizeJobCard: function(id) {
+            return request('POST', '/job-cards/' + id + '/finalize', {});
+        },
+        discardJobCard: function(id) {
+            return request('DELETE', '/job-cards/' + id);
+        },
+        getJobCard: function(id) {
+            return request('GET', '/job-cards/' + id);
+        },
+        getJobCardHistory: function(page) {
+            return request('GET', '/job-cards/history?page=' + (page || 1));
+        },
+        updateJobCardMode: function(enabled) {
+            return request('PUT', '/settings/job-card-mode', { jobCardMode: enabled });
         }
     };
 
