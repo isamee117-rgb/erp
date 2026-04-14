@@ -18,6 +18,7 @@ class DocumentSequenceService
         'item_no' => ['prefix' => 'ITM-', 'label' => 'Item'],
         'sku'           => ['prefix' => 'SKU-',  'label' => 'SKU'],
         'journal_entry' => ['prefix' => 'JE-',   'label' => 'Journal Entry'],
+        'job_card'      => ['prefix' => 'JC-',   'label' => 'Job Card'],
     ];
 
     public function ensureSequencesExist(string $companyId): void
