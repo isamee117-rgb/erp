@@ -13,6 +13,8 @@ class SaleItem extends Model
         'id',
         'sale_order_id',
         'product_id',
+        'uom_id',
+        'uom_multiplier',
         'quantity',
         'unit_price',
         'discount',

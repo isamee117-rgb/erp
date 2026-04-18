@@ -26,6 +26,7 @@ class PartyResource extends JsonResource
             'openingBalance' => (float) $this->opening_balance,
             'currentBalance' => (float) $this->current_balance,
             // Dynamic customer fields
+            'make_model_year'       => $this->make_model_year       ?? null,
             'vehicle_reg_number'    => $this->vehicle_reg_number    ?? null,
             'vin_chassis_number'    => $this->vin_chassis_number    ?? null,
             'engine_number'         => $this->engine_number         ?? null,

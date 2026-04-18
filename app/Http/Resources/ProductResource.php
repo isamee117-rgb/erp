@@ -46,7 +46,6 @@ class ProductResource extends JsonResource
             'manufacturer_name'     => $this->manufacturer_name    ?? null,
             'dosage_form'           => $this->dosage_form          ?? null,
             'storage_temp_req'      => $this->storage_temp_req     ?? null,
-            'part_number'           => $this->part_number          ?? null,
             'vehicle_compatibility' => $this->vehicle_compatibility ?? null,
             'core_charge_flag'      => $this->core_charge_flag !== null ? (bool) $this->core_charge_flag : null,
             'warranty_period'       => $this->warranty_period      ?? null,

@@ -117,11 +117,17 @@ function renderPage() {
       if (isExpanded) {
         html += '<tr class="expand-row"><td colspan="8"><div class="p-3"><div class="row"><div class="col-md-7">' +
           '<h4 class="mb-3" class="erp-table-section-header">Order Items</h4>' +
-          '<table class="table table-sm mb-0"><thead><tr><th>Product</th><th class="text-center">Ordered</th><th class="text-center">Received</th><th class="text-end">Unit Cost</th><th class="text-end">Line Total</th></tr></thead><tbody>';
+          '<table class="table table-sm mb-0"><thead><tr><th>Product</th><th class="text-center">UOM</th><th class="text-center">Ordered</th><th class="text-center">Received</th><th class="text-end">Unit Cost</th><th class="text-end">Line Total</th></tr></thead><tbody>';
         (po.items || []).forEach(function(item) {
           var prod = products.find(function(p) { return p.id === item.productId; });
           var received = item.receivedQuantity || 0;
+          var uomLabel = 'Base';
+          if (item.uomId && prod) {
+            var conv = (prod.uomConversions || []).find(function(c) { return c.uomId === item.uomId; });
+            if (conv) uomLabel = conv.uomName || item.uomId;
+          }
           html += '<tr><td>' + (prod ? prod.name : 'Deleted Product') + '</td>' +
+            '<td class="text-center"><span class="po-uom-badge">' + uomLabel + '</span></td>' +
             '<td class="text-center">' + (item.quantity || 0) + '</td>' +
             '<td class="text-center"><span class="' + (received < item.quantity ? 'text-primary' : 'text-success') + '">' + received + ' / ' + item.quantity + '</span></td>' +
             '<td class="text-end">' + ERP.formatCurrency(item.unitCost || 0) + '</td>' +
@@ -279,8 +285,23 @@ function openNewPOModal() {
 }
 
 function addPOItemRow() {
-  poItems.push({ productId: '', quantity: 1, unitCost: 0 });
+  poItems.push({ productId: '', uomId: null, quantity: 1, unitCost: 0 });
   renderPOItems();
+}
+
+function renderUomCell(idx, item) {
+  var product = (window.ERP.state.products || []).find(function(p) { return p.id === item.productId; });
+  var conversions = (product && product.uomConversions) ? product.uomConversions : [];
+  var baseLabel = (product && product.uom) ? escHtml(product.uom) : 'Base';
+  if (!conversions.length) return '<td class="po-td-input text-center"><span class="text-muted erp-text-sm">' + baseLabel + '</span></td>';
+  var html = '<td class="po-td-input"><select class="form-select pm-input po-input-sm" onchange="updatePOItem(' + idx + ',\'uomId\',this.value)">';
+  html += '<option value="">' + baseLabel + '</option>';
+  conversions.forEach(function(c) {
+    var selected = item.uomId === c.uomId ? ' selected' : '';
+    html += '<option value="' + escHtml(c.uomId) + '"' + selected + '>' + escHtml(c.uomName || c.uomId) + '</option>';
+  });
+  html += '</select></td>';
+  return html;
 }
 
 function renderPOItems() {
@@ -288,10 +309,13 @@ function renderPOItems() {
   var html = '';
   poItems.forEach(function(item, idx) {
     html += '<tr>' +
+      '<td class="po-td-input align-middle" style="color:#9CA3AF;font-size:0.78rem;width:32px;">' + (idx + 1) + '</td>' +
       '<td class="po-td-input">' + renderProductSDD(idx, item.productId) + '</td>' +
+      renderUomCell(idx, item) +
       '<td class="po-td-input"><input type="number" class="form-control pm-input text-center po-input-sm" value="' + item.quantity + '" onchange="updatePOItem(' + idx + ',\'quantity\',this.value)"></td>' +
       '<td class="po-td-input"><input type="number" step="0.01" class="form-control pm-input po-input-sm" value="' + item.unitCost + '" onchange="updatePOItem(' + idx + ',\'unitCost\',this.value)"></td>' +
-      '<td class="po-td-input"><button class="pg-action-btn text-danger" onclick="removePOItem(' + idx + ')"><i class="ti ti-trash"></i></button></td></tr>';
+      '<td class="po-td-input text-end" style="font-weight:600;color:#1A1D2E;white-space:nowrap;">' + ERP.formatCurrency(item.quantity * item.unitCost) + '</td>' +
+      '<td class="po-td-input text-center"><button type="button" class="pg-action-btn text-danger" onclick="removePOItem(' + idx + ')"><i class="ti ti-trash"></i></button></td></tr>';
   });
   tbody.innerHTML = html;
   updatePOTotal();
@@ -300,8 +324,31 @@ function renderPOItems() {
 function updatePOItem(idx, field, value) {
   if (field === 'productId') {
     poItems[idx].productId = value;
+    poItems[idx].uomId = null;
     var p = (window.ERP.state.products || []).find(function(x) { return x.id === value; });
-    if (p) poItems[idx].unitCost = p.unitCost || 0;
+    if (p) {
+      poItems[idx].unitCost = p.unitCost || 0;
+      // Auto-select default purchase UOM if defined
+      var defConv = (p.uomConversions || []).find(function(c) { return c.isDefaultPurchaseUnit; });
+      if (defConv) {
+        poItems[idx].uomId = defConv.uomId;
+        poItems[idx].unitCost = (p.unitCost || 0) * defConv.multiplier;
+      }
+    }
+    renderPOItems();
+  } else if (field === 'uomId') {
+    poItems[idx].uomId = value || null;
+    // Recalculate unit cost based on selected UOM
+    var prod = (window.ERP.state.products || []).find(function(x) { return x.id === poItems[idx].productId; });
+    if (prod) {
+      var baseUnitCost = prod.unitCost || 0;
+      if (value) {
+        var conv = (prod.uomConversions || []).find(function(c) { return c.uomId === value; });
+        poItems[idx].unitCost = conv ? baseUnitCost * conv.multiplier : baseUnitCost;
+      } else {
+        poItems[idx].unitCost = baseUnitCost;
+      }
+    }
     renderPOItems();
   } else if (field === 'quantity') {
     poItems[idx].quantity = parseInt(value) || 1;
@@ -325,7 +372,9 @@ function updatePOTotal() {
 async function createPO() {
   var vendorId = document.getElementById('npo-vendor').value;
   if (!vendorId) { alert('Please select a vendor'); return; }
-  var validItems = poItems.filter(function(i) { return i.productId; });
+  var validItems = poItems.filter(function(i) { return i.productId; }).map(function(i) {
+    return { productId: i.productId, uomId: i.uomId || null, quantity: i.quantity, unitCost: i.unitCost };
+  });
   if (validItems.length === 0) { alert('Add at least one product'); return; }
   if (!await showConfirm('Save Purchase Order', 'Are you sure you want to save this Purchase Order?')) return;
 
@@ -349,7 +398,7 @@ function openReceiveModal(poId) {
 
   var tbody = document.getElementById('recv-items');
   var html = '';
-  (po.items || []).forEach(function(item, idx) {
+  (po.items || []).forEach(function(item) {
     var prod = products.find(function(p) { return p.id === item.productId; });
     var received = item.receivedQuantity || 0;
     var remaining = item.quantity - received;

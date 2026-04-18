@@ -81,10 +81,10 @@
 @push('styles')
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-:root{--inv-primary:#3B4FE4;--inv-font:'Inter',sans-serif;}
+:root{--inv-primary:#CD0000;--inv-font:'Inter',sans-serif;}
 .page-body,.page-wrapper{font-family:var(--inv-font);font-size:14px;background:#F5F6FA!important;}
 .inv-page-wrap{display:flex;flex-direction:column;gap:16px;}
-.inv-header-card{background:linear-gradient(135deg,#3B4FE4 0%,#5B6CF9 100%);border:none;border-radius:10px;overflow:hidden;position:relative;}
+.inv-header-card{background:linear-gradient(135deg,#CD0000 0%,#e53333 100%);border:none;border-radius:10px;overflow:hidden;position:relative;}
 .inv-header-card::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.12) 1px,transparent 1px);background-size:16px 16px;opacity:0.5;pointer-events:none;}
 .inv-header-card::after{content:'';position:absolute;top:-40%;right:-8%;width:260px;height:260px;background:rgba(255,255,255,0.06);border-radius:50%;pointer-events:none;}
 .inv-header-body{padding:20px 28px!important;position:relative;z-index:1;}
@@ -108,7 +108,7 @@
 .inv-input{height:36px!important;font-size:0.85rem!important;border:1px solid #DDE1EC!important;border-radius:6px!important;}
 .inv-footer-bar{padding:10px 16px;border-top:1px solid #E8EAF0;display:flex;align-items:center;justify-content:space-between;background:#fff;flex-wrap:wrap;gap:8px;}
 .pagination .page-link{border-radius:6px!important;margin:0 2px;border:1px solid #E8EAF0;color:#64748b;font-weight:500;font-size:0.8rem;min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;transition:all 0.15s ease;}
-.pagination .page-item.active .page-link{background:#3B4FE4;border-color:#3B4FE4;color:#fff;}
+.pagination .page-item.active .page-link{background:#CD0000;border-color:#CD0000;color:#fff;}
 .pagination .page-item.disabled .page-link{opacity:0.45;pointer-events:none;}
 .pagination .page-link:hover:not(.active){background:#F5F6FA;border-color:#DDE1EC;color:#1e293b;}
 </style>

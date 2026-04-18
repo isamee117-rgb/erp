@@ -13,6 +13,8 @@ class PurchaseReturnItem extends Model
         'id',
         'purchase_return_id',
         'product_id',
+        'uom_id',
+        'uom_multiplier',
         'quantity',
         'unit_cost',
         'total_line_cost',

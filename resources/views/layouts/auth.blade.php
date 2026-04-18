@@ -13,10 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css" rel="stylesheet"/>
     <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet"/>
-    <style>
-        :root { --tblr-font-sans-serif: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        body { font-family: var(--tblr-font-sans-serif); }
-    </style>
+    <link href="{{ url('css/app.css') }}" rel="stylesheet"/>
     @stack('styles')
 </head>
 <body class="d-flex flex-column">

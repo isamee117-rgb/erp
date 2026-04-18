@@ -12,6 +12,8 @@ class PurchaseItemResource extends JsonResource
         return [
             'id'               => $this->id,
             'productId'        => $this->product_id,
+            'uomId'            => $this->uom_id        ?? null,
+            'uomMultiplier'    => (float) ($this->uom_multiplier ?? 1),
             'quantity'         => $this->quantity,
             'unitCost'         => (float) $this->unit_cost,
             'totalLineCost'    => (float) $this->total_line_cost,

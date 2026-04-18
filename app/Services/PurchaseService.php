@@ -12,6 +12,7 @@ use App\Models\PurchaseReceiveItem;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
 use App\Models\User;
+use App\Services\UomConversionService;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
@@ -20,6 +21,7 @@ class PurchaseService
     public function __construct(
         protected InventoryCostingService $costingService,
         protected DocumentSequenceService $sequenceService,
+        protected UomConversionService $uomService,
     ) {}
 
     public function createOrder(User $user, array $data): PurchaseOrder
@@ -33,17 +35,22 @@ class PurchaseService
         foreach ($data['items'] ?? [] as $item) {
             $productId     = $item['productId'] ?? $item['product_id'];
             $product       = Product::find($productId);
+            $uomId         = $item['uomId'] ?? $item['uom_id'] ?? null;
+            $multiplier    = $this->uomService->resolveMultiplier($productId, $uomId);
+            // unitCost is the cost per the selected UOM (e.g. cost per carton)
             $unitCost      = $item['unitCost'] ?? $item['unit_cost'] ?? $product->unit_cost ?? 0;
             $quantity      = $item['quantity'] ?? 0;
             $totalLineCost = $quantity * $unitCost;
 
             $mappedItems[] = [
-                'id'                 => 'PI-' . Str::random(9),
-                'product_id'         => $productId,
-                'quantity'           => $quantity,
-                'unit_cost'          => $unitCost,
-                'total_line_cost'    => $totalLineCost,
-                'received_quantity'  => 0,
+                'id'                => 'PI-' . Str::random(9),
+                'product_id'        => $productId,
+                'uom_id'            => $uomId,
+                'uom_multiplier'    => $multiplier,
+                'quantity'          => $quantity,
+                'unit_cost'         => $unitCost,
+                'total_line_cost'   => $totalLineCost,
+                'received_quantity' => 0,
             ];
 
             $totalAmount += $totalLineCost;
@@ -128,6 +135,12 @@ class PurchaseService
 
             $unitCost = $unitCost > 0 ? $unitCost : $poItem->unit_cost;
 
+            // Convert to base units using the PO item's multiplier snapshot
+            $multiplier        = (float) ($poItem->uom_multiplier ?? 1);
+            $baseQty           = (int) round($actualQty * $multiplier);
+            // Cost per base unit for moving-average and FIFO layer
+            $costPerBaseUnit   = $multiplier > 0 ? $unitCost / $multiplier : $unitCost;
+
             PurchaseReceiveItem::create([
                 'id'                  => 'RCI-' . Str::random(9),
                 'purchase_receive_id' => $receiveId,
@@ -142,12 +155,12 @@ class PurchaseService
 
             $product = Product::find($productId);
             if ($product) {
-                $this->costingService->updateMovingAverageCost($product, $actualQty, $unitCost);
-                $product->current_stock += $actualQty;
+                $this->costingService->updateMovingAverageCost($product, $baseQty, $costPerBaseUnit);
+                $product->current_stock += $baseQty;
                 $product->save();
 
                 $this->costingService->addCostLayer(
-                    $user->company_id, $productId, $actualQty, $unitCost, $receiveId, 'purchase_receive'
+                    $user->company_id, $productId, $baseQty, $costPerBaseUnit, $receiveId, 'purchase_receive'
                 );
 
                 InventoryLedger::create([
@@ -155,7 +168,7 @@ class PurchaseService
                     'company_id'       => $user->company_id,
                     'product_id'       => $product->id,
                     'transaction_type' => 'Purchase_Receive',
-                    'quantity_change'  => $actualQty,
+                    'quantity_change'  => $baseQty,
                     'reference_id'     => $receiveId,
                 ]);
             }
@@ -216,10 +229,14 @@ class PurchaseService
         ]);
 
         foreach ($processedItems as $pi) {
+            $baseReturnQty = (int) round($pi['returnQty'] * $pi['multiplier']);
+
             PurchaseReturnItem::create([
                 'id'                 => 'PRI-' . Str::random(9),
                 'purchase_return_id' => $returnUUID,
                 'product_id'         => $pi['productId'],
+                'uom_id'             => $pi['uomId'],
+                'uom_multiplier'     => $pi['multiplier'],
                 'quantity'           => $pi['returnQty'],
                 'unit_cost'          => $pi['unitCost'],
                 'total_line_cost'    => $pi['lineCost'],
@@ -230,7 +247,7 @@ class PurchaseService
 
             $product = Product::find($pi['productId']);
             if ($product) {
-                $product->current_stock -= $pi['returnQty'];
+                $product->current_stock -= $baseReturnQty;
                 $product->save();
 
                 InventoryLedger::create([
@@ -238,7 +255,7 @@ class PurchaseService
                     'company_id'       => $user->company_id,
                     'product_id'       => $pi['productId'],
                     'transaction_type' => 'Purchase_Return',
-                    'quantity_change'  => -$pi['returnQty'],
+                    'quantity_change'  => -$baseReturnQty,
                     'reference_id'     => $returnNo,
                 ]);
             }
@@ -304,10 +321,15 @@ class PurchaseService
             $returnQty     = min($returnQty, $maxReturnable);
             if ($returnQty <= 0) continue;
 
-            $unitCost = $item['unitCost'] ?? $item['unit_cost'] ?? (float) $poItem->unit_cost;
-            $lineCost = $returnQty * $unitCost;
+            // Inherit UOM snapshot from original PO item
+            $uomId      = $poItem->uom_id ?? null;
+            $multiplier = (float) ($poItem->uom_multiplier ?? 1);
+            $unitCost   = $item['unitCost'] ?? $item['unit_cost'] ?? (float) $poItem->unit_cost;
+            $lineCost   = $returnQty * $unitCost;
 
-            $processedItems[] = compact('productId', 'returnQty', 'unitCost', 'lineCost', 'poItem');
+            $processedItems[] = compact(
+                'productId', 'returnQty', 'uomId', 'multiplier', 'unitCost', 'lineCost', 'poItem'
+            );
             $totalAmount += $lineCost;
         }
 

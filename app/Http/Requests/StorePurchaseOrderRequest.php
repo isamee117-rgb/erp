@@ -14,6 +14,7 @@ class StorePurchaseOrderRequest extends FormRequest
             'vendorId'           => 'required|string|exists:parties,id',
             'items'              => 'required|array|min:1',
             'items.*.productId'  => 'required|string|exists:products,id',
+            'items.*.uomId'      => 'sometimes|nullable|string|exists:units_of_measure,id',
             'items.*.quantity'   => 'required|integer|min:1',
             'items.*.unitCost'   => 'sometimes|numeric|min:0',
             'orderDate'          => 'sometimes|nullable|date',

@@ -51,10 +51,8 @@ function initJobCardModeToggle(){
         ERP.api.updateJobCardMode(enabled).then(function(){
             window.ERP.state.jobCardMode = enabled;
             // Update sidebar visibility
-            var posNav = document.querySelector('[data-nav-mode="pos"]');
-            var jcNav  = document.querySelector('[data-nav-mode="job-card"]');
-            if (posNav) posNav.style.display = enabled ? 'none' : '';
-            if (jcNav)  jcNav.style.display  = enabled ? '' : 'none';
+            var jcNav = document.querySelector('[data-nav-mode="job-card"]');
+            if (jcNav) jcNav.style.display = enabled ? '' : 'none';
         }).catch(function(e){ alert('Error: ' + e.message); toggle.checked = !enabled; });
     });
 }

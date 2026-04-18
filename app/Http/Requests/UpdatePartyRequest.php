@@ -11,15 +11,16 @@ class UpdatePartyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'          => 'sometimes|string|max:255',
+            'name'          => 'sometimes|nullable|string|max:255',
             'type'          => 'sometimes|string|in:Customer,Vendor',
-            'phone'         => 'sometimes|string|max:50',
+            'phone'         => 'sometimes|nullable|string|max:50',
             'email'         => 'sometimes|nullable|email|max:255',
-            'address'       => 'sometimes|string|max:500',
+            'address'       => 'sometimes|nullable|string|max:500',
             'creditLimit'   => 'sometimes|numeric|min:0',
             'openingBalance' => 'sometimes|numeric',
             'currentBalance' => 'sometimes|numeric',
             // Dynamic customer fields
+            'make_model_year'       => 'nullable|string|max:100',
             'vehicle_reg_number'    => 'nullable|string|max:100',
             'vin_chassis_number'    => 'nullable|string|max:100',
             'engine_number'         => 'nullable|string|max:100',

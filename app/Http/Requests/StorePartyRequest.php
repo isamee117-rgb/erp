@@ -19,6 +19,7 @@ class StorePartyRequest extends FormRequest
             'creditLimit'   => 'sometimes|numeric|min:0',
             'openingBalance' => 'sometimes|numeric',
             // Dynamic customer fields
+            'make_model_year'       => 'nullable|string|max:100',
             'vehicle_reg_number'    => 'nullable|string|max:100',
             'vin_chassis_number'    => 'nullable|string|max:100',
             'engine_number'         => 'nullable|string|max:100',

@@ -25,8 +25,7 @@ class DynamicFields
             ['key' => 'manufacturer_name',     'label' => 'Manufacturer Name',                   'entity' => 'product', 'type' => 'text',     'options' => [], 'industry_hint' => 'grocery/pharmacy'],
             ['key' => 'dosage_form',           'label' => 'Dosage Form',                         'entity' => 'product', 'type' => 'dropdown', 'options' => ['Tablet', 'Syrup', 'Injection', 'Capsule'], 'industry_hint' => 'pharmacy'],
             ['key' => 'storage_temp_req',      'label' => 'Storage Temperature Requirements',    'entity' => 'product', 'type' => 'text',     'options' => [], 'industry_hint' => 'grocery/pharmacy'],
-            ['key' => 'part_number',           'label' => 'Part Number (OEM/Aftermarket)',        'entity' => 'product', 'type' => 'text',     'options' => [], 'industry_hint' => 'automobile'],
-            ['key' => 'vehicle_compatibility', 'label' => 'Vehicle Compatibility (Make/Model/Year)', 'entity' => 'product', 'type' => 'text', 'options' => [], 'industry_hint' => 'automobile'],
+            ['key' => 'vehicle_compatibility', 'label' => 'Make/Model/Year',                        'entity' => 'product', 'type' => 'text', 'options' => [], 'industry_hint' => 'automobile'],
             ['key' => 'core_charge_flag',      'label' => 'Core Charge/Exchange Item Flag',      'entity' => 'product', 'type' => 'boolean',  'options' => [], 'industry_hint' => 'automobile'],
             ['key' => 'warranty_period',       'label' => 'Warranty Period',                     'entity' => 'product', 'type' => 'text',     'options' => [], 'industry_hint' => 'automobile'],
             ['key' => 'technical_specs',       'label' => 'Technical Specifications',            'entity' => 'product', 'type' => 'textarea', 'options' => [], 'industry_hint' => 'automobile'],
@@ -36,6 +35,7 @@ class DynamicFields
     public static function customerFields(): array
     {
         return [
+            ['key' => 'make_model_year',         'label' => 'Make/Model/Year',                     'entity' => 'customer', 'type' => 'text',   'options' => [], 'industry_hint' => 'automobile'],
             ['key' => 'vehicle_reg_number',    'label' => 'Vehicle Registration Number (Plate)', 'entity' => 'customer', 'type' => 'text',   'options' => [], 'industry_hint' => 'automobile'],
             ['key' => 'vin_chassis_number',     'label' => 'VIN/Chassis Number',                  'entity' => 'customer', 'type' => 'text',   'options' => [], 'industry_hint' => 'automobile'],
             ['key' => 'engine_number',          'label' => 'Engine Number',                       'entity' => 'customer', 'type' => 'text',   'options' => [], 'industry_hint' => 'automobile'],

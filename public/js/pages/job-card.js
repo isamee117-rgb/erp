@@ -91,15 +91,24 @@ function jcModalFillCustomer(party) {
     document.getElementById('jcm-name').value         = party.name || '';
     document.getElementById('jcm-phone').value        = party.phone || '';
 
-    // Prefill vehicle info from last job card for this customer
-    var history = window.ERP.state.jobCardHistory || [];
-    for (var i = 0; i < history.length; i++) {
-        if (history[i].customerId === party.id) {
-            document.getElementById('jcm-vreg').value  = history[i].vehicleRegNumber || '';
-            document.getElementById('jcm-make').value  = history[i].makeModelYear    || '';
-            document.getElementById('jcm-vin').value   = history[i].vinChassisNumber  || '';
-            document.getElementById('jcm-engine').value= history[i].engineNumber      || '';
-            break;
+    // Fill vehicle info from customer record first
+    document.getElementById('jcm-vreg').value    = party.vehicle_reg_number    || '';
+    document.getElementById('jcm-make').value    = party.make_model_year       || '';
+    document.getElementById('jcm-vin').value     = party.vin_chassis_number    || '';
+    document.getElementById('jcm-engine').value  = party.engine_number         || '';
+    document.getElementById('jcm-odometer').value = party.last_odometer_reading ? String(party.last_odometer_reading) : '';
+
+    // Fall back to last job card history only if customer record has no vehicle data
+    if (!party.vehicle_reg_number && !party.make_model_year && !party.vin_chassis_number && !party.engine_number) {
+        var history = window.ERP.state.jobCardHistory || [];
+        for (var i = 0; i < history.length; i++) {
+            if (history[i].customerId === party.id) {
+                document.getElementById('jcm-vreg').value   = history[i].vehicleRegNumber || '';
+                document.getElementById('jcm-make').value   = history[i].makeModelYear    || '';
+                document.getElementById('jcm-vin').value    = history[i].vinChassisNumber  || '';
+                document.getElementById('jcm-engine').value = history[i].engineNumber      || '';
+                break;
+            }
         }
     }
 }
@@ -122,12 +131,18 @@ function jcSaveNewModal() {
     // Step 1: create customer if no id but name given
     var customerPromise;
     if (!customerId && name) {
-        customerPromise = ERP.api.addParty({
-            companyId: (window.ERP.state.currentUser || {}).companyId,
-            name:      name,
-            phone:     phone || null,
-            type:      'Customer',
-        }).then(function(party) {
+        var newPartyData = {
+            companyId:           (window.ERP.state.currentUser || {}).companyId,
+            name:                name,
+            phone:               phone || null,
+            type:                'Customer',
+            make_model_year:     make    || null,
+            vehicle_reg_number:  vreg    || null,
+            vin_chassis_number:  vin     || null,
+            engine_number:       engine  || null,
+            last_odometer_reading: odometer ? (parseFloat(odometer) || null) : null,
+        };
+        customerPromise = ERP.api.addParty(newPartyData).then(function(party) {
             window.ERP.state.parties = (window.ERP.state.parties || []).concat([party]);
             return party.id;
         });
@@ -150,6 +165,17 @@ function jcSaveNewModal() {
 
         return ERP.api.createJobCard(payload);
     }).then(function(card) {
+        // Update customer record with vehicle info (non-blocking)
+        var resolvedCustomerId = document.getElementById('jcm-customer-id').value.trim();
+        if (resolvedCustomerId && (vreg || make || vin || engine || odometer)) {
+            var partyUpdate = { id: resolvedCustomerId };
+            if (vreg)     partyUpdate.vehicle_reg_number    = vreg;
+            if (make)     partyUpdate.make_model_year       = make;
+            if (vin)      partyUpdate.vin_chassis_number    = vin;
+            if (engine)   partyUpdate.engine_number         = engine;
+            if (odometer) partyUpdate.last_odometer_reading = parseFloat(odometer) || null;
+            ERP.api.updateParty(partyUpdate).catch(function() {});
+        }
         // Close modal
         var modal = bootstrap.Modal.getInstance(document.getElementById('jcNewCardModal'));
         if (modal) modal.hide();
@@ -218,7 +244,7 @@ function jcRenderTabBar() {
         });
         tab.querySelector('.jc-tab-close').addEventListener('click', function(e) {
             e.stopPropagation();
-            jcCloseTab(card.id);
+            jcDiscard(card.id);
         });
         bar.appendChild(tab);
     });
@@ -253,10 +279,35 @@ function jcBuildPanelHtml(card) {
 
     return '<div class="jc-panel" id="jc-panel-' + escHtml(card.id) + '">' +
 
-        // LEFT COLUMN
+        // LEFT COLUMN — Parts & Services
         '<div class="jc-left">' +
 
-            // Header Info (read-only summary + editable fields)
+            // Parts
+            '<div class="jc-items-card">' +
+                '<div class="jc-section-title"><i class="ti ti-tool me-1"></i>Parts</div>' +
+                '<div class="jc-search-row">' +
+                    '<input type="text" class="form-control pm-input" id="jc-parts-search" placeholder="Search parts by name...">' +
+                '</div>' +
+                '<div id="jc-parts-suggestions" class="list-group mb-2" style="position:relative;z-index:10"></div>' +
+                jcItemsTable('jc-parts-table', parts, card.partsSubtotal) +
+            '</div>' +
+
+            // Services
+            '<div class="jc-items-card">' +
+                '<div class="jc-section-title"><i class="ti ti-briefcase me-1"></i>Services</div>' +
+                '<div class="jc-search-row">' +
+                    '<input type="text" class="form-control pm-input" id="jc-services-search" placeholder="Search services by name...">' +
+                '</div>' +
+                '<div id="jc-services-suggestions" class="list-group mb-2" style="position:relative;z-index:10"></div>' +
+                jcItemsTable('jc-services-table', services, card.servicesSubtotal) +
+            '</div>' +
+
+        '</div>' +
+
+        // RIGHT COLUMN — Customer Info + Totals & Actions
+        '<div class="jc-right">' +
+
+            // Customer & Vehicle Info (top of right column)
             '<div class="jc-header-card">' +
                 '<div class="jc-section-title"><i class="ti ti-car me-1"></i>Vehicle &amp; Customer</div>' +
                 '<div class="row g-2">' +
@@ -271,34 +322,9 @@ function jcBuildPanelHtml(card) {
                 '</div>' +
             '</div>' +
 
-            // Parts
-            '<div class="jc-items-card">' +
-                '<div class="jc-section-title"><i class="ti ti-tool me-1"></i>Parts</div>' +
-                '<div class="jc-search-row">' +
-                    '<input type="text" class="form-control pm-input" id="jc-parts-search" placeholder="Search parts by name...">' +
-                '</div>' +
-                '<div id="jc-parts-suggestions" class="list-group mb-2" style="position:relative;z-index:10"></div>' +
-                jcItemsTable('jc-parts-table', parts) +
-            '</div>' +
-
-            // Services
-            '<div class="jc-items-card">' +
-                '<div class="jc-section-title"><i class="ti ti-briefcase me-1"></i>Services</div>' +
-                '<div class="jc-search-row">' +
-                    '<input type="text" class="form-control pm-input" id="jc-services-search" placeholder="Search services by name...">' +
-                '</div>' +
-                '<div id="jc-services-suggestions" class="list-group mb-2" style="position:relative;z-index:10"></div>' +
-                jcItemsTable('jc-services-table', services) +
-            '</div>' +
-
-        '</div>' +
-
-        // RIGHT COLUMN — Totals & Actions
-        '<div class="jc-right">' +
+            // Billing Summary (bottom of right column)
             '<div class="jc-totals-card">' +
                 '<div class="jc-section-title"><i class="ti ti-receipt me-1"></i>Summary</div>' +
-                '<div class="jc-total-row"><span class="text-muted">Parts</span><span>' + ERP.formatCurrency(card.partsSubtotal || 0) + '</span></div>' +
-                '<div class="jc-total-row"><span class="text-muted">Services</span><span>' + ERP.formatCurrency(card.servicesSubtotal || 0) + '</span></div>' +
                 '<div class="jc-total-row"><span class="text-muted">Subtotal</span><span>' + ERP.formatCurrency(card.subtotal || 0) + '</span></div>' +
                 '<div class="jc-total-row align-items-center">' +
                     '<span class="text-muted">Discount</span>' +
@@ -333,7 +359,7 @@ function jcField(label, id, type, value) {
         '</div>';
 }
 
-function jcItemsTable(tableId, items) {
+function jcItemsTable(tableId, items, subtotal) {
     var rows = '';
     items.forEach(function(item) {
         rows += '<tr>' +
@@ -344,9 +370,15 @@ function jcItemsTable(tableId, items) {
             '<td class="text-center" style="width:36px"><button class="jc-remove-btn" data-item-id="' + escHtml(item.id) + '" title="Remove"><i class="ti ti-x"></i></button></td>' +
             '</tr>';
     });
+    var footer = '<tfoot><tr>' +
+        '<td colspan="3" class="text-end text-muted" style="font-size:0.8rem;padding-top:6px">Subtotal</td>' +
+        '<td class="text-end fw-semibold" style="padding-top:6px">' + ERP.formatCurrency(subtotal || 0) + '</td>' +
+        '<td></td>' +
+        '</tr></tfoot>';
     return '<table class="jc-items-table" id="' + tableId + '">' +
         '<thead><tr><th>Item</th><th>Qty</th><th class="text-end">Price</th><th class="text-end">Total</th><th></th></tr></thead>' +
         '<tbody>' + (rows || '<tr><td colspan="5" class="text-center text-muted py-3" style="font-size:0.82rem">No items added</td></tr>') + '</tbody>' +
+        footer +
         '</table>';
 }
 

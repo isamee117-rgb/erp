@@ -168,10 +168,8 @@
 
     function applySidebarMode() {
         var jobCardMode = window.ERP.state.jobCardMode;
-        var posNav      = document.querySelector('[data-nav-mode="pos"]');
         var jcNav       = document.querySelector('[data-nav-mode="job-card"]');
-        if (posNav) posNav.style.display = jobCardMode ? 'none' : '';
-        if (jcNav)  jcNav.style.display  = jobCardMode ? '' : 'none';
+        if (jcNav) jcNav.style.display = jobCardMode ? '' : 'none';
     }
 
     function applyPermissions() {

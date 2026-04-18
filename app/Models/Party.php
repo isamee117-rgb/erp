@@ -27,6 +27,7 @@ class Party extends Model
         'opening_balance',
         'current_balance',
         // dynamic fields
+        'make_model_year',
         'vehicle_reg_number',
         'vin_chassis_number',
         'engine_number',
