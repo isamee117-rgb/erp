@@ -95,6 +95,10 @@
                 ]);
             })
             .catch(function(err) {
+                if (err.message && err.message.indexOf('401') !== -1) {
+                    window.ERP.logout();
+                    return;
+                }
                 showSyncError();
                 console.error('syncCore failed after all retries:', err.message);
             });
