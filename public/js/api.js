@@ -16,6 +16,17 @@
         return h;
     }
 
+    function withRetry(fn, maxAttempts, delayMs) {
+        return fn().catch(function(err) {
+            if (maxAttempts <= 1) { throw err; }
+            return new Promise(function(resolve) {
+                setTimeout(resolve, delayMs);
+            }).then(function() {
+                return withRetry(fn, maxAttempts - 1, delayMs);
+            });
+        });
+    }
+
     function request(method, url, body) {
         var controller = new AbortController();
         var timeoutId = setTimeout(function() { controller.abort(); }, 20000);
