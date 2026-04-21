@@ -1,8 +1,33 @@
-var currentPage=1, perPage=15;
+var currentPage=1, perPage=10;
+
+function prRefetchIfNeeded(callback) {
+    var loadedFrom = window.ERP.state.transactionLoadedFrom;
+    var requestedFrom = (document.getElementById('dateFrom').value || '');
+    var requestedTo   = (document.getElementById('dateTo').value   || '');
+    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
+        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
+            .then(function(txData) {
+                ERP.mergeState(txData);
+                if (txData.loadedFrom) window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                if (typeof callback === 'function') callback();
+            })
+            .catch(function(e) { alert('Error loading data: ' + e.message); });
+    } else {
+        if (typeof callback === 'function') callback();
+    }
+}
+
 window.ERP.onReady = function(){ renderPage(); };
 function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; currentPage=1; renderPage(); }
 document.addEventListener('DOMContentLoaded', function(){
-    ['searchInput','dateFrom','dateTo'].forEach(function(id){ document.getElementById(id).addEventListener(id==='searchInput'?'input':'change', function(){ currentPage=1; renderPage(); }); });
+    ['searchInput','dateFrom','dateTo'].forEach(function(id){ document.getElementById(id).addEventListener(id==='searchInput'?'input':'change', function(){ currentPage=1; if(id==='searchInput'){ renderPage(); }else{ prRefetchIfNeeded(renderPage); } }); });
+    document.getElementById('pret-filter-toggle-btn').addEventListener('click', function(){
+        var panel = document.getElementById('pret-filters-panel');
+        var isOpen = !panel.classList.contains('d-none');
+        panel.classList.toggle('d-none');
+        this.classList.toggle('active', !isOpen);
+    });
+    document.getElementById('pret-clear-filters-btn').addEventListener('click', function(){ clearFilters(); });
 });
 function getFiltered(){
     var state=window.ERP.state, search=(document.getElementById('searchInput').value||'').toLowerCase(),
@@ -35,13 +60,25 @@ function renderPage(){
         html+='<td>'+items.length+'</td>';
         html+='<td>'+ERP.formatCurrency(r.totalAmount||0)+'</td>';
         html+='<td><span class="text-muted">'+(r.reason||'—')+'</span></td></tr>';
-        html+='<tr id="exp-'+r.id+'" class="d-none"><td colspan="8" class="erp-expand-row-td"><table class="table table-sm inv-table mb-0"><thead><tr><th class="inv-th">Product</th><th class="inv-th">Qty</th><th class="inv-th">Cost</th><th class="inv-th">Subtotal</th></tr></thead><tbody>';
-        items.forEach(function(it){
+        html+='<tr id="exp-'+r.id+'" class="d-none expand-row"><td colspan="8"><div class="p-3"><div class="row">';
+        html+='<div class="col-md-7"><h4 class="mb-3 erp-table-section-header">Return Items</h4>';
+        html+='<table class="table table-sm mb-0"><thead><tr><th class="po-th-col" style="width:36px;">#</th><th class="po-th-col">Product</th><th class="po-th-col text-center">Qty</th><th class="po-th-col text-end">Unit Cost</th><th class="po-th-col text-end">Line Total</th></tr></thead><tbody>';
+        items.forEach(function(it, idx){
             var prod=(state.products||[]).find(function(p){return p.id===it.productId;});
             var cost=it.unitCost||0;
-            html+='<tr><td>'+(prod?prod.name:'Unknown')+'</td><td>'+it.quantity+'</td><td>'+ERP.formatCurrency(cost)+'</td><td>'+ERP.formatCurrency(it.quantity*cost)+'</td></tr>';
+            html+='<tr>'+
+                '<td class="text-center" style="color:#9CA3AF;font-size:0.78rem;">'+(idx+1)+'</td>'+
+                '<td>'+(prod?prod.name:'Unknown')+'</td>'+
+                '<td class="text-center">'+it.quantity+'</td>'+
+                '<td class="text-end">'+ERP.formatCurrency(cost)+'</td>'+
+                '<td class="text-end fw-semibold">'+ERP.formatCurrency(it.quantity*cost)+'</td>'+
+                '</tr>';
         });
-        html+='</tbody></table></td></tr>';
+        html+='</tbody></table></div>';
+        html+='<div class="col-md-5"><h4 class="mb-3 erp-table-section-header">Summary</h4>';
+        html+='<div class="erp-summary-box">';
+        html+='<div class="d-flex justify-content-between erp-text-sm"><span class="text-muted">Total Value</span><span class="fw-semibold">'+ERP.formatCurrency(r.totalAmount||0)+'</span></div>';
+        html+='</div></div></div></div></td></tr>';
     });
     if(!page.length) html='<tr><td colspan="8" class="text-center text-muted py-5"><i class="ti ti-repeat fs-1 d-block mb-2 text-muted"></i>No purchase returns found</td></tr>';
     document.getElementById('returnsBody').innerHTML=html;
@@ -62,7 +99,7 @@ function renderPage(){
     document.getElementById('pagination').innerHTML=ph;
     populatePOSelect();
 }
-function toggleExpand(id){ var r=document.getElementById('exp-'+id),c=document.getElementById('chev-'+id); if(r.style.display==='none'){r.style.display='';c.className='ti ti-chevron-down';}else{r.style.display='none';c.className='ti ti-chevron-right';} }
+function toggleExpand(id){ var r=document.getElementById('exp-'+id),c=document.getElementById('chev-'+id); if(r.classList.contains('d-none')){r.classList.remove('d-none');c.className='ti ti-chevron-down';}else{r.classList.add('d-none');c.className='ti ti-chevron-right';} }
 function goToPage(p){currentPage=p;renderPage();}
 /* ── SDD helpers ── */
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -96,8 +133,10 @@ document.addEventListener('DOMContentLoaded',function(){
         document.getElementById('poSelect').value='';
         document.getElementById('poSelect-disp').textContent='-- Select a PO --';
         document.getElementById('poSelect-disp').style.color='#B0B7C9';
-        document.getElementById('poItemsContainer').style.display='none';
+        document.getElementById('poItemsContainer').classList.add('d-none');
+        document.getElementById('poReceiptsGrouped').innerHTML='';
         document.getElementById('returnReason').value='';
+        hidePretError();
     });
 });
 
@@ -112,35 +151,117 @@ function populatePOSelect(){
     document.getElementById('poSelect-opts').innerHTML=html;
 }
 function onPOSelected(){
-    var poId=document.getElementById('poSelect').value,cont=document.getElementById('poItemsContainer');
-    if(!poId){cont.style.display='none';return;} cont.style.display='';
-    var po=(window.ERP.state.purchaseOrders||[]).find(function(p){return p.id===poId;});
-    if(!po) return;
-    var html='';
-    (po.items||[]).forEach(function(it,i){
-        var prod=(window.ERP.state.products||[]).find(function(p){return p.id===it.productId;});
-        var qty=it.receivedQuantity||it.quantity||0;
-        html+='<tr><td>'+(prod?prod.name:'Unknown')+'</td><td>'+qty+'</td>';
-        html+='<td><input type="number" class="form-control form-control-sm" min="0" max="'+qty+'" value="0" id="retQty-'+i+'"></td>';
-        html+='<td>'+ERP.formatCurrency(it.unitCost||0)+'</td></tr>';
+    var poId = document.getElementById('poSelect').value;
+    document.getElementById('poItemsContainer').classList.add('d-none');
+    document.getElementById('poReceiptsGrouped').innerHTML = '';
+    if (!poId) return;
+
+    var po = (window.ERP.state.purchaseOrders || []).find(function(p){ return p.id === poId; });
+    if (!po) return;
+
+    var receives = (po.receives || []).slice().sort(function(a, b){
+        return new Date(a.receiveDate || a.createdAt) - new Date(b.receiveDate || b.createdAt);
     });
-    document.getElementById('poItemsBody').innerHTML=html;
+
+    if (!receives.length) {
+        document.getElementById('poReceiptsGrouped').innerHTML =
+            '<div class="text-center text-muted py-3" style="font-size:0.85rem;">No receipts found for this PO.</div>';
+        document.getElementById('poItemsContainer').classList.remove('d-none');
+        return;
+    }
+
+    var products = window.ERP.state.products || [];
+    var inputIdx = 0;
+    var html = '';
+
+    receives.forEach(function(rcv, i){
+        var dateStr = rcv.receiveDate || (rcv.createdAt ? new Date(rcv.createdAt).toLocaleDateString('en-GB') : '—');
+        html += '<div class="pr-rcv-group mb-3">' +
+            '<div class="pr-rcv-group-header">' +
+                '<span class="pr-rcv-id">Receipt #' + (i + 1) + '</span>' +
+                '<span class="pr-rcv-date">' + dateStr + '</span>' +
+            '</div>' +
+            '<table class="table table-sm mb-0" style="table-layout:fixed;">' +
+            '<thead><tr>' +
+                '<th class="po-th-col" style="width:36px;">#</th>' +
+                '<th class="po-th-col">Product</th>' +
+                '<th class="po-th-col text-center" style="width:90px;">Received</th>' +
+                '<th class="po-th-col" style="width:120px;">Return Qty</th>' +
+                '<th class="po-th-col text-end" style="width:110px;">Unit Cost</th>' +
+            '</tr></thead><tbody>';
+
+        (rcv.items || []).forEach(function(it, i){
+            var prod = products.find(function(p){ return p.id === it.productId; });
+            var key = escHtml(rcv.id) + '-' + inputIdx;
+            html += '<tr>' +
+                '<td class="po-td-center" style="color:#9CA3AF;font-size:0.78rem;">' + (i + 1) + '</td>' +
+                '<td class="po-td-item">' + (prod ? escHtml(prod.name) : 'Unknown') + '</td>' +
+                '<td class="po-td-center">' + it.quantity + '</td>' +
+                '<td class="po-td-input">' +
+                    '<input type="number" class="form-control pm-input text-center po-input-sm pr-ret-qty" ' +
+                        'min="0" max="' + it.quantity + '" value="0" ' +
+                        'data-max="' + it.quantity + '" data-product-id="' + escHtml(it.productId) + '" ' +
+                        'data-unit-cost="' + it.unitCost + '" id="retQty-' + key + '" ' +
+                        'oninput="validateRetQty(this,\'' + key + '\')">' +
+                    '<div class="text-danger" style="font-size:0.72rem;min-height:14px;" id="ret-err-' + key + '"></div>' +
+                '</td>' +
+                '<td class="po-td-input text-end" style="font-weight:600;">' + ERP.formatCurrency(it.unitCost || 0) + '</td>' +
+                '</tr>';
+            inputIdx++;
+        });
+        html += '</tbody></table></div>';
+    });
+
+    document.getElementById('poReceiptsGrouped').innerHTML = html;
+    document.getElementById('poItemsContainer').classList.remove('d-none');
 }
+
+function validateRetQty(inp, key){
+    var val = parseInt(inp.value), max = parseInt(inp.dataset.max) || 0;
+    var k = key || inp.id.replace('retQty-', '');
+    var errEl = document.getElementById('ret-err-' + k);
+    if (!errEl) return;
+    if (isNaN(val) || val < 0) {
+        errEl.textContent = 'Cannot be negative.'; inp.classList.add('is-invalid');
+    } else if (val > max) {
+        errEl.textContent = 'Max ' + max + '.'; inp.classList.add('is-invalid');
+    } else {
+        errEl.textContent = ''; inp.classList.remove('is-invalid');
+    }
+}
+
+function showPretError(msg) {
+    var box = document.getElementById('pret-save-error');
+    document.getElementById('pret-save-error-msg').textContent = msg;
+    box.classList.remove('d-none');
+}
+function hidePretError() {
+    document.getElementById('pret-save-error').classList.add('d-none');
+}
+
 async function submitReturn(){
-    var poId=document.getElementById('poSelect').value;
-    if(!poId){alert('Please select a PO');return;}
-    var po=(window.ERP.state.purchaseOrders||[]).find(function(p){return p.id===poId;});
-    if(!po) return;
-    var items=[];
-    (po.items||[]).forEach(function(it,i){
-        var qty=parseInt(document.getElementById('retQty-'+i).value)||0;
-        if(qty>0) items.push({productId:it.productId,quantity:qty,unitCost:it.unitCost||0});
+    hidePretError();
+    var poId = document.getElementById('poSelect').value;
+    if (!poId) { showPretError('Please select a purchase order.'); return; }
+
+    var hasError = false;
+    document.querySelectorAll('.pr-ret-qty').forEach(function(inp){
+        validateRetQty(inp);
+        if (inp.classList.contains('is-invalid')) hasError = true;
     });
-    if(!items.length){alert('Please enter return quantities');return;}
-    var reason=document.getElementById('returnReason').value;
-    try{
-        await ERP.api.createPurchaseReturn(poId,items,reason);
+    if (hasError) return;
+
+    var items = [];
+    document.querySelectorAll('.pr-ret-qty').forEach(function(inp){
+        var qty = parseInt(inp.value) || 0;
+        if (qty > 0) items.push({ productId: inp.dataset.productId, quantity: qty, unitCost: parseFloat(inp.dataset.unitCost) || 0 });
+    });
+    if (!items.length) { showPretError('Please enter at least one return quantity.'); return; }
+
+    var reason = document.getElementById('returnReason').value;
+    try {
+        await ERP.api.createPurchaseReturn(poId, items, reason);
         bootstrap.Modal.getInstance(document.getElementById('newPReturnModal')).hide();
         await ERP.sync(); renderPage();
-    }catch(e){alert('Error: '+e.message);}
+    } catch(e) { showPretError(e.message || 'Failed to create return.'); }
 }

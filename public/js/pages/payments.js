@@ -1,9 +1,27 @@
 var currentPage=1, perPage=15;
+
+function payRefetchIfNeeded(callback) {
+    var loadedFrom = window.ERP.state.transactionLoadedFrom;
+    var requestedFrom = (document.getElementById('dateFrom').value || '');
+    var requestedTo   = (document.getElementById('dateTo').value   || '');
+    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
+        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
+            .then(function(txData) {
+                ERP.mergeState(txData);
+                if (txData.loadedFrom) window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                if (typeof callback === 'function') callback();
+            })
+            .catch(function(e) { alert('Error loading data: ' + e.message); });
+    } else {
+        if (typeof callback === 'function') callback();
+    }
+}
+
 window.ERP.onReady = function(){ renderPage(); };
 function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('typeFilter').value=''; document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; currentPage=1; renderPage(); }
 document.addEventListener('DOMContentLoaded', function(){
     ['searchInput','typeFilter','dateFrom','dateTo'].forEach(function(id){
-        document.getElementById(id).addEventListener(id==='searchInput'?'input':'change', function(){ currentPage=1; renderPage(); });
+        document.getElementById(id).addEventListener(id==='searchInput'?'input':'change', function(){ currentPage=1; if(id==='dateFrom'||id==='dateTo'){ payRefetchIfNeeded(renderPage); }else{ renderPage(); } });
     });
 });
 function getFiltered(){
