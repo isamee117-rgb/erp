@@ -17,25 +17,37 @@
     }
 
     function request(method, url, body) {
-        var opts = { method: method, headers: buildHeaders() };
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, 20000);
+
+        var opts = { method: method, headers: buildHeaders(), signal: controller.signal };
         if (body !== undefined) { opts.body = JSON.stringify(body); }
-        return fetch(API_BASE + url, opts).then(function(res) {
-            if (!res.ok) {
-                return res.json().catch(function() { return { message: 'Request failed' }; }).then(function(err) {
-                    // Format Laravel validation errors into human-readable English
-                    if (err.errors && typeof err.errors === 'object') {
-                        var msgs = [];
-                        Object.keys(err.errors).forEach(function(field) {
-                            var fieldErrors = Array.isArray(err.errors[field]) ? err.errors[field] : [err.errors[field]];
-                            fieldErrors.forEach(function(msg) { msgs.push(msg); });
-                        });
-                        if (msgs.length) { throw new Error(msgs.join('; ')); }
-                    }
-                    throw new Error(err.message || err.error || 'Request failed');
-                });
-            }
-            return res.json();
-        });
+
+        return fetch(API_BASE + url, opts)
+            .then(function(res) {
+                clearTimeout(timeoutId);
+                if (!res.ok) {
+                    return res.json().catch(function() { return { message: 'Request failed' }; }).then(function(err) {
+                        if (err.errors && typeof err.errors === 'object') {
+                            var msgs = [];
+                            Object.keys(err.errors).forEach(function(field) {
+                                var fieldErrors = Array.isArray(err.errors[field]) ? err.errors[field] : [err.errors[field]];
+                                fieldErrors.forEach(function(msg) { msgs.push(msg); });
+                            });
+                            if (msgs.length) { throw new Error(msgs.join('; ')); }
+                        }
+                        throw new Error(err.message || err.error || 'Request failed');
+                    });
+                }
+                return res.json();
+            })
+            .catch(function(err) {
+                clearTimeout(timeoutId);
+                if (err.name === 'AbortError') {
+                    throw new Error('Request timed out. Please check your internet connection.');
+                }
+                throw err;
+            });
     }
 
     var api = {
