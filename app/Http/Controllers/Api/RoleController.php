@@ -28,9 +28,12 @@ class RoleController extends Controller
 
     public function update(Request $request, $id)
     {
-        $role = CustomRole::findOrFail($id);
-        $data = $request->all();
+        $user = $request->get('auth_user');
+        $role = CustomRole::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
 
+        $data = $request->all();
         $role->update([
             'name'        => $data['name']        ?? $role->name,
             'description' => $data['description'] ?? $role->description,
@@ -40,9 +43,14 @@ class RoleController extends Controller
         return new CustomRoleResource($role);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        CustomRole::findOrFail($id)->delete();
+        $user = $request->get('auth_user');
+        CustomRole::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail()
+            ->delete();
+
         return response()->json(['success' => true]);
     }
 }
