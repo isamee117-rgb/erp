@@ -1,5 +1,21 @@
 var salesChart, purchChart, finChart;
-window.ERP.onReady = function(){ renderSalesReport(); renderPurchaseReport(); renderInventoryReport(); renderFinancialReport(); };
+window.ERP.onReady = function(){ /* reports page uses tile navigation — no auto-render needed */ };
+function rptRefetchIfNeeded(fromValue, toValue, callback) {
+    var loadedFrom = window.ERP.state.transactionLoadedFrom;
+    if (loadedFrom && fromValue && fromValue < loadedFrom) {
+        ERP.api.syncTransactions({ from: fromValue, to: toValue || undefined })
+            .then(function(txData) {
+                ERP.mergeState(txData);
+                if (txData.loadedFrom) {
+                    window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                }
+                if (typeof callback === 'function') callback();
+            })
+            .catch(function(e) { alert('Error loading data: ' + e.message); });
+    } else {
+        if (typeof callback === 'function') callback();
+    }
+}
 // Build a ms timestamp from a date string + optional time string.
 // If no date, returns null. If no time, defaults to start-of-day or end-of-day.
 function buildTs(dateVal, timeVal, isEnd){
@@ -723,6 +739,11 @@ function exportVendorPDF() {
 }
 /* ====== Detailed Purchase Report ====== */
 function runPurchaseReport() {
+  var fromVal = (document.getElementById('rptPurchFrom').value || '');
+  var toVal   = (document.getElementById('rptPurchTo').value   || '');
+  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
+      return rptRefetchIfNeeded(fromVal, toVal, runPurchaseReport);
+  }
   var state = window.ERP.state;
   var coId = (state.currentUser || {}).companyId;
   var orders = (state.purchaseOrders || []).filter(function(po){ return !coId || po.companyId === coId; });
@@ -952,6 +973,11 @@ function exportPurchasePDF() {
 }
 /* ====== Detailed Sales Report ====== */
 function runSalesReport() {
+  var fromVal = (document.getElementById('rptSalesFrom').value || '');
+  var toVal   = (document.getElementById('rptSalesTo').value   || '');
+  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
+      return rptRefetchIfNeeded(fromVal, toVal, runSalesReport);
+  }
   var state = window.ERP.state;
   var coId = (state.currentUser || {}).companyId;
   var sales = (state.sales || []).filter(function(s){ return !coId || s.companyId === coId; });
@@ -1197,6 +1223,11 @@ function renderFinancialReport(){
 }
 /* ====== Purchase Return Report ====== */
 function runPurchaseReturnReport() {
+  var fromVal = (document.getElementById('rptPReturnFrom').value || '');
+  var toVal   = (document.getElementById('rptPReturnTo').value   || '');
+  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
+      return rptRefetchIfNeeded(fromVal, toVal, runPurchaseReturnReport);
+  }
   var state = window.ERP.state;
   var coId = (state.currentUser || {}).companyId;
   var returns = (state.purchaseReturns || []).filter(function(pr){ return !coId || pr.companyId === coId; });
@@ -1357,6 +1388,11 @@ function exportPurchaseReturnPDF() {
 }
 /* ====== Sales Return Report ====== */
 function runSalesReturnReport() {
+  var fromVal = (document.getElementById('rptSReturnFrom').value || '');
+  var toVal   = (document.getElementById('rptSReturnTo').value   || '');
+  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
+      return rptRefetchIfNeeded(fromVal, toVal, runSalesReturnReport);
+  }
   var state = window.ERP.state;
   var coId = (state.currentUser || {}).companyId;
   var returns = (state.salesReturns || []).filter(function(sr){ return !coId || sr.companyId === coId; });
@@ -1525,6 +1561,11 @@ function exportSalesReturnPDF() {
 }
 /* ====== Sales by Customer Report ====== */
 function runSalesByCustomerReport() {
+  var fromVal = (document.getElementById('rptSBCFrom').value || '');
+  var toVal   = (document.getElementById('rptSBCTo').value   || '');
+  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
+      return rptRefetchIfNeeded(fromVal, toVal, runSalesByCustomerReport);
+  }
   var state = window.ERP.state;
   var coId  = (state.currentUser || {}).companyId;
   var sales = (state.sales || []).filter(function(s){ return !coId || s.companyId === coId; });
@@ -1715,6 +1756,11 @@ function exportSalesByCustomerPDF() {
 }
 /* ====== Purchase by Vendor Report ====== */
 function runPurchaseByVendorReport() {
+  var fromVal = (document.getElementById('rptPBVFrom').value || '');
+  var toVal   = (document.getElementById('rptPBVTo').value   || '');
+  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
+      return rptRefetchIfNeeded(fromVal, toVal, runPurchaseByVendorReport);
+  }
   var state = window.ERP.state;
   var coId  = (state.currentUser || {}).companyId;
   var orders = (state.purchaseOrders || []).filter(function(po){ return !coId || po.companyId === coId; });
