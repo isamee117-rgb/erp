@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePaymentRequest;
+use Illuminate\Http\Request;
 use App\Http\Resources\PaymentResource;
 use App\Models\Party;
 use App\Models\Payment;
@@ -51,9 +52,12 @@ class PaymentController extends Controller
         return new PaymentResource($payment);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $payment = Payment::findOrFail($id);
+        $user    = $request->get('auth_user');
+        $payment = Payment::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
 
         $party = Party::find($payment->party_id);
         if ($party) {
