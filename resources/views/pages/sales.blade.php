@@ -14,25 +14,37 @@
   </div>
 </div>
 
-<div class="card inv-section-card">
+<div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-center">
-      <div class="col-12 col-md-4">
-        <div class="position-relative">
-          <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search erp-icon-sm"></i></span>
-          <input type="text" class="form-control inv-input ps-5" id="sale-search" placeholder="Search by Invoice ID or Customer..." oninput="sCurrentPage=1;renderPage();">
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="sale-search" placeholder="Search by Invoice ID or Customer...">
+      </div>
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="sale-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
+      </div>
+    </div>
+    <div id="sale-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <select class="form-select inv-input" id="sale-payment">
+            <option value="all">All Methods</option>
+            <option value="Cash">Cash</option>
+            <option value="Credit">Credit</option>
+          </select>
         </div>
-      </div>
-      <div class="col-6 col-md-2">
-        <select class="form-select inv-input" id="sale-payment" onchange="sCurrentPage=1;renderPage();">
-          <option value="all">All Methods</option><option value="Cash">Cash</option><option value="Credit">Credit</option>
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <input type="date" class="form-control inv-input" id="sale-date-from" title="From Date" onchange="sCurrentPage=1;renderPage();">
-      </div>
-      <div class="col-6 col-md-2">
-        <input type="date" class="form-control inv-input" id="sale-date-to" title="To Date" onchange="sCurrentPage=1;renderPage();">
+        <div class="col-6 col-md-2">
+          <input type="date" class="form-control inv-input" id="sale-date-from" title="From Date">
+        </div>
+        <div class="col-6 col-md-2">
+          <input type="date" class="form-control inv-input" id="sale-date-to" title="To Date">
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="sale-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
       </div>
     </div>
   </div>

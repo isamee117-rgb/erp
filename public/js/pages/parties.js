@@ -1,4 +1,4 @@
-var currentPage=1, perPage=15;
+var currentPage=1, perPage=10, sortKey='code', sortDir='asc';
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ── Dynamic Fields ────────────────────────────────────────────────────────────
@@ -126,6 +126,21 @@ function clearFilters(){ document.getElementById('searchInput').value=''; docume
 document.addEventListener('DOMContentLoaded', function(){
     document.getElementById('searchInput').addEventListener('input', function(){ currentPage=1; renderPage(); });
     document.getElementById('entityTypeFilter').addEventListener('change', function(){ currentPage=1; renderPage(); });
+    var ptyFilterBtn = document.getElementById('pty-filter-toggle-btn');
+    if (ptyFilterBtn) {
+        ptyFilterBtn.addEventListener('click', function() {
+            var panel = document.getElementById('pty-filters-panel');
+            var isOpen = !panel.classList.contains('d-none');
+            panel.classList.toggle('d-none', isOpen);
+            ptyFilterBtn.classList.toggle('active', !isOpen);
+        });
+    }
+    // Click-outside: close party accounting SDDs
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#ptyAcctSection .sdd-wrap')) {
+            document.querySelectorAll('#ptyAcctSection .sdd-wrap.open').forEach(function(w) { w.classList.remove('open'); });
+        }
+    });
 });
 function getFiltered(){
     var state=window.ERP.state, type=getType(), search=(document.getElementById('searchInput').value||'').toLowerCase(),
@@ -148,7 +163,18 @@ function getFiltered(){
             if (String(pval).toLowerCase().indexOf(dynFilters[key]) === -1) dynMatch = false;
         });
         return dynMatch;
+    }).sort(function(a, b) {
+        var va = (a[sortKey] || ''), vb = (b[sortKey] || '');
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+        return 0;
     });
+}
+function togglePtySort(key) {
+    if (sortKey === key) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+    else { sortKey = key; sortDir = 'asc'; }
+    currentPage = 1;
+    renderPage();
 }
 function renderPage(){
     // Dynamic field column visibility setup
@@ -271,6 +297,12 @@ function openAddModal(){
     document.getElementById('modalTitle').innerHTML='<i class="ti ti-users me-2"></i>Add '+type;
     document.getElementById('editId').value='';
     ['pCode','pName','pPhone','pEmail','pAddress','pBank'].forEach(function(id){document.getElementById(id).value='';});
+    ['pName','pPhone','pEmail','pTerms','pCreditLimit'].forEach(function(id) {
+        document.getElementById(id).classList.remove('is-invalid');
+        var err = document.getElementById(id+'-error');
+        if(err) err.classList.add('d-none');
+    });
+    document.getElementById('pty-save-error').classList.add('d-none');
     document.getElementById('pTerms').value='0';
     document.getElementById('pCreditLimit').value='0';
     document.getElementById('pOpenBal').value='0';
@@ -303,8 +335,32 @@ function openEditModal(id){
     new bootstrap.Modal(document.getElementById('partyModal')).show();
 }
 function confirmSaveParty(){
-    var name=document.getElementById('pName').value;
-    if(!name){alert('Name is required');return;}
+    var nameInput    = document.getElementById('pName');
+    var phoneInput   = document.getElementById('pPhone');
+    var emailInput   = document.getElementById('pEmail');
+    var termsInput   = document.getElementById('pTerms');
+    var creditInput  = document.getElementById('pCreditLimit');
+    var hasError = false;
+
+    function setFieldError(input, errorId, condition) {
+        if(condition) {
+            input.classList.add('is-invalid');
+            document.getElementById(errorId).classList.remove('d-none');
+            if(!hasError){ input.focus(); hasError = true; }
+        } else {
+            input.classList.remove('is-invalid');
+            document.getElementById(errorId).classList.add('d-none');
+        }
+    }
+
+    setFieldError(nameInput, 'pName-error', !nameInput.value.trim());
+    setFieldError(phoneInput, 'pPhone-error', phoneInput.value.trim() !== '' && !/^[0-9+\-\s()]{7,20}$/.test(phoneInput.value.trim()));
+    setFieldError(emailInput, 'pEmail-error', emailInput.value.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim()));
+    setFieldError(termsInput, 'pTerms-error', parseInt(termsInput.value) < 0);
+    setFieldError(creditInput, 'pCreditLimit-error', parseFloat(creditInput.value) < 0);
+
+    if(hasError) return;
+    document.getElementById('pty-save-error').classList.add('d-none');
     document.getElementById('ptySaveConfirm').classList.remove('d-none');
 }
 async function doSaveParty(){
@@ -328,7 +384,10 @@ async function doSaveParty(){
         await savePartyAccountingMappings(data.type);
         await ERP.sync(); renderPage();
         document.getElementById('ptySaveSuccess').classList.remove('d-none');
-    }catch(e){alert('Error: '+e.message);}
+    }catch(e){
+        document.getElementById('pty-save-error-msg').textContent = e.message || 'Failed to save record.';
+        document.getElementById('pty-save-error').classList.remove('d-none');
+    }
 }
 
 // ── Party Accounting Helpers ──────────────────────────────────────────────────
@@ -348,28 +407,86 @@ function populatePartyAccountingDropdowns(type) {
 
     var fields = type === 'Customer'
         ? [
-            { elId: 'pf-acct-ar',           key: 'accounts_receivable' },
-            { elId: 'pf-acct-cash',         key: 'cash_account' },
-            { elId: 'pf-acct-disc-allowed',  key: 'discount_allowed' },
+            { sddId: 'sdd-pty-acct-ar',           elId: 'pf-acct-ar',           key: 'accounts_receivable' },
+            { sddId: 'sdd-pty-acct-cash',          elId: 'pf-acct-cash',         key: 'cash_account' },
+            { sddId: 'sdd-pty-acct-disc-allowed',  elId: 'pf-acct-disc-allowed', key: 'discount_allowed' },
           ]
         : [
-            { elId: 'pf-acct-ap',            key: 'accounts_payable' },
-            { elId: 'pf-acct-cash-vendor',   key: 'cash_account' },
-            { elId: 'pf-acct-disc-received', key: 'discount_received' },
+            { sddId: 'sdd-pty-acct-ap',            elId: 'pf-acct-ap',            key: 'accounts_payable' },
+            { sddId: 'sdd-pty-acct-cash-vendor',   elId: 'pf-acct-cash-vendor',   key: 'cash_account' },
+            { sddId: 'sdd-pty-acct-disc-received', elId: 'pf-acct-disc-received', key: 'discount_received' },
           ];
 
     fields.forEach(function(f) {
-        var sel = document.getElementById(f.elId);
-        sel.innerHTML = '<option value="">— Not set —</option>';
+        var optsWrap = document.getElementById(f.sddId + '-opts');
+        var dispEl   = document.getElementById(f.sddId + '-disp');
+        var hiddenEl = document.getElementById(f.elId);
+
+        hiddenEl.value = '';
+        dispEl.textContent = '— Not set —';
+        dispEl.style.color = '#B0B7C9';
+
+        optsWrap.innerHTML = '';
+        var notSet = document.createElement('div');
+        notSet.className = 'sdd-opt';
+        notSet.dataset.val = '';
+        notSet.dataset.label = '— Not set —';
+        notSet.textContent = '— Not set —';
+        notSet.style.color = '#9CA3AF';
+        notSet.onclick = function() { ptyAcctSddSelect(f.sddId, '', '— Not set —'); };
+        optsWrap.appendChild(notSet);
+
         accounts.forEach(function(a) {
-            var opt = document.createElement('option');
-            opt.value = a.id;
-            opt.textContent = a.code + ' — ' + a.name;
-            sel.appendChild(opt);
+            var label = a.code + ' — ' + a.name;
+            var div = document.createElement('div');
+            div.className = 'sdd-opt';
+            div.dataset.val = a.id;
+            div.dataset.label = label;
+            div.textContent = label;
+            div.onclick = function() { ptyAcctSddSelect(f.sddId, a.id, label); };
+            optsWrap.appendChild(div);
         });
+
         var current = mappings[f.key];
-        if (current && current.accountId) sel.value = current.accountId;
+        if (current && current.accountId) {
+            var match = accounts.find(function(a) { return a.id === current.accountId; });
+            if (match) {
+                var label = match.code + ' — ' + match.name;
+                hiddenEl.value = match.id;
+                dispEl.textContent = label;
+                dispEl.style.color = '';
+            }
+        }
     });
+}
+
+function ptyAcctSddToggle(wrapId) {
+    var wrap = document.getElementById(wrapId);
+    var isOpen = wrap.classList.contains('open');
+    document.querySelectorAll('#ptyAcctSection .sdd-wrap.open').forEach(function(w) { w.classList.remove('open'); });
+    if (!isOpen) {
+        wrap.classList.add('open');
+        var inp = wrap.querySelector('.sdd-search-inp');
+        if (inp) { inp.value = ''; ptyAcctSddFilter(wrapId, ''); inp.focus(); }
+    }
+}
+
+function ptyAcctSddFilter(wrapId, query) {
+    var optsWrap = document.getElementById(wrapId + '-opts');
+    var q = query.toLowerCase();
+    optsWrap.querySelectorAll('.sdd-opt').forEach(function(opt) {
+        opt.style.display = opt.dataset.label.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
+
+function ptyAcctSddSelect(wrapId, accountId, label) {
+    var wrap = document.getElementById(wrapId);
+    var dispEl = document.getElementById(wrapId + '-disp');
+    var hiddenId = wrapId.replace('sdd-pty-', 'pf-');
+    document.getElementById(hiddenId).value = accountId;
+    dispEl.textContent = label;
+    dispEl.style.color = accountId ? '' : '#B0B7C9';
+    wrap.classList.remove('open');
 }
 
 function togglePartyAccounting() {

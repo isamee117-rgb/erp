@@ -15,13 +15,13 @@ class UpdateCompanyDetailsRequest extends FormRequest
             'saasPlan'            => 'sometimes|string|in:Monthly,Yearly,Lifetime',
             'registrationPayment' => 'sometimes|numeric|min:0',
             'maxUserLimit'        => 'sometimes|integer|min:1',
-            'infoName'            => 'sometimes|string|max:255',
-            'infoTagline'         => 'sometimes|string|max:255',
-            'infoAddress'         => 'sometimes|string|max:500',
-            'infoPhone'           => 'sometimes|string|max:50',
-            'infoEmail'           => 'sometimes|email|max:255',
-            'infoWebsite'         => 'sometimes|url|max:255',
-            'infoTaxId'           => 'sometimes|string|max:100',
+            'infoName'            => 'sometimes|nullable|string|max:255',
+            'infoTagline'         => 'sometimes|nullable|string|max:255',
+            'infoAddress'         => 'sometimes|nullable|string|max:500',
+            'infoPhone'           => 'sometimes|nullable|string|max:50',
+            'infoEmail'           => 'sometimes|nullable|email|max:255',
+            'infoWebsite'         => 'sometimes|nullable|url|max:255',
+            'infoTaxId'           => 'sometimes|nullable|string|max:100',
         ];
     }
 }

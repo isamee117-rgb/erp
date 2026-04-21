@@ -14,8 +14,8 @@
   </div>
 </div>
 
-<div class="row g-3">
-  <div class="col-lg-8 d-flex flex-column">
+<div class="row g-3 pos-main-row">
+  <div class="col-lg-7 d-flex flex-column pos-left-col">
     <div class="card inv-section-card mb-3">
       <div class="card-body inv-filter-body">
         <div class="row g-2 align-items-center">
@@ -33,15 +33,15 @@
         <div class="d-flex gap-2 flex-wrap mt-2" id="pos-categories"></div>
       </div>
     </div>
-    <div class="card inv-section-card flex-fill d-flex flex-column">
+    <div class="card inv-section-card flex-fill d-flex flex-column" style="min-height:0;">
       <div class="card-body p-3 overflow-auto flex-fill" id="pos-product-grid"></div>
     </div>
   </div>
 
-  <div class="col-lg-4" style="align-self:flex-start;">
+  <div class="col-lg-5 pos-right-col">
     <div class="card inv-section-card d-flex flex-column" id="pos-right-card">
       <div class="pos-cart-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 fw-bold">Current Order</h5>
+        <h4 class="mb-0 fw-bold">Cart</h4>
         <button class="pos-clear-btn" onclick="clearCart()"><i class="ti ti-trash me-1"></i>Clear</button>
       </div>
       <div class="p-3" id="pos-cart"></div>

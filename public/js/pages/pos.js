@@ -1,4 +1,6 @@
-var posCart = [];
+var posCart = (function() {
+  try { return JSON.parse(localStorage.getItem('leanerp_pos_cart')) || []; } catch(e) { return []; }
+})();
 var posPayment = 'Cash';
 var posSelectedCategory = null;
 var lastSaleData = null;
@@ -122,8 +124,8 @@ function renderProducts() {
       ? '<span class="pos-badge-low">' + p.currentStock + '</span>'
       : '<span class="pos-badge-ok">' + p.currentStock + '</span>';
 
-    html += '<div class="col-6 col-md-4 col-xl-3"><div class="pos-product-card' + (outOfStock ? ' disabled' : '') + '" onclick="' + (outOfStock ? '' : 'addToCart(\'' + p.id + '\')') + '">' +
-      '<div class="p-3">' +
+    html += '<div class="col-6 col-md-4 col-xl-4"><div class="pos-product-card' + (outOfStock ? ' disabled' : '') + '" onclick="' + (outOfStock ? '' : 'addToCart(\'' + p.id + '\')') + '">' +
+      '<div class="p-2">' +
       '<div class="pos-product-icon"><i class="ti ti-package erp-icon-1-3"></i></div>' +
       '<div class="pos-product-name mb-1">' + p.name + '</div>' +
       '<div class="pos-product-sku mb-2">Item No: ' + (p.itemNumber || p.sku || '') + '</div>' +
@@ -216,7 +218,17 @@ function setCartItemUom(productId, uomId) {
 
 function setCartDiscount(productId, val) {
   var item = posCart.find(function(c) { return c.productId === productId; });
-  if (item) { item.discount = parseFloat(val) || 0; renderCart(); }
+  if (!item) return;
+  var discount = parseFloat(val) || 0;
+  var products = getCompanyProducts();
+  var p = products.find(function(x) { return x.id === productId; });
+  if (p) {
+    var multiplier = item.uomMultiplier || 1;
+    var lineTotal = resolveProductPrice(p) * multiplier * item.quantity;
+    if (discount > lineTotal) discount = lineTotal;
+  }
+  item.discount = discount;
+  renderCart();
 }
 
 function setCartLineTotal(productId, grossTotal, input) {
@@ -240,6 +252,7 @@ function clearCart() {
 }
 
 function renderCart() {
+  try { localStorage.setItem('leanerp_pos_cart', JSON.stringify(posCart)); } catch(e) {}
   var products = getCompanyProducts();
   var container = document.getElementById('pos-cart');
   var subtotal = 0, totalDiscount = 0;
@@ -247,7 +260,14 @@ function renderCart() {
   if (posCart.length === 0) {
     container.innerHTML = '<div class="text-center py-5 text-muted"><i class="ti ti-shopping-cart erp-icon-lg d-block"></i><div class="mt-2 pos-cart-lbl">Cart is empty</div><div class="pos-cart-empty-sub">Select products to start</div></div>';
   } else {
-    var html = '';
+    var html = '<div class="pos-cart-col-header">' +
+      '<span class="pos-cch-name">Product</span>' +
+      '<span class="pos-cch-uom">UOM</span>' +
+      '<span class="pos-cch-disc">Disc.</span>' +
+      '<span class="pos-cch-qty">Qty</span>' +
+      '<span class="pos-cch-total">Total</span>' +
+      '<span class="pos-cch-del"></span>' +
+    '</div>';
     posCart.forEach(function(item) {
       var p = products.find(function(x) { return x.id === item.productId; });
       if (!p) return;
@@ -269,27 +289,21 @@ function renderCart() {
       });
       uomSelHtml += '</select>';
 
-      html += '<div class="pos-cart-item">' +
-        // Row 1: name only
-        '<div class="pos-ci-top">' +
-          '<div class="pos-product-name">' + p.name + '</div>' +
+      html += '<div class="pos-cart-item pos-ci-row">' +
+        '<div class="pos-ci-name">' + p.name + '</div>' +
+        uomSelHtml +
+        '<input type="number" class="pos-ci-input" placeholder="Disc." value="' + (item.discount || '') + '" onchange="setCartDiscount(\'' + item.productId + '\',this.value)">' +
+        '<div class="pos-qty-group">' +
+          '<button type="button" class="pos-qty-btn" onclick="updateCartQty(\'' + item.productId + '\',-1)"><i class="ti ti-minus"></i></button>' +
+          '<input type="number" class="pos-qty-input" value="' + item.quantity + '" min="0" max="' + maxInUom + '" onclick="this.select()" onchange="setCartQtyDirect(\'' + item.productId + '\',this)">' +
+          '<button type="button" class="pos-qty-btn" onclick="updateCartQty(\'' + item.productId + '\',1)"><i class="ti ti-plus"></i></button>' +
         '</div>' +
-        // Row 2: uom | disc | qty | amount | delete
-        '<div class="pos-ci-bottom">' +
-          uomSelHtml +
-          '<input type="number" class="pos-ci-input" placeholder="Disc." value="' + (item.discount || '') + '" onchange="setCartDiscount(\'' + item.productId + '\',this.value)">' +
-          '<div class="pos-qty-group">' +
-            '<button type="button" class="pos-qty-btn" onclick="updateCartQty(\'' + item.productId + '\',-1)"><i class="ti ti-minus"></i></button>' +
-            '<input type="number" class="pos-qty-input" value="' + item.quantity + '" min="0" max="' + maxInUom + '" onclick="this.select()" onchange="setCartQtyDirect(\'' + item.productId + '\',this)">' +
-            '<button type="button" class="pos-qty-btn" onclick="updateCartQty(\'' + item.productId + '\',1)"><i class="ti ti-plus"></i></button>' +
-          '</div>' +
-          '<div class="pos-line-price-wrap" title="Click to edit line total">' +
-            '<span class="pos-line-price-prefix">Rs.</span>' +
-            '<input type="number" class="pos-line-price" value="' + lineTotal.toFixed(2) + '" min="0" max="' + (unitPriceInUom * item.quantity).toFixed(2) + '" step="0.01" onclick="this.select()" onchange="setCartLineTotal(\'' + item.productId + '\',' + (unitPriceInUom * item.quantity).toFixed(2) + ',this)">' +
-            '<i class="ti ti-pencil pos-line-price-icon"></i>' +
-          '</div>' +
-          '<button type="button" class="pos-remove-btn" onclick="removeFromCart(\'' + item.productId + '\')"><i class="ti ti-trash"></i></button>' +
+        '<div class="pos-line-price-wrap" title="Click to edit line total">' +
+          '<span class="pos-line-price-prefix">Rs.</span>' +
+          '<input type="number" class="pos-line-price" value="' + lineTotal.toFixed(2) + '" min="0" max="' + (unitPriceInUom * item.quantity).toFixed(2) + '" step="0.01" onclick="this.select()" onchange="setCartLineTotal(\'' + item.productId + '\',' + (unitPriceInUom * item.quantity).toFixed(2) + ',this)">' +
+          '<i class="ti ti-pencil pos-line-price-icon"></i>' +
         '</div>' +
+        '<button type="button" class="pos-remove-btn" onclick="removeFromCart(\'' + item.productId + '\')"><i class="ti ti-trash"></i></button>' +
       '</div>';
     });
     container.innerHTML = html;
@@ -394,44 +408,52 @@ function printLastSale() {
 
   if (format === 'Thermal') {
     /* ── THERMAL 80mm ──────────────────────────────────── */
-    var lines = '';
+    var itemRows = '';
     (sale.items || []).forEach(function(item) {
       var prod     = products.find(function(p){ return p.id === item.productId; });
       var name     = prod ? prod.name : 'Item';
-      var mrp      = prod ? prod.unitPrice : item.unitPrice;
       var price    = item.unitPrice || 0;
       var qty      = item.quantity  || 1;
       var disc     = item.discount  || 0;
       var total    = item.totalLinePrice || 0;
 
-      lines +=
-        '<table class="item-tbl">' +
-          '<tr class="item-hdr"><td class="td-prod">PRODUCT</td><td class="td-qty">QTY</td><td class="td-price">PRICE</td><td class="ta-r td-total">TOTAL</td></tr>' +
-          '<tr><td class="td-prod">' + name + '</td><td class="td-qty">' + qty + '</td><td class="td-price">' + ERP.formatCurrency(price) + '</td><td class="ta-r td-total">' + ERP.formatCurrency(total) + '</td></tr>' +
-        '</table>' +
-        (disc > 0 ? '<div class="item-disc">Disc: ' + ERP.formatCurrency(disc) + '</div>' : '') +
-        '<div class="item-sep"></div>';
+      itemRows +=
+        '<tr>' +
+          '<td class="td-prod">' + name + '</td>' +
+          '<td class="td-qty">' + qty + '</td>' +
+          '<td class="td-price">' + ERP.formatCurrency(price).split(' ').slice(1).join(' ') + '</td>' +
+          '<td class="ta-r td-total">' + ERP.formatCurrency(total).split(' ').slice(1).join(' ') + '</td>' +
+        '</tr>' +
+        (disc > 0 ? '<tr><td colspan="4" class="item-disc">Disc: ' + ERP.formatCurrency(disc) + '</td></tr>' : '') +
+        '<tr class="item-sep-row"><td colspan="4"><div class="item-sep"></div></td></tr>';
     });
+
+    var lines =
+      '<table class="item-tbl">' +
+        '<thead><tr class="item-hdr"><td class="td-prod">PRODUCT</td><td class="td-qty">QTY</td><td class="td-price">PRICE</td><td class="ta-r td-total">TOTAL</td></tr></thead>' +
+        '<tbody>' + itemRows + '</tbody>' +
+      '</table>';
 
     var logoHtml = ''; // Logo excluded from thermal receipt
 
     win.document.write(
       '<html><head><title>Receipt</title><style>' +
       'body{font-family:monospace;font-size:12px;width:302px;margin:0 auto;padding:8px 4px;}' +
-      'h2{text-align:center;font-size:20px;font-weight:bold;margin:0 0 2px;font-family:monospace;}' +
+      'h2{text-align:center;font-size:24px;font-weight:900;margin:0 0 4px;font-family:monospace;letter-spacing:1px;}' +
       '.sub{text-align:center;font-size:10px;margin:0 0 2px;color:#333;}' +
       '.row{display:flex;justify-content:space-between;font-size:11px;margin:2px 0;}' +
       '.divider{border-top:1px dashed #000;margin:5px 0;}' +
-      '.item-tbl{width:100%;border-collapse:collapse;margin:4px 0 0;}' +
-      '.item-hdr td{font-size:10px;font-weight:bold;text-transform:uppercase;color:#333;padding:2px 0;border-bottom:1px solid #ccc;}' +
-      '.item-tbl td{font-size:9px;padding:2px 0;vertical-align:top;}' +
-      '.td-prod{width:42%;word-break:break-word;}' +
+      '.item-tbl{width:100%;border-collapse:collapse;margin:4px 0 0;table-layout:fixed;}' +
+      '.item-hdr td{font-size:11px;font-weight:900;text-transform:uppercase;color:#000;padding:4px 0;border-top:1px dashed #aaa;border-bottom:1px dashed #aaa;}' +
+      '.item-tbl td{font-size:11px;padding:3px 0;vertical-align:top;}' +
+      '.td-prod{width:44%;word-break:break-word;}' +
       '.td-qty{width:8%;text-align:center;}' +
-      '.td-price{width:28%;}' +
-      '.td-total{width:22%;}' +
+      '.td-price{width:28%;text-align:left;}' +
+      '.td-total{width:20%;text-align:right;}' +
       '.ta-r{text-align:right;}' +
       '.item-disc{font-size:10px;color:#c00;padding-left:2px;}' +
-      '.item-sep{border-top:1px dashed #aaa;margin:5px 0 2px;}' +
+      '.item-sep{border-top:1px dashed #aaa;margin:3px 0;}' +
+      '.item-sep-row td{padding:0;}' +
       '.total-row{display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin:5px 0;}' +
       '.footer{text-align:center;font-size:10px;margin-top:10px;color:#555;}' +
       '@media print{@page{margin:0;width:80mm;size:80mm auto;}}' +

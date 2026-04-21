@@ -12,7 +12,7 @@ class UpdateProductRequest extends FormRequest
     {
         return [
             // Standard fields (all sometimes for partial update)
-            'name'          => 'sometimes|string|max:255',
+            'name'          => ['sometimes', 'string', 'max:32', 'not_regex:/<[^>]*>/'],
             'sku'           => 'sometimes|nullable|string|max:100',
             'barcode'       => 'sometimes|nullable|string|max:100',
             'type'          => 'sometimes|string|max:50',

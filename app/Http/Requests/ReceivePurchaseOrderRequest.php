@@ -17,6 +17,7 @@ class ReceivePurchaseOrderRequest extends FormRequest
             'items.*.unitCost'            => 'sometimes|numeric|min:0',
             'items.*.purchaseItemId'      => 'sometimes|string',
             'notes'                       => 'sometimes|string|max:500',
+            'receiveDate'                 => 'sometimes|date|before_or_equal:today',
         ];
     }
 }

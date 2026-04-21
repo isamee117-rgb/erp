@@ -142,6 +142,17 @@ document.addEventListener('DOMContentLoaded', function() {
   var addBtn = document.getElementById('inv-add-product-btn');
   if (addBtn) addBtn.addEventListener('click', function() { openProductModal('add'); });
 
+  // Filter panel toggle
+  var filterToggleBtn = document.getElementById('inv-filter-toggle-btn');
+  if (filterToggleBtn) {
+    filterToggleBtn.addEventListener('click', function() {
+      var panel = document.getElementById('inv-filters-panel');
+      var isOpen = !panel.classList.contains('d-none');
+      panel.classList.toggle('d-none', isOpen);
+      filterToggleBtn.classList.toggle('active', !isOpen);
+    });
+  }
+
   // Filter controls
   var search = document.getElementById('inv-search');
   if (search) search.addEventListener('input', function() { currentPage = 1; renderPage(); });
@@ -198,6 +209,29 @@ document.addEventListener('DOMContentLoaded', function() {
   // Adjust modal
   var adjCommit = document.getElementById('adj-commit-btn');
   if (adjCommit) adjCommit.addEventListener('click', submitAdjustment);
+
+  // Adj confirm overlay
+  var adjConfirmOk = document.getElementById('invAdjConfirmOk');
+  if (adjConfirmOk) adjConfirmOk.addEventListener('click', doCommitAdjustment);
+  var adjConfirmCancel = document.getElementById('invAdjConfirmCancel');
+  if (adjConfirmCancel) adjConfirmCancel.addEventListener('click', function() {
+    document.getElementById('invAdjConfirm').classList.add('d-none');
+  });
+
+  // Adj success overlay
+  var adjSuccessOk = document.getElementById('invAdjSuccessOk');
+  if (adjSuccessOk) adjSuccessOk.addEventListener('click', function() {
+    document.getElementById('invAdjSuccess').classList.add('d-none');
+  });
+
+  // Click-outside: close accounting SDDs
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#pfAcctSection .sdd-wrap')) {
+      document.querySelectorAll('#pfAcctSection .sdd-wrap.open').forEach(function(w) {
+        w.classList.remove('open');
+      });
+    }
+  });
 });
 
 function computeStats() {
@@ -489,7 +523,57 @@ function openProductModal(mode, productId) {
 }
 
 function confirmSaveProduct() {
-  if (!document.getElementById('pf-name').value) { alert('Product name is required'); return; }
+  var nameInput = document.getElementById('pf-name');
+  var costInput = document.getElementById('pf-cost');
+  var priceInput = document.getElementById('pf-price');
+  var reorderInput = document.getElementById('pf-reorder');
+  var hasError = false;
+
+  var nameVal = nameInput.value.trim();
+  var nameError = document.getElementById('pf-name-error');
+  if (!nameVal) {
+    nameInput.classList.add('is-invalid');
+    nameError.textContent = 'Product name is required.';
+    nameInput.focus();
+    hasError = true;
+  } else if (/<[^>]*>/.test(nameVal)) {
+    nameInput.classList.add('is-invalid');
+    nameError.textContent = 'Product name cannot contain HTML or script tags.';
+    nameInput.focus();
+    hasError = true;
+  } else {
+    nameInput.classList.remove('is-invalid');
+  }
+
+  if (parseFloat(costInput.value) < 0) {
+    costInput.classList.add('is-invalid');
+    document.getElementById('pf-cost-error').classList.remove('d-none');
+    if (!hasError) { costInput.focus(); hasError = true; }
+  } else {
+    costInput.classList.remove('is-invalid');
+    document.getElementById('pf-cost-error').classList.add('d-none');
+  }
+
+  if (parseFloat(priceInput.value) < 0) {
+    priceInput.classList.add('is-invalid');
+    document.getElementById('pf-price-error').classList.remove('d-none');
+    if (!hasError) { priceInput.focus(); hasError = true; }
+  } else {
+    priceInput.classList.remove('is-invalid');
+    document.getElementById('pf-price-error').classList.add('d-none');
+  }
+
+  if (parseInt(reorderInput.value) < 0) {
+    reorderInput.classList.add('is-invalid');
+    document.getElementById('pf-reorder-error').classList.remove('d-none');
+    if (!hasError) { reorderInput.focus(); hasError = true; }
+  } else {
+    reorderInput.classList.remove('is-invalid');
+    document.getElementById('pf-reorder-error').classList.add('d-none');
+  }
+
+  if (hasError) return;
+  document.getElementById('pf-save-error').classList.add('d-none');
   document.getElementById('invSaveConfirm').classList.remove('d-none');
 }
 async function doSaveProduct() {
@@ -520,7 +604,11 @@ async function doSaveProduct() {
     await ERP.sync();
     renderPage();
     document.getElementById('invSaveSuccess').classList.remove('d-none');
-  } catch(e) { alert(e.message || 'Failed to save product'); }
+  } catch(e) {
+    var errBox = document.getElementById('pf-save-error');
+    document.getElementById('pf-save-error-msg').textContent = e.message || 'Failed to save product';
+    errBox.classList.remove('d-none');
+  }
 }
 
 // ── Product Accounting Helpers ────────────────────────────────────────────────
@@ -529,24 +617,86 @@ function populateProductAccountingDropdowns() {
   var mappings = window.ERP.state.accountMappings || {};
 
   var fields = [
-    { elId: 'pf-acct-sales-revenue', key: 'sales_revenue' },
-    { elId: 'pf-acct-cogs',          key: 'cost_of_goods_sold' },
-    { elId: 'pf-acct-inventory',     key: 'inventory_asset' },
+    { sddId: 'sdd-acct-sales-revenue', elId: 'pf-acct-sales-revenue', key: 'sales_revenue' },
+    { sddId: 'sdd-acct-cogs',          elId: 'pf-acct-cogs',          key: 'cost_of_goods_sold' },
+    { sddId: 'sdd-acct-inventory',     elId: 'pf-acct-inventory',     key: 'inventory_asset' },
   ];
 
   fields.forEach(function(f) {
-    var sel = document.getElementById(f.elId);
-    sel.innerHTML = '<option value="">— Not set —</option>';
+    var optsWrap = document.getElementById(f.sddId + '-opts');
+    var dispEl   = document.getElementById(f.sddId + '-disp');
+    var hiddenEl = document.getElementById(f.elId);
+
+    // Reset
+    hiddenEl.value = '';
+    dispEl.textContent = '— Not set —';
+    dispEl.style.color = '#B0B7C9';
+
+    // Build options
+    optsWrap.innerHTML = '';
+    var notSet = document.createElement('div');
+    notSet.className = 'sdd-opt';
+    notSet.dataset.val = '';
+    notSet.dataset.label = '— Not set —';
+    notSet.textContent = '— Not set —';
+    notSet.style.color = '#9CA3AF';
+    notSet.onclick = function() { acctSddSelect(f.sddId, '', '— Not set —'); };
+    optsWrap.appendChild(notSet);
     accounts.forEach(function(a) {
-      var opt = document.createElement('option');
-      opt.value = a.id;
-      opt.textContent = a.code + ' — ' + a.name;
-      sel.appendChild(opt);
+      var label = a.code + ' — ' + a.name;
+      var div = document.createElement('div');
+      div.className = 'sdd-opt';
+      div.dataset.val = a.id;
+      div.dataset.label = label;
+      div.textContent = label;
+      div.onclick = function() { acctSddSelect(f.sddId, a.id, label); };
+      optsWrap.appendChild(div);
     });
+
     // Pre-select current mapping
     var current = mappings[f.key];
-    if (current && current.accountId) sel.value = current.accountId;
+    if (current && current.accountId) {
+      var match = accounts.find(function(a) { return a.id === current.accountId; });
+      if (match) {
+        var label = match.code + ' — ' + match.name;
+        hiddenEl.value = match.id;
+        dispEl.textContent = label;
+        dispEl.style.color = '';
+      }
+    }
   });
+}
+
+function acctSddToggle(wrapId) {
+  var wrap = document.getElementById(wrapId);
+  var isOpen = wrap.classList.contains('open');
+  // Close all other acct SDDs first
+  document.querySelectorAll('#pfAcctSection .sdd-wrap.open').forEach(function(w) {
+    w.classList.remove('open');
+  });
+  if (!isOpen) {
+    wrap.classList.add('open');
+    var inp = wrap.querySelector('.sdd-search-inp');
+    if (inp) { inp.value = ''; acctSddFilter(wrapId, ''); inp.focus(); }
+  }
+}
+
+function acctSddFilter(wrapId, query) {
+  var optsWrap = document.getElementById(wrapId + '-opts');
+  var q = query.toLowerCase();
+  optsWrap.querySelectorAll('.sdd-opt').forEach(function(opt) {
+    opt.style.display = opt.dataset.label.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function acctSddSelect(wrapId, accountId, label) {
+  var wrap = document.getElementById(wrapId);
+  var dispEl = document.getElementById(wrapId + '-disp');
+  var hiddenId = wrapId.replace('sdd-', 'pf-');
+  document.getElementById(hiddenId).value = accountId;
+  dispEl.textContent = label;
+  dispEl.style.color = accountId ? '' : '#B0B7C9';
+  wrap.classList.remove('open');
 }
 
 function toggleProductAccounting() {
@@ -581,21 +731,57 @@ function openAdjustModal(productId) {
   adjustProductId = productId;
   var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
   document.getElementById('adj-product-name').textContent = p ? p.name : '';
-  document.getElementById('adj-qty').value = '0';
+  var adjQty = document.getElementById('adj-qty');
+  adjQty.value = '0';
+  adjQty.classList.remove('is-invalid');
+  document.getElementById('adj-qty-error').classList.add('d-none');
+  document.getElementById('adj-save-error').classList.add('d-none');
   document.getElementById('adj-type').value = 'Adjustment_Damage';
+  document.getElementById('adj-notes').value = '';
   new bootstrap.Modal(document.getElementById('adjustModal')).show();
 }
 
-async function submitAdjustment() {
+function submitAdjustment() {
+  var qtyInput = document.getElementById('adj-qty');
+  var qty = parseInt(qtyInput.value);
+  var qtyError = document.getElementById('adj-qty-error');
+  var saveError = document.getElementById('adj-save-error');
+
+  if (!qty || qty === 0) {
+    qtyInput.classList.add('is-invalid');
+    qtyError.textContent = 'Enter a non-zero quantity.';
+    qtyError.classList.remove('d-none');
+    qtyInput.focus();
+    return;
+  }
+  qtyInput.classList.remove('is-invalid');
+  qtyError.classList.add('d-none');
+  saveError.classList.add('d-none');
+
+  var p = (window.ERP.state.products || []).find(function(x) { return x.id === adjustProductId; });
+  var qtyVal = qty > 0 ? '+' + qty : '' + qty;
+  document.getElementById('invAdjConfirmSub').textContent =
+    'Commit a ' + qtyVal + ' quantity adjustment for "' + (p ? p.name : 'product') + '"?';
+  document.getElementById('invAdjConfirm').classList.remove('d-none');
+}
+
+async function doCommitAdjustment() {
+  document.getElementById('invAdjConfirm').classList.add('d-none');
   var qty = parseInt(document.getElementById('adj-qty').value);
   var type = document.getElementById('adj-type').value;
-  if (!qty || qty === 0) { alert('Enter a non-zero quantity'); return; }
+  var notes = document.getElementById('adj-notes').value.trim();
+  var saveError = document.getElementById('adj-save-error');
+
   try {
-    await ERP.api.adjustStock(adjustProductId, qty, type);
+    await ERP.api.adjustStock(adjustProductId, qty, type, notes || undefined);
     bootstrap.Modal.getInstance(document.getElementById('adjustModal')).hide();
     await ERP.sync();
     renderPage();
-  } catch(e) { alert(e.message || 'Adjustment failed'); }
+    document.getElementById('invAdjSuccess').classList.remove('d-none');
+  } catch(e) {
+    document.getElementById('adj-save-error-msg').textContent = e.message || 'Adjustment failed';
+    saveError.classList.remove('d-none');
+  }
 }
 
 // ── Multi-select ──
@@ -781,6 +967,7 @@ function renderUomConversionsSection(product) {
               '<button type="button" class="pm-btn-save uom-conv-add-btn" onclick="doAddUomConv(\'' + esc(pid) + '\')"><i class="ti ti-plus me-1"></i>Add</button>' +
             '</div>' +
           '</div>' +
+          '<div class="text-danger small mt-1 d-none" id="uom-add-error"></div>' +
           '<div class="erp-info-hint mt-2"><i class="ti ti-info-circle me-1"></i>Multiplier = base units per 1 of this unit. E.g. 1 Box = 12 Pieces → multiplier 12.</div>' +
         '</div>' +
       '</div>' +
@@ -841,6 +1028,7 @@ function renderPriceTiersSection(product) {
             '<button type="button" class="pm-btn-save uom-conv-add-btn" onclick="savePriceTierRow()"><i class="ti ti-plus me-1"></i>Add</button>' +
           '</div>' +
         '</div>' +
+        '<div class="text-danger small mt-1 d-none" id="pm-tier-error"></div>' +
       '</div>';
   }
 
@@ -884,10 +1072,29 @@ function togglePriceTierSection() {
 
 async function savePriceTierRow() {
   var productId = document.getElementById('pf-id').value;
-  var category  = (document.getElementById('pm-tier-cat').value || '').trim();
-  var price     = parseFloat(document.getElementById('pm-tier-price').value);
-  if (!category) { alert('Customer category name is required'); return; }
-  if (isNaN(price) || price < 0) { alert('Price must be 0 or greater'); return; }
+  var catSel    = document.getElementById('pm-tier-cat');
+  var priceInp  = document.getElementById('pm-tier-price');
+  var errDiv    = document.getElementById('pm-tier-error');
+  var category  = (catSel.value || '').trim();
+  var price     = parseFloat(priceInp.value);
+
+  catSel.classList.remove('is-invalid');
+  priceInp.classList.remove('is-invalid');
+  errDiv.classList.add('d-none');
+
+  if (!category) {
+    catSel.classList.add('is-invalid');
+    errDiv.textContent = 'Please select a customer category.';
+    errDiv.classList.remove('d-none');
+    return;
+  }
+  if (isNaN(price) || price < 0) {
+    priceInp.classList.add('is-invalid');
+    errDiv.textContent = 'Price must be 0 or greater.';
+    errDiv.classList.remove('d-none');
+    return;
+  }
+
   try {
     await ERP.api.savePriceTier(productId, { category: category, price: price });
     await ERP.sync();
@@ -898,7 +1105,8 @@ async function savePriceTierRow() {
     var chevron = document.getElementById('priceTierChevron');
     if (chevron) { chevron.classList.remove('ti-chevron-down'); chevron.classList.add('ti-chevron-up'); }
   } catch(e) {
-    alert('Error: ' + e.message);
+    errDiv.textContent = e.message || 'Failed to save price tier.';
+    errDiv.classList.remove('d-none');
   }
 }
 
@@ -919,7 +1127,8 @@ async function deletePriceTierById(tierId) {
     var chevron = document.getElementById('priceTierChevron');
     if (chevron) { chevron.classList.remove('ti-chevron-down'); chevron.classList.add('ti-chevron-up'); }
   } catch(e) {
-    alert('Error: ' + e.message);
+    var errDiv = document.getElementById('pm-tier-error');
+    if (errDiv) { errDiv.textContent = e.message || 'Failed to delete price tier.'; errDiv.classList.remove('d-none'); }
   }
 }
 
@@ -936,19 +1145,39 @@ function toggleUomSection() {
 }
 
 async function doAddUomConv(productId) {
-  var uomId = document.getElementById('uom-add-uomid').value;
-  var mult  = parseFloat(document.getElementById('uom-add-mult').value);
-  if (!uomId) { alert('Select a UOM'); return; }
-  if (!mult || mult <= 0) { alert('Enter a positive multiplier'); return; }
+  var uomSel  = document.getElementById('uom-add-uomid');
+  var multInp = document.getElementById('uom-add-mult');
+  var errDiv  = document.getElementById('uom-add-error');
+  var mult    = parseFloat(multInp.value);
+
+  uomSel.classList.remove('is-invalid');
+  multInp.classList.remove('is-invalid');
+  errDiv.classList.add('d-none');
+
+  if (!uomSel.value) {
+    uomSel.classList.add('is-invalid');
+    errDiv.textContent = 'Please select a UOM.';
+    errDiv.classList.remove('d-none');
+    return;
+  }
+  if (!mult || mult <= 0) {
+    multInp.classList.add('is-invalid');
+    errDiv.textContent = 'Enter a positive multiplier.';
+    errDiv.classList.remove('d-none');
+    return;
+  }
+
   try {
-    await ERP.api.addUomConversion(productId, { uomId: uomId, multiplier: mult });
+    await ERP.api.addUomConversion(productId, { uomId: uomSel.value, multiplier: mult });
     await ERP.api.syncMaster().then(function(d) { window.ERP.state.products = d.products || window.ERP.state.products; });
     var p = (window.ERP.state.products || []).find(function(x) { return x.id === productId; });
     if (p) renderUomConversionsSection(p);
-    // Keep section open
     var body = document.getElementById('uomConvBody');
     if (body) body.classList.remove('d-none');
-  } catch(e) { alert(e.message || 'Failed to add conversion'); }
+  } catch(e) {
+    errDiv.textContent = e.message || 'Failed to add conversion';
+    errDiv.classList.remove('d-none');
+  }
 }
 
 async function doDeleteUomConv(productId, cid) {

@@ -9,12 +9,9 @@
     <div class="row align-items-center">
       <div class="col">
         <h2 class="mb-1 inv-title">Product Master</h2>
-        <p class="mb-0 inv-subtitle">Configure global catalog, pricing strategies, and stock thresholds.</p>
+        <p class="mb-0 inv-subtitle">Manage your products,set prices,and control stock levels.</p>
       </div>
       <div class="col-auto d-flex gap-2">
-        <button class="btn btn-light shadow-sm" id="inv-sel-toggle-btn" title="Multi-select mode">
-          <i class="ti ti-checkbox me-1"></i>Select
-        </button>
         <button class="btn btn-light shadow-sm" id="inv-add-product-btn">
           <i class="ti ti-plus me-1"></i>Add Product
         </button>
@@ -68,35 +65,45 @@
 
 <div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-center">
-      <div class="col-12 col-md-4">
-        <div class="position-relative">
-          <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search" class="erp-icon-sm"></i></span>
-          <input type="text" class="form-control inv-input ps-5" id="inv-search" placeholder="Search by Item No., barcode, or name...">
-        </div>
+    {{-- Row 1: Search + icon toolbar --}}
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="inv-search" placeholder="Search by Item No., barcode, or name...">
       </div>
-      <div class="col-6 col-md-2">
-        <select class="form-select inv-input" id="inv-category"><option value="all">All Categories</option></select>
-      </div>
-      <div class="col-6 col-md-2">
-        <select class="form-select inv-input" id="inv-type">
-          <option value="all">All Types</option><option value="Product">Product</option><option value="Service">Service</option><option value="Non-inventory">Non-inventory</option>
-        </select>
-      </div>
-      <div class="col-auto ms-md-auto">
-        <label class="d-flex align-items-center gap-2 mb-0 cursor-pointer">
-          <div class="form-check form-switch mb-0">
-            <input class="form-check-input inv-toggle" type="checkbox" role="switch" id="inv-lowstock">
-          </div>
-          <span class="inv-toggle-label">Low Stock Only</span>
-        </label>
-      </div>
-      <div class="ms-auto d-flex align-items-center">
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="inv-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
         <div class="dropdown">
-          <button class="btn btn-light btn-sm dropdown-toggle inv-cols-btn" type="button" id="invColsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-            <i class="ti ti-columns me-1"></i>Columns
+          <button class="inv-icon-btn" id="invColsDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="Columns">
+            <i class="ti ti-layout-columns"></i>
           </button>
           <ul class="dropdown-menu dropdown-menu-end inv-cols-menu" id="invColsMenu"></ul>
+        </div>
+        <button class="inv-icon-btn" id="inv-sel-toggle-btn" title="Multi-select">
+          <i class="ti ti-checkbox"></i>
+        </button>
+      </div>
+    </div>
+    {{-- Row 2: Collapsible filters --}}
+    <div id="inv-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <select class="form-select inv-input" id="inv-category"><option value="all">All Categories</option></select>
+        </div>
+        <div class="col-6 col-md-3">
+          <select class="form-select inv-input" id="inv-type">
+            <option value="all">All Types</option><option value="Product">Product</option><option value="Service">Service</option><option value="Non-inventory">Non-inventory</option>
+          </select>
+        </div>
+        <div class="col-auto ms-md-auto">
+          <label class="d-flex align-items-center gap-2 mb-0 cursor-pointer">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input inv-toggle" type="checkbox" role="switch" id="inv-lowstock">
+            </div>
+            <span class="inv-toggle-label">Low Stock Only</span>
+          </label>
         </div>
       </div>
     </div>
@@ -185,6 +192,35 @@
   </div>
 </div>
 
+{{-- Adj Confirm Overlay --}}
+<div class="ms-overlay d-none" id="invAdjConfirm">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-confirm"><i class="ti ti-adjustments"></i></div>
+      <div class="ms-title">Commit Adjustment?</div>
+      <p class="ms-sub" id="invAdjConfirmSub">Are you sure you want to commit this stock adjustment?</p>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-cancel" id="invAdjConfirmCancel">Cancel</button>
+      <button class="ms-btn-confirm" id="invAdjConfirmOk"><i class="ti ti-check me-1"></i>Yes, Commit</button>
+    </div>
+  </div>
+</div>
+
+{{-- Adj Success Overlay --}}
+<div class="ms-overlay d-none" id="invAdjSuccess">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-success"><i class="ti ti-circle-check"></i></div>
+      <div class="ms-title">Adjustment Committed!</div>
+      <p class="ms-sub">Stock has been updated successfully.</p>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-ok" id="invAdjSuccessOk"><i class="ti ti-check me-1"></i>OK</button>
+    </div>
+  </div>
+</div>
+
 {{-- Confirm Save Overlay --}}
 <div class="ms-overlay d-none" id="invSaveConfirm">
   <div class="ms-box">
@@ -215,7 +251,7 @@
 </div>
 
 <div class="modal modal-blur fade" id="productModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-620">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-680">
     <div class="modal-content pm-modal-content">
       <div class="modal-header pm-modal-header">
         <h5 class="modal-title pm-modal-title" id="productModalTitle"><i class="ti ti-package me-2"></i>Add Product</h5>
@@ -225,7 +261,7 @@
         <form id="productForm">
           <input type="hidden" id="pf-id">
           <div class="row pm-field-row">
-            <div class="col-8"><label class="pm-label">Product Name <span class="text-danger">*</span></label><input type="text" class="form-control pm-input" id="pf-name" placeholder="Enter product name" required></div>
+            <div class="col-8"><label class="pm-label">Product Name <span class="text-danger">*</span></label><input type="text" class="form-control pm-input" id="pf-name" placeholder="Enter product name" maxlength="32" required><div class="invalid-feedback" id="pf-name-error">Product name is required.</div></div>
             <div class="col-4"><label class="pm-label">Barcode</label><div class="d-flex gap-1"><input type="text" class="form-control pm-input" id="pf-barcode" placeholder="Optional"><button type="button" class="bc-cam-btn" id="pf-barcode-scan-btn" title="Scan with camera"><i class="ti ti-camera" class="erp-icon-md"></i></button></div></div>
           </div>
           <div class="row pm-field-row">
@@ -240,6 +276,7 @@
                 <span class="input-group-text pm-prefix">Rs.</span>
                 <input type="number" step="0.01" class="form-control pm-input" id="pf-cost" value="0">
               </div>
+              <div class="text-danger small mt-1 d-none" id="pf-cost-error">Unit cost cannot be negative.</div>
             </div>
             <div class="col-4">
               <label class="pm-label">Unit Price</label>
@@ -247,6 +284,7 @@
                 <span class="input-group-text pm-prefix">Rs.</span>
                 <input type="number" step="0.01" class="form-control pm-input" id="pf-price" value="0">
               </div>
+              <div class="text-danger small mt-1 d-none" id="pf-price-error">Unit price cannot be negative.</div>
             </div>
             <div class="col-4">
               <label class="pm-label">Reorder Level</label>
@@ -254,6 +292,7 @@
                 <span class="input-group-text pm-prefix">Qty</span>
                 <input type="number" class="form-control pm-input" id="pf-reorder" value="0">
               </div>
+              <div class="text-danger small mt-1 d-none" id="pf-reorder-error">Reorder level cannot be negative.</div>
             </div>
           </div>
           <div class="row pm-field-row" id="pf-opening-row">
@@ -273,31 +312,55 @@
           {{-- Accounting Mappings (collapsible) --}}
           <div class="pm-acct-wrap">
             <button type="button" class="pm-acct-toggle" id="pfAcctToggle">
-              <span><i class="ti ti-book-2 me-2"></i>Accounting Accounts</span>
+              <span><i class="ti ti-book-2 me-2"></i>Posting Accounts</span>
               <i class="ti ti-chevron-down" id="pfAcctChevron"></i>
             </button>
             <div id="pfAcctSection" class="pm-acct-body d-none">
               <div class="row g-2">
                 <div class="col-12 col-md-4">
-                  <label class="pm-label">Sales Revenue Account</label>
-                  <select class="form-select pm-input" id="pf-acct-sales-revenue">
-                    <option value="">— Not set —</option>
-                  </select>
+                  <label class="pm-label">Sales Revenue</label>
+                  <div class="sdd-wrap" id="sdd-acct-sales-revenue">
+                    <div class="sr-sdd-trigger" onclick="acctSddToggle('sdd-acct-sales-revenue')">
+                      <span class="sdd-disp" id="sdd-acct-sales-revenue-disp" style="color:#B0B7C9">— Not set —</span>
+                      <i class="ti ti-chevron-down sdd-caret"></i>
+                    </div>
+                    <div class="sdd-panel">
+                      <div class="sdd-search-row"><i class="ti ti-search"></i><input type="text" class="sdd-search-inp" placeholder="Search..." oninput="acctSddFilter('sdd-acct-sales-revenue',this.value)" onclick="event.stopPropagation()"></div>
+                      <div class="sdd-opts-wrap" id="sdd-acct-sales-revenue-opts"></div>
+                    </div>
+                    <input type="hidden" id="pf-acct-sales-revenue">
+                  </div>
                 </div>
                 <div class="col-12 col-md-4">
-                  <label class="pm-label">Cost of Goods Sold Account</label>
-                  <select class="form-select pm-input" id="pf-acct-cogs">
-                    <option value="">— Not set —</option>
-                  </select>
+                  <label class="pm-label">Cost of Goods Sold</label>
+                  <div class="sdd-wrap" id="sdd-acct-cogs">
+                    <div class="sr-sdd-trigger" onclick="acctSddToggle('sdd-acct-cogs')">
+                      <span class="sdd-disp" id="sdd-acct-cogs-disp" style="color:#B0B7C9">— Not set —</span>
+                      <i class="ti ti-chevron-down sdd-caret"></i>
+                    </div>
+                    <div class="sdd-panel">
+                      <div class="sdd-search-row"><i class="ti ti-search"></i><input type="text" class="sdd-search-inp" placeholder="Search..." oninput="acctSddFilter('sdd-acct-cogs',this.value)" onclick="event.stopPropagation()"></div>
+                      <div class="sdd-opts-wrap" id="sdd-acct-cogs-opts"></div>
+                    </div>
+                    <input type="hidden" id="pf-acct-cogs">
+                  </div>
                 </div>
                 <div class="col-12 col-md-4">
-                  <label class="pm-label">Inventory Asset Account</label>
-                  <select class="form-select pm-input" id="pf-acct-inventory">
-                    <option value="">— Not set —</option>
-                  </select>
+                  <label class="pm-label">Inventory Asset</label>
+                  <div class="sdd-wrap" id="sdd-acct-inventory">
+                    <div class="sr-sdd-trigger" onclick="acctSddToggle('sdd-acct-inventory')">
+                      <span class="sdd-disp" id="sdd-acct-inventory-disp" style="color:#B0B7C9">— Not set —</span>
+                      <i class="ti ti-chevron-down sdd-caret"></i>
+                    </div>
+                    <div class="sdd-panel">
+                      <div class="sdd-search-row"><i class="ti ti-search"></i><input type="text" class="sdd-search-inp" placeholder="Search..." oninput="acctSddFilter('sdd-acct-inventory',this.value)" onclick="event.stopPropagation()"></div>
+                      <div class="sdd-opts-wrap" id="sdd-acct-inventory-opts"></div>
+                    </div>
+                    <input type="hidden" id="pf-acct-inventory">
+                  </div>
                 </div>
               </div>
-              <div class="erp-info-hint mt-2"><i class="ti ti-info-circle me-1"></i>Company-wide defaults used for journal posting on sales &amp; purchases.</div>
+              <div class="erp-info-hint mt-2"><i class="ti ti-info-circle me-1"></i>Set default accounts for recording sales and purchase transactions.</div>
             </div>
           </div>
           {{-- UOM Conversions (edit mode only, populated by JS) --}}
@@ -305,6 +368,9 @@
           {{-- Price Tiers (edit mode only, populated by JS) --}}
           <div id="pf-price-tiers-section" class="d-none"></div>
         </form>
+      </div>
+      <div class="px-3 pb-2 d-none" id="pf-save-error">
+        <div class="alert alert-danger py-2 mb-0 small" id="pf-save-error-msg"></div>
       </div>
       <div class="modal-footer pm-modal-footer">
         <button class="pm-btn-cancel" data-bs-dismiss="modal">Cancel</button>
@@ -332,8 +398,9 @@
             <span class="input-group-text pm-prefix">Qty</span>
             <input type="number" class="form-control pm-input" id="adj-qty" value="0">
           </div>
+          <div class="invalid-feedback d-block d-none" id="adj-qty-error"></div>
         </div>
-        <div class="pm-field-row" class="mb-0">
+        <div class="pm-field-row">
           <label class="pm-label">Reason</label>
           <select class="form-select pm-input" id="adj-type">
             <option value="Adjustment_Damage">Damage / Spoilage</option>
@@ -342,6 +409,13 @@
             <option value="Adjustment_Internal">Internal Use</option>
           </select>
         </div>
+        <div class="pm-field-row mb-0">
+          <label class="pm-label">Further Details <span class="text-muted fw-normal">(optional)</span></label>
+          <textarea class="form-control pm-input" id="adj-notes" rows="5" placeholder="Add any additional notes..." style="min-height:120px;"></textarea>
+        </div>
+      </div>
+      <div class="px-3 pb-2 d-none" id="adj-save-error">
+        <div class="alert alert-danger py-2 mb-0 small" id="adj-save-error-msg"></div>
       </div>
       <div class="modal-footer pm-modal-footer">
         <button class="pm-btn-cancel" data-bs-dismiss="modal">Cancel</button>

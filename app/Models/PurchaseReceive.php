@@ -10,7 +10,7 @@ class PurchaseReceive extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id', 'company_id', 'purchase_order_id', 'notes',
+        'id', 'company_id', 'purchase_order_id', 'notes', 'receive_date',
     ];
 
     public function purchaseOrder()

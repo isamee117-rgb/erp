@@ -19,28 +19,41 @@
 
 <div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-center">
-      <div class="col-12 col-md-4">
-        <div class="position-relative">
-          <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search erp-icon-sm"></i></span>
-          <input type="text" class="form-control inv-input ps-5" id="po-search" placeholder="Search by PO ID or Vendor..." oninput="poCurrentPage=1;renderPage();">
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="po-search" placeholder="Search by PO ID or Vendor...">
+      </div>
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="po-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
+      </div>
+    </div>
+    <div id="po-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <select class="form-select inv-input" id="po-status">
+            <option value="all">All Status</option>
+            <option value="Draft">Draft</option>
+            <option value="Partially Received">Partially Received</option>
+            <option value="Received">Received</option>
+          </select>
         </div>
-      </div>
-      <div class="col-6 col-md-2">
-        <select class="form-select inv-input" id="po-status" onchange="poCurrentPage=1;renderPage();">
-          <option value="all">All Status</option><option value="Draft">Draft</option><option value="Partially Received">Partially Received</option><option value="Received">Received</option>
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <select class="form-select inv-input" id="po-vendor" onchange="poCurrentPage=1;renderPage();">
-          <option value="all">All Vendors</option>
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <input type="date" class="form-control inv-input" id="po-date-from" title="From Date" onchange="poCurrentPage=1;renderPage();">
-      </div>
-      <div class="col-6 col-md-2">
-        <input type="date" class="form-control inv-input" id="po-date-to" title="To Date" onchange="poCurrentPage=1;renderPage();">
+        <div class="col-6 col-md-3">
+          <select class="form-select inv-input" id="po-vendor">
+            <option value="all">All Vendors</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <input type="date" class="form-control inv-input" id="po-date-from" title="From Date">
+        </div>
+        <div class="col-6 col-md-2">
+          <input type="date" class="form-control inv-input" id="po-date-to" title="To Date">
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="po-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
       </div>
     </div>
   </div>
@@ -112,6 +125,7 @@
               </div>
               <input type="hidden" id="npo-vendor">
             </div>
+            <div class="text-danger small mt-1 d-none" id="npo-vendor-error">Please select a vendor.</div>
           </div>
           <div class="col-5">
             <label class="pm-label"><i class="ti ti-calendar me-1"></i>Order Date</label>
@@ -134,11 +148,11 @@
         <div class="text-end mb-2">
           <button type="button" class="inv-action-btn" style="width:auto;padding:0 10px;font-size:0.78rem;color:#CD0000" onclick="addPOItemRow()"><i class="ti ti-plus me-1"></i>Add Row</button>
         </div>
-        <table class="table table-sm mb-0">
+        <table class="table table-sm mb-0" style="table-layout:fixed;">
           <thead><tr>
-            <th class="po-th-col" style="width:32px;color:#9CA3AF;">#</th>
-            <th class="erp-table-col-header">Product</th>
-            <th class="po-th-col" style="width:110px;">UOM</th>
+            <th class="po-th-col" style="width:36px;">#</th>
+            <th class="po-th-col">Product</th>
+            <th class="po-th-col" style="width:90px;">UOM</th>
             <th class="po-th-col" style="width:80px;">Qty</th>
             <th class="po-th-col" style="width:110px;">Unit Cost</th>
             <th class="po-th-col" style="width:110px;">Line Total</th>
@@ -146,7 +160,11 @@
           </tr></thead>
           <tbody id="npo-items"></tbody>
         </table>
+        <div class="text-danger small mt-1 d-none" id="npo-items-error">Add at least one product.</div>
         <div class="text-end mt-3"><span class="erp-text-82 text-muted">Estimated Total: </span><span class="fs-5 fw-bold text-erp-primary" id="npo-total">0.00</span></div>
+      </div>
+      <div class="px-3 pb-2 d-none" id="npo-save-error">
+        <div class="alert alert-danger py-2 mb-0 small" id="npo-save-error-msg"></div>
       </div>
       <div class="modal-footer pm-modal-footer">
         <button class="pm-btn-cancel" data-bs-dismiss="modal">Cancel</button>
@@ -167,13 +185,20 @@
         <button type="button" class="pm-modal-close" data-bs-dismiss="modal">&times;</button>
       </div>
       <div class="modal-body pm-modal-body">
+        <div class="row mb-3">
+          <div class="col-5">
+            <label class="pm-label">Receive Date</label>
+            <input type="date" class="form-control pm-input" id="recv-date">
+          </div>
+        </div>
         <table class="table table-sm mb-0">
           <thead><tr>
-            <th class="erp-table-col-header">Product</th>
-            <th class="text-center erp-table-col-header">Ordered</th>
-            <th class="text-center erp-table-col-header">Received</th>
-            <th class="text-center erp-table-col-header">Remaining</th>
-            <th class="po-th-col" style="width:110px;">Receive Qty</th>
+            <th class="po-th-col" style="width:36px;">#</th>
+            <th class="po-th-col">Product</th>
+            <th class="po-th-col text-center">Ordered</th>
+            <th class="po-th-col text-center">Received</th>
+            <th class="po-th-col text-center">Remaining</th>
+            <th class="po-th-col" style="width:120px;">Receive Qty</th>
           </tr></thead>
           <tbody id="recv-items"></tbody>
         </table>
@@ -189,6 +214,22 @@
     </div>
   </div>
 </div>
+{{-- Receipts Panel Overlay --}}
+<div class="ms-overlay d-none" id="poReceiptsOverlay" onclick="if(event.target===this)closeReceiptsPanel()">
+  <div class="ms-box" style="max-width:680px;width:100%;">
+    <div class="ms-body" style="text-align:left;padding:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 12px;">
+        <div>
+          <div class="ms-title" style="margin-bottom:2px;">Goods Receipts</div>
+          <div style="font-size:0.78rem;color:#6B7280;" id="receipts-po-sub"></div>
+        </div>
+        <button onclick="closeReceiptsPanel()" style="background:none;border:none;font-size:1.3rem;color:#6B7280;cursor:pointer;line-height:1;">&times;</button>
+      </div>
+      <div style="max-height:420px;overflow-y:auto;padding:0 24px 20px;" id="receipts-list"></div>
+    </div>
+  </div>
+</div>
+
 @endsection
 
 

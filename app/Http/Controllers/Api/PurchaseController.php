@@ -35,7 +35,8 @@ class PurchaseController extends Controller
                 $user,
                 $id,
                 $validated['items'] ?? [],
-                $validated['notes'] ?? ''
+                $validated['notes'] ?? '',
+                $validated['receiveDate'] ?? null
             );
         } catch (\RuntimeException $e) {
             $status = $e->getMessage() === 'Purchase order not found' ? 404 : 400;

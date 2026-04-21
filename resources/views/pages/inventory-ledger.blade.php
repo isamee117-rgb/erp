@@ -17,12 +17,11 @@
 
 <div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-center">
-      <div class="col-12 col-md-5">
-        <label class="pm-label">Select Product</label>
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1">
         <div class="sdd-wrap" id="productSelect-sdd">
-          <div class="sdd-trigger il-sdd-trigger" onclick="sddToggle('productSelect-sdd')">
-            <span class="sdd-disp" id="productSelect-disp" class="erp-dropdown-placeholder">-- Select a Product --</span>
+          <div class="il-sdd-trigger" onclick="sddToggle('productSelect-sdd')">
+            <span class="sdd-disp erp-dropdown-placeholder" id="productSelect-disp">-- Select a Product --</span>
             <i class="ti ti-chevron-down sdd-caret"></i>
           </div>
           <div class="sdd-panel">
@@ -35,16 +34,23 @@
           <input type="hidden" id="productSelect">
         </div>
       </div>
-      <div class="col-6 col-md-3">
-        <label class="pm-label">From</label>
-        <input type="date" class="form-control inv-input" id="dateFrom" onchange="ilPage=1;renderPage()">
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="il-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
       </div>
-      <div class="col-6 col-md-3">
-        <label class="pm-label">To</label>
-        <input type="date" class="form-control inv-input" id="dateTo" onchange="ilPage=1;renderPage()">
-      </div>
-      <div class="col-auto" class="erp-pt-btn">
-        <button class="btn btn-light inv-input px-3" onclick="document.getElementById('dateFrom').value='';document.getElementById('dateTo').value='';renderPage()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="il-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateFrom" title="From Date">
+        </div>
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateTo" title="To Date">
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="il-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
       </div>
     </div>
   </div>

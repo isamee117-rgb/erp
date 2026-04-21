@@ -20,17 +20,28 @@
 
 <div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-center">
-      <div class="col-12 col-md-4">
-        <div class="position-relative">
-          <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search" class="erp-icon-sm"></i></span>
-          <input type="text" class="form-control inv-input ps-5" id="searchInput" placeholder="Search returns...">
-        </div>
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="searchInput" placeholder="Search by Return # or Vendor...">
       </div>
-      <div class="col-6 col-md-3"><input type="date" class="form-control inv-input" id="dateFrom"></div>
-      <div class="col-6 col-md-3"><input type="date" class="form-control inv-input" id="dateTo"></div>
-      <div class="col-auto ms-md-auto">
-        <button class="btn btn-light inv-input px-3" onclick="clearFilters()"><i class="ti ti-x me-1"></i>Clear</button>
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="pret-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
+      </div>
+    </div>
+    <div id="pret-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateFrom" title="From Date">
+        </div>
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateTo" title="To Date">
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="pret-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
       </div>
     </div>
   </div>
@@ -87,21 +98,18 @@
             <input type="hidden" id="poSelect">
           </div>
         </div>
+        {{-- Receipts grouped with items --}}
         <div id="poItemsContainer" class="d-none">
-          <div class="pm-field-row">
-            <label class="pm-label">Items to Return</label>
-            <div class="table-responsive">
-              <table class="table table-sm inv-table mb-0">
-                <thead><tr><th class="inv-th">Product</th><th class="inv-th">Received Qty</th><th class="inv-th">Return Qty</th><th class="inv-th">Cost</th></tr></thead>
-                <tbody id="poItemsBody"></tbody>
-              </table>
-            </div>
-          </div>
+          <label class="pm-label mb-2">Items to Return (by Receipt)</label>
+          <div id="poReceiptsGrouped"></div>
         </div>
         <div class="pm-field-row mb-0">
           <label class="pm-label">Reason</label>
           <textarea class="form-control pm-textarea" id="returnReason" rows="2"></textarea>
         </div>
+      </div>
+      <div class="px-3 pb-2 d-none" id="pret-save-error">
+        <div class="alert alert-danger py-2 mb-0 small" id="pret-save-error-msg"></div>
       </div>
       <div class="modal-footer pm-modal-footer">
         <button class="pm-btn-cancel" data-bs-dismiss="modal">Cancel</button>

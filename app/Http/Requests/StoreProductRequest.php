@@ -8,11 +8,32 @@ class StoreProductRequest extends FormRequest
 {
     public function authorize(): bool { return true; }
 
+    public function messages(): array
+    {
+        return [
+            'name.required'      => 'Product name is required.',
+            'name.max'           => 'Product name must be 32 characters or less.',
+            'name.not_regex'     => 'Product name must not contain HTML tags.',
+            'unitPrice.numeric'  => 'Unit Price (Sale) must be a number.',
+            'unitPrice.min'      => 'Unit Price (Sale) cannot be negative.',
+            'unitCost.numeric'   => 'Unit Cost must be a number.',
+            'unitCost.min'       => 'Unit Cost cannot be negative.',
+            'initialStock.numeric' => 'Opening Stock must be a number.',
+            'initialStock.min'   => 'Opening Stock cannot be negative.',
+            'reorderLevel.integer' => 'Reorder Level must be a whole number.',
+            'reorderLevel.min'   => 'Reorder Level cannot be negative.',
+            'expiry_date.date'   => 'Expiry Date must be a valid date.',
+            'storage_condition.in' => 'Storage Condition must be Ambient, Chilled, or Frozen.',
+            'schedule_category.in' => 'Schedule Category must be H, H1, X, or OTC.',
+            'dosage_form.in'     => 'Dosage Form must be Tablet, Syrup, Injection, or Capsule.',
+        ];
+    }
+
     public function rules(): array
     {
         return [
             // Standard fields
-            'name'          => 'required|string|max:255',
+            'name'          => ['required', 'string', 'max:32', 'not_regex:/<[^>]*>/'],
             'sku'           => 'sometimes|nullable|string|max:100',
             'barcode'       => 'sometimes|nullable|string|max:100',
             'type'          => 'sometimes|string|max:50',

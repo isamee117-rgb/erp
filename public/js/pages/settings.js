@@ -237,7 +237,7 @@ var BK_TYPE_LABELS = { product:'Product Master', customer:'Customer Master', ven
 function bkGoStep(n) {
   for (var i=1;i<=4;i++) {
     var s=document.getElementById('bk-s'+i);
-    if(s) s.style.display = (i===n)?'block':'none';
+    if(s) { s.classList.remove('d-none'); s.style.display = (i===n)?'block':'none'; }
     var d=document.getElementById('bkd'+i);
     if(d){ d.classList.remove('active','done');
       if(i<n) d.classList.add('done');
@@ -250,7 +250,13 @@ function bkGoStep(n) {
     document.getElementById('bk-type-label').textContent = BK_TYPE_LABELS[bkState.type]||'';
     document.getElementById('bk-file-inp').value='';
   }
-  if(n===1) { bkState.type=null; bkState.headers=[]; bkState.rows=[]; bkState.mapping={}; bkState.validated=false; }
+  if(n===1) { bkState.type=null; bkState.headers=[]; bkState.rows=[]; bkState.mapping={}; bkState.validated=false; bkState.rowErrors=[]; }
+  if(n===2||n===3) {
+    var r=document.getElementById('bk-val-results'); if(r){r.style.display='none';r.innerHTML='';}
+    var b=document.getElementById('bk-import-btn'); if(b){b.style.display='none';b.disabled=true;}
+    var bd=document.getElementById('bk-valid-badge'); if(bd) bd.style.display='none';
+    bkState.validated=false;
+  }
 }
 
 function bkSelectType(type) {
@@ -325,13 +331,16 @@ function bkAutoMap() {
 }
 
 function bkRenderPreview() {
-  var h=bkState.headers, rows=bkState.rows.slice(0,3);
+  var h=bkState.headers, rows=bkState.rows;
   var html='<thead class="erp-thead-light"><tr>'+h.map(function(c){return '<th class="bk-preview-th">'+bkEsc(c)+'</th>';}).join('')+'</tr></thead><tbody>';
   rows.forEach(function(r){
     html+='<tr>'+h.map(function(_,i){return '<td class="bk-preview-td">'+bkEsc((r[i]||'').toString())+'</td>';}).join('')+'</tr>';
   });
   html+='</tbody>';
   document.getElementById('bk-preview-table').innerHTML=html;
+  var wrap=document.getElementById('bk-preview-table').parentElement;
+  wrap.style.maxHeight=rows.length>10?'280px':'';
+  wrap.style.overflowY=rows.length>10?'auto':'';
 }
 
 function bkRenderMapping() {
@@ -361,23 +370,109 @@ function bkUpdateRowStatus(key, val) {
 
 function bkValidate() {
   var fields=BK_FIELDS[bkState.type]||[];
-  var errors=[];
+
+  // Step 1: check required columns are mapped
+  var mapErrors=[];
   fields.forEach(function(f){
-    if(f.required && (bkState.mapping[f.key]===undefined||bkState.mapping[f.key]==='')) {
-      errors.push('"'+f.label+'" is required but not mapped.');
-    }
+    if(f.required&&(bkState.mapping[f.key]===undefined||bkState.mapping[f.key]===''))
+      mapErrors.push('"'+f.label+'" is required but not mapped.');
   });
-  if(bkState.rows.length===0){ errors.push('File has no data rows.'); }
-  if(errors.length){
-    alert('Please fix the following:\n\n'+errors.join('\n'));
-    return;
+  if(bkState.rows.length===0) mapErrors.push('File has no data rows.');
+  if(mapErrors.length){ alert('Fix mapping first:\n\n'+mapErrors.join('\n')); return; }
+
+  // Step 2: row-by-row validation
+  function getVal(row,key){
+    var idx=bkState.mapping[key];
+    if(idx===undefined||idx===null||idx==='') return '';
+    return (row[parseInt(idx)]||'').toString().trim();
   }
-  bkState.validated=true;
-  var badge=document.getElementById('bk-valid-badge');
-  badge.style.display='flex';
+  var emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  var numericKeys=['unitPrice','unitCost','initialStock','reorderLevel','openingBalance'];
+  var rowErrors=[];
+
+  var state=window.ERP.state;
+  var sysCatNames=(state.categories||[]).map(function(c){return c.name.toLowerCase();});
+  var sysUomNames=(state.uoms||[]).map(function(u){return (u.name||u.symbol||'').toLowerCase();});
+  var seenSkus={};
+
+  bkState.rows.forEach(function(row,i){
+    var errs=[];
+
+    // Required name
+    var name=getVal(row,'name');
+    if(!name) errs.push('Name is required');
+
+    // Email format
+    var email=getVal(row,'email');
+    if(email&&!emailRe.test(email)) errs.push('Invalid email "'+email+'"');
+
+    // Numeric fields
+    numericKeys.forEach(function(k){
+      var v=getVal(row,k);
+      if(v!==''&&isNaN(parseFloat(v))) errs.push('"'+k+'" must be a number (got "'+v+'")');
+    });
+
+    // Product-only checks
+    if(bkState.type==='product'){
+      // Duplicate SKU within file
+      var sku=getVal(row,'sku');
+      if(sku){
+        var skuLc=sku.toLowerCase();
+        if(seenSkus[skuLc]) errs.push('Duplicate SKU "'+sku+'" (same file, row '+seenSkus[skuLc]+')');
+        else seenSkus[skuLc]=i+2;
+      }
+      // Category exists in system
+      var cat=getVal(row,'category');
+      if(cat&&sysCatNames.indexOf(cat.toLowerCase())===-1)
+        errs.push('Category "'+cat+'" not found in system');
+      // UOM exists in system
+      var uom=getVal(row,'uom');
+      if(uom&&sysUomNames.indexOf(uom.toLowerCase())===-1)
+        errs.push('UOM "'+uom+'" not found in system');
+    }
+
+    if(errs.length) rowErrors.push({row:i+2,errs:errs});
+  });
+
+  bkState.validated=rowErrors.length===0;
+  bkState.rowErrors=rowErrors;
+
+  // Step 3: render results
+  var resultsEl=document.getElementById('bk-val-results');
+  var html='';
+  if(bkState.validated){
+    html='<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:8px;font-size:0.85rem;color:#166534;">'
+      +'<i class="ti ti-circle-check" style="font-size:1.1rem;"></i>'
+      +'<strong>All '+bkState.rows.length+' rows are valid.</strong> Click "Post to System" to import.'
+      +'</div>';
+  } else {
+    html='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;font-size:0.85rem;color:#991b1b;">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+      +'<i class="ti ti-alert-circle" style="font-size:1.1rem;"></i>'
+      +'<strong>'+rowErrors.length+' row(s) have errors</strong> — fix the file and re-upload.</div>'
+      +'<div style="max-height:180px;overflow-y:auto;">';
+    rowErrors.forEach(function(re){
+      html+='<div style="padding:4px 0;border-bottom:1px solid #fecaca;">'
+        +'<span style="font-weight:700;margin-right:8px;">Row '+re.row+':</span>'+bkEsc(re.errs.join('; '))+'</div>';
+    });
+    html+='</div></div>';
+  }
+  resultsEl.innerHTML=html;
+  resultsEl.style.display='block';
+
+  // Step 4: toggle Post button
   var btn=document.getElementById('bk-import-btn');
-  btn.style.display='inline-flex';
-  document.getElementById('bk-row-cnt').textContent=bkState.rows.length;
+  var badge=document.getElementById('bk-valid-badge');
+  if(bkState.validated){
+    btn.style.display='inline-flex';
+    btn.disabled=false;
+    badge.style.display='flex';
+    document.getElementById('bk-row-cnt').textContent=bkState.rows.length;
+  } else {
+    btn.style.display='none';
+    btn.disabled=true;
+    badge.style.display='none';
+  }
 }
 
 async function bkStartImport() {

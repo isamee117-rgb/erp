@@ -79,7 +79,7 @@ class PurchaseService
         return $po;
     }
 
-    public function receiveOrder(User $user, string $id, array $receiveItems, string $notes): PurchaseOrder
+    public function receiveOrder(User $user, string $id, array $receiveItems, string $notes, ?string $receiveDate = null): PurchaseOrder
     {
         $po = PurchaseOrder::with('items')
             ->where('company_id', $user->company_id)
@@ -116,6 +116,7 @@ class PurchaseService
             'company_id'        => $user->company_id,
             'purchase_order_id' => $po->id,
             'notes'             => $notes,
+            'receive_date'      => $receiveDate ?: now()->toDateString(),
         ]);
 
         $receivedAmount = 0;

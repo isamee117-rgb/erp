@@ -146,7 +146,10 @@
           </div>
           <div class="col-md-6">
             <label class="pm-label">Admin Password (Current)</label>
-            <input type="text" class="form-control pm-input" id="cdAdminPass" readonly class="erp-readonly-field">
+            <div class="input-group">
+              <input type="password" class="form-control pm-input" id="cdAdminPass" readonly style="border-right:0;">
+              <button type="button" class="btn btn-outline-secondary" style="border-left:0;" onclick="var f=document.getElementById('cdAdminPass');f.type=f.type==='password'?'text':'password';this.querySelector('i').className=f.type==='password'?'ti ti-eye':'ti ti-eye-off';"><i class="ti ti-eye"></i></button>
+            </div>
           </div>
           <div class="col-12 mt-2">
             <small class="text-uppercase text-muted fw-bold" class="erp-section-title-upper">Company Info (Printed on Invoices)</small>

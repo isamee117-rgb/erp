@@ -306,9 +306,10 @@
               <tbody id="bk-map-body"></tbody>
             </table>
           </div>
+          <div id="bk-val-results" style="display:none;margin-bottom:16px;"></div>
           <div class="d-flex gap-3 align-items-center flex-wrap">
-            <button class="btn btn-primary set-action-btn" onclick="bkValidate()"><i class="ti ti-check me-1"></i>Validate Mapping</button>
-            <button id="bk-import-btn" class="btn set-import-btn" style="display:none;" onclick="bkStartImport()"><i class="ti ti-upload me-1"></i>Start Import &nbsp;<span class="bk-row-badge" id="bk-row-cnt">0</span></button>
+            <button class="btn btn-primary set-action-btn" onclick="bkValidate()"><i class="ti ti-check me-1"></i>Validate Rows</button>
+            <button id="bk-import-btn" class="btn set-import-btn" style="display:none;" disabled onclick="bkStartImport()"><i class="ti ti-upload me-1"></i>Post to System &nbsp;<span class="bk-row-badge" id="bk-row-cnt">0</span></button>
           </div>
         </div>
 

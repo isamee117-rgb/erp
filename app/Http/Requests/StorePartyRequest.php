@@ -8,6 +8,25 @@ class StorePartyRequest extends FormRequest
 {
     public function authorize(): bool { return true; }
 
+    public function messages(): array
+    {
+        return [
+            'name.required'          => 'Name is required.',
+            'name.max'               => 'Name must be 255 characters or less.',
+            'type.required'          => 'Type (Customer or Vendor) is required.',
+            'type.in'                => 'Type must be either "Customer" or "Vendor".',
+            'email.email'            => 'Email address is not valid.',
+            'email.max'              => 'Email must be 255 characters or less.',
+            'phone.max'              => 'Phone number must be 50 characters or less.',
+            'address.max'            => 'Address must be 500 characters or less.',
+            'creditLimit.numeric'    => 'Credit Limit must be a number.',
+            'creditLimit.min'        => 'Credit Limit cannot be negative.',
+            'openingBalance.numeric' => 'Opening Balance must be a number.',
+            'last_odometer_reading.numeric' => 'Last Odometer Reading must be a number.',
+            'last_odometer_reading.min'     => 'Last Odometer Reading cannot be negative.',
+        ];
+    }
+
     public function rules(): array
     {
         return [
