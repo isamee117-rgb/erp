@@ -129,10 +129,10 @@
             '<h3 class="mb-1" style="color:#d63939;">No Internet Connection</h3>' +
             '<p class="text-muted mb-3">Please check your connection and try again.</p>' +
             '<button class="btn btn-primary" id="erp-retry-btn">Retry</button>';
-        document.getElementById('erp-retry-btn').addEventListener('click', function() {
+        document.getElementById('erp-retry-btn').onclick = function() {
             hideSyncSpinner();
             window.ERP.init();
-        });
+        };
     }
 
     window.ERP.init = function() {
