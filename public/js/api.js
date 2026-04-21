@@ -70,17 +70,17 @@
         sync: function() {
             var token = getToken();
             if (!token) return Promise.resolve({});
-            return request('GET', '/sync').catch(function() { return {}; });
+            return withRetry(function() { return request('GET', '/sync'); }, 3, 2000);
         },
         syncCore: function() {
             var token = getToken();
             if (!token) return Promise.resolve({});
-            return request('GET', '/sync/core').catch(function() { return {}; });
+            return withRetry(function() { return request('GET', '/sync/core'); }, 3, 2000);
         },
         syncMaster: function() {
             var token = getToken();
             if (!token) return Promise.resolve({});
-            return request('GET', '/sync/master').catch(function() { return {}; });
+            return withRetry(function() { return request('GET', '/sync/master'); }, 3, 2000);
         },
         syncTransactions: function(params) {
             var token = getToken();
@@ -92,7 +92,7 @@
                 if (params.to)   parts.push('to='   + encodeURIComponent(params.to));
                 qs = '?' + parts.join('&');
             }
-            return request('GET', '/sync/transactions' + qs).catch(function() { return {}; });
+            return withRetry(function() { return request('GET', '/sync/transactions' + qs); }, 3, 2000);
         },
         createCompany: function(name, adminUsername, adminPassword, limit, registrationPayment, saasPlan) {
             return request('POST', '/companies', { name: name, adminUsername: adminUsername, adminPassword: adminPassword, limit: limit, registrationPayment: registrationPayment, saasPlan: saasPlan });
