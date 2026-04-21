@@ -154,19 +154,23 @@ class SyncService
     }
 
     // ── Transactions: sales, purchases, payments, ledger ─────────────────────
-    // ~2-3s — reports, history, reconciliation
-    public function getTransactionData(User $user): array
+    // Default: last 6 months. Pass $from/$to to override.
+    public function getTransactionData(User $user, ?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null): array
     {
+        $from ??= now()->subMonths(6)->startOfDay();
+
         $isSuper = $user->system_role === 'Super Admin';
         $coId    = $user->company_id;
 
-        $sales           = $this->scopedQuery(SaleOrder::with('items'), $isSuper, $coId);
-        $purchaseOrders  = $this->scopedQuery(PurchaseOrder::with(['items', 'receives.items']), $isSuper, $coId);
-        $payments        = $this->scopedQuery(Payment::query(), $isSuper, $coId);
-        $ledger          = $this->scopedQuery(InventoryLedger::query(), $isSuper, $coId);
-        $salesReturns    = $this->scopedQuery(SaleReturn::with('items'), $isSuper, $coId);
-        $purchaseReturns = $this->scopedQuery(PurchaseReturn::with('items'), $isSuper, $coId);
-        $costLayers      = $this->scopedQuery(InventoryCostLayer::query(), $isSuper, $coId);
+        $sales           = $this->scopedQueryWithDates(SaleOrder::with('items'),                         $isSuper, $coId, $from, $to);
+        $purchaseOrders  = $this->scopedQueryWithDates(PurchaseOrder::with(['items', 'receives.items']), $isSuper, $coId, $from, $to);
+        $payments        = $this->scopedQueryWithDates(Payment::query(),                                 $isSuper, $coId, $from, $to);
+        $ledger          = $this->scopedQueryWithDates(InventoryLedger::query(),                         $isSuper, $coId, $from, $to);
+        $salesReturns    = $this->scopedQueryWithDates(SaleReturn::with('items'),                        $isSuper, $coId, $from, $to);
+        $purchaseReturns = $this->scopedQueryWithDates(PurchaseReturn::with('items'),                    $isSuper, $coId, $from, $to);
+
+        // costLayers exempt — full history needed for FIFO costing accuracy
+        $costLayers = $this->scopedQuery(InventoryCostLayer::query(), $isSuper, $coId);
 
         $openJobCards = $isSuper ? collect() : JobCard::with('items')
             ->where('company_id', $coId)
@@ -175,11 +179,13 @@ class SyncService
 
         $recentJobCards = $isSuper ? collect() : JobCard::where('company_id', $coId)
             ->where('status', 'closed')
+            ->where('created_at', '>=', $from)
             ->orderByDesc('closed_at')
             ->limit(100)
             ->get();
 
         return [
+            'loadedFrom'      => $from->toDateString(),
             'sales'           => SaleOrderResource::collection($sales),
             'purchaseOrders'  => PurchaseOrderResource::collection($purchaseOrders),
             'payments'        => PaymentResource::collection($payments),
@@ -209,6 +215,20 @@ class SyncService
 
     private function scopedQuery(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\Relation $query, bool $isSuper, ?string $coId)
     {
+        return $isSuper ? $query->get() : $query->where('company_id', $coId)->get();
+    }
+
+    private function scopedQueryWithDates(
+        \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\Relation $query,
+        bool $isSuper,
+        ?string $coId,
+        \Carbon\Carbon $from,
+        ?\Carbon\Carbon $to
+    ) {
+        $query->where('created_at', '>=', $from);
+        if ($to) {
+            $query->where('created_at', '<=', $to->endOfDay());
+        }
         return $isSuper ? $query->get() : $query->where('company_id', $coId)->get();
     }
 }
