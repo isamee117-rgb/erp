@@ -1,5 +1,47 @@
-var ilPage=1, ilPerPage=20;
+var ilPage=1, ilPerPage=10;
 window.ERP.onReady = function(){ populateProducts(); renderPage(); };
+
+function ilRefetchIfNeeded(callback) {
+    var loadedFrom = window.ERP.state.transactionLoadedFrom;
+    var requestedFrom = (document.getElementById('dateFrom').value || '');
+    var requestedTo   = (document.getElementById('dateTo').value   || '');
+
+    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
+        var tbody = document.getElementById('ledgerBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+
+        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
+            .then(function(txData) {
+                ERP.mergeState(txData);
+                if (txData.loadedFrom) {
+                    window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                }
+                if (typeof callback === 'function') callback();
+            })
+            .catch(function(e) {
+                alert('Error loading data: ' + e.message);
+            });
+    } else {
+        if (typeof callback === 'function') callback();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    document.getElementById('il-filter-toggle-btn').addEventListener('click', function(){
+        var panel = document.getElementById('il-filters-panel');
+        var isOpen = !panel.classList.contains('d-none');
+        panel.classList.toggle('d-none', isOpen);
+        this.classList.toggle('active', !isOpen);
+    });
+    document.getElementById('il-clear-filters-btn').addEventListener('click', function(){
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        ilPage = 1; renderPage();
+    });
+    ['dateFrom','dateTo'].forEach(function(id){
+        document.getElementById(id).addEventListener('change', function(){ ilPage=1; ilRefetchIfNeeded(renderPage); });
+    });
+});
 
 /* ── SDD helpers ── */
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -27,6 +69,17 @@ function sddSelectProduct(productId, label){
 document.addEventListener('click',function(e){
     if(!e.target.closest('.sdd-wrap')) document.querySelectorAll('.sdd-wrap.open').forEach(function(w){w.classList.remove('open');});
 });
+
+function poIdFromReceiptId(receiptId){
+    var pos = window.ERP.state.purchaseOrders || [];
+    for(var i=0; i<pos.length; i++){
+        var rcvs = pos[i].receives || [];
+        for(var j=0; j<rcvs.length; j++){
+            if(rcvs[j].id === receiptId) return pos[i].id;
+        }
+    }
+    return null;
+}
 
 function populateProducts(){
     var html='';
@@ -64,9 +117,11 @@ function renderPage(){
         if(e.transactionType.indexOf('Sale')!==-1) badgeColor='badge-red';
         else if(e.transactionType.indexOf('Purchase')!==-1) badgeColor='badge-green';
         else if(e.transactionType.indexOf('Adjustment')!==-1) badgeColor='badge-gray';
+        var refDisplay = e.referenceId;
+        if(e.transactionType === 'Purchase_Receive') refDisplay = poIdFromReceiptId(e.referenceId) || e.referenceId;
         html+='<tr><td>'+new Date(e.createdAt||e.date).toLocaleDateString()+'</td>';
         html+='<td><span class="badge-pill '+badgeColor+'">'+typeLabel+'</span></td>';
-        html+='<td>'+e.referenceId+'</td>';
+        html+='<td>'+refDisplay+'</td>';
         html+='<td class="text-end">'+(qtyIn?'<span class="text-success fw-bold">+'+qtyIn+'</span>':'<span class="text-muted">—</span>')+'</td>';
         html+='<td class="text-end">'+(qtyOut?'<span class="text-danger fw-bold">-'+qtyOut+'</span>':'<span class="text-muted">—</span>')+'</td>';
         html+='<td class="text-end fw-bold">'+row.bal+'</td></tr>';
