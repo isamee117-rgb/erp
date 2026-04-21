@@ -123,12 +123,8 @@
 
     function showSyncError() {
         var overlay = document.getElementById(SYNC_OVERLAY_ID);
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = SYNC_OVERLAY_ID;
-            overlay.className = 'erp-sync-overlay';
-            document.body.appendChild(overlay);
-        }
+        if (!overlay) { return; }
+        overlay.className = 'erp-sync-overlay';
         overlay.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d63939" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
             '<line x1="1" y1="1" x2="23" y2="23"></line>' +
             '<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>' +
@@ -141,10 +137,10 @@
             '<h3 class="text-danger mb-1">No Internet Connection</h3>' +
             '<p class="text-muted mb-3">Please check your connection and try again.</p>' +
             '<button class="btn btn-primary" id="erp-retry-btn">Retry</button>';
-        document.getElementById('erp-retry-btn').onclick = function() {
+        document.getElementById('erp-retry-btn').addEventListener('click', function() {
             hideSyncSpinner();
             window.ERP.init();
-        };
+        });
     }
 
     window.ERP.init = function() {
