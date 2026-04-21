@@ -24,20 +24,32 @@ class SettingsController extends Controller
 
     public function updateCurrency(Request $request)
     {
-        Setting::updateOrCreate(['key' => 'currency'], ['value' => $request->input('currency')]);
+        $user = $request->get('auth_user');
+        Setting::updateOrCreate(
+            ['company_id' => $user->company_id, 'key' => 'currency'],
+            ['value' => $request->input('currency')]
+        );
         return response()->json(['success' => true]);
     }
 
     public function updateInvoiceFormat(Request $request)
     {
-        Setting::updateOrCreate(['key' => 'invoice_format'], ['value' => $request->input('format') ?? $request->input('invoiceFormat')]);
+        $user = $request->get('auth_user');
+        Setting::updateOrCreate(
+            ['company_id' => $user->company_id, 'key' => 'invoice_format'],
+            ['value' => $request->input('format') ?? $request->input('invoiceFormat')]
+        );
         return response()->json(['success' => true]);
     }
 
     public function updateJobCardMode(Request $request)
     {
+        $user = $request->get('auth_user');
         $mode = $request->input('jobCardMode') ? '1' : '0';
-        Setting::updateOrCreate(['key' => 'job_card_mode'], ['value' => $mode]);
+        Setting::updateOrCreate(
+            ['company_id' => $user->company_id, 'key' => 'job_card_mode'],
+            ['value' => $mode]
+        );
         return response()->json(['success' => true, 'jobCardMode' => (bool) $mode]);
     }
 
@@ -60,19 +72,24 @@ class SettingsController extends Controller
     {
         $user = $request->get('auth_user');
         $category = Category::create([
-            'id' => 'CAT-' . Str::random(9),
-            'company_id' => $request->input('companyId') ?? $user->company_id,
-            'name' => $request->input('name'),
+            'id'         => 'CAT-' . Str::random(9),
+            'company_id' => $user->company_id,
+            'name'       => $request->input('name'),
         ]);
         return new CategoryResource($category);
     }
 
-    public function deleteCategory($id)
+    public function deleteCategory(Request $request, $id)
     {
+        $user     = $request->get('auth_user');
+        $category = Category::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
+
         if (Product::where('category_id', $id)->exists()) {
             return response()->json(['error' => 'Cannot delete: this category is used by one or more products.'], 422);
         }
-        Category::findOrFail($id)->delete();
+        $category->delete();
         return response()->json(['success' => true]);
     }
 
@@ -80,16 +97,20 @@ class SettingsController extends Controller
     {
         $user = $request->get('auth_user');
         $uom = UnitOfMeasure::create([
-            'id' => 'UOM-' . Str::random(9),
-            'company_id' => $request->input('companyId') ?? $user->company_id,
-            'name' => $request->input('name'),
+            'id'         => 'UOM-' . Str::random(9),
+            'company_id' => $user->company_id,
+            'name'       => $request->input('name'),
         ]);
         return new UnitOfMeasureResource($uom);
     }
 
-    public function deleteUOM($id)
+    public function deleteUOM(Request $request, $id)
     {
-        $uom = UnitOfMeasure::findOrFail($id);
+        $user = $request->get('auth_user');
+        $uom  = UnitOfMeasure::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
+
         if (Product::where('uom', $uom->name)->exists()) {
             return response()->json(['error' => 'Cannot delete: this unit of measure is used by one or more products.'], 422);
         }
@@ -99,16 +120,22 @@ class SettingsController extends Controller
 
     public function createEntityType(Request $request)
     {
-        $et = EntityType::create([
-            'id' => 'ET-' . Str::random(9),
-            'name' => $request->input('name'),
+        $user = $request->get('auth_user');
+        $et   = EntityType::create([
+            'id'         => 'ET-' . Str::random(9),
+            'company_id' => $user->company_id,
+            'name'       => $request->input('name'),
         ]);
         return new EntityTypeResource($et);
     }
 
-    public function deleteEntityType($id)
+    public function deleteEntityType(Request $request, $id)
     {
-        $et = EntityType::findOrFail($id);
+        $user = $request->get('auth_user');
+        $et   = EntityType::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
+
         if (Party::where('sub_type', $et->name)->exists()) {
             return response()->json(['error' => 'Cannot delete: this entity type is used by one or more parties.'], 422);
         }
@@ -118,16 +145,22 @@ class SettingsController extends Controller
 
     public function createBusinessCategory(Request $request)
     {
-        $bc = BusinessCategory::create([
-            'id' => 'BC-' . Str::random(9),
-            'name' => $request->input('name'),
+        $user = $request->get('auth_user');
+        $bc   = BusinessCategory::create([
+            'id'         => 'BC-' . Str::random(9),
+            'company_id' => $user->company_id,
+            'name'       => $request->input('name'),
         ]);
         return new BusinessCategoryResource($bc);
     }
 
-    public function deleteBusinessCategory($id)
+    public function deleteBusinessCategory(Request $request, $id)
     {
-        $bc = BusinessCategory::findOrFail($id);
+        $user = $request->get('auth_user');
+        $bc   = BusinessCategory::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
+
         if (Party::where('category', $bc->name)->exists()) {
             return response()->json(['error' => 'Cannot delete: this business category is used by one or more parties.'], 422);
         }
@@ -137,27 +170,27 @@ class SettingsController extends Controller
 
     public function getDocumentSequences(Request $request)
     {
-        $user = $request->get('auth_user');
+        $user    = $request->get('auth_user');
         $service = new DocumentSequenceService();
         $sequences = $service->getSequences($user->company_id);
 
         return response()->json(array_map(function ($seq) {
             return [
-                'id' => $seq['id'],
-                'companyId' => $seq['company_id'],
-                'type' => $seq['type'],
-                'prefix' => $seq['prefix'],
+                'id'         => $seq['id'],
+                'companyId'  => $seq['company_id'],
+                'type'       => $seq['type'],
+                'prefix'     => $seq['prefix'],
                 'nextNumber' => $seq['next_number'],
-                'isLocked' => (bool) $seq['is_locked'],
+                'isLocked'   => (bool) $seq['is_locked'],
             ];
         }, $sequences));
     }
 
     public function updateDocumentSequence(Request $request)
     {
-        $user = $request->get('auth_user');
-        $type = $request->input('type');
-        $prefix = $request->input('prefix', '');
+        $user       = $request->get('auth_user');
+        $type       = $request->input('type');
+        $prefix     = $request->input('prefix', '');
         $nextNumber = (int) $request->input('nextNumber', 1);
 
         $service = new DocumentSequenceService();
@@ -165,12 +198,12 @@ class SettingsController extends Controller
         try {
             $seq = $service->updateSequence($user->company_id, $type, $prefix, $nextNumber);
             return response()->json([
-                'id' => $seq->id,
-                'companyId' => $seq->company_id,
-                'type' => $seq->type,
-                'prefix' => $seq->prefix,
+                'id'         => $seq->id,
+                'companyId'  => $seq->company_id,
+                'type'       => $seq->type,
+                'prefix'     => $seq->prefix,
                 'nextNumber' => $seq->next_number,
-                'isLocked' => (bool) $seq->is_locked,
+                'isLocked'   => (bool) $seq->is_locked,
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);
