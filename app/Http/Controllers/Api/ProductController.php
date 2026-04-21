@@ -19,6 +19,7 @@ use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Services\DocumentSequenceService;
 use App\Services\UomConversionService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -49,40 +50,47 @@ class ProductController extends Controller
             }
         }
 
-        $product = Product::create(array_merge([
-            'id'           => 'PRD-' . Str::random(9),
-            'company_id'   => $user->company_id,
-            'sku'          => $sku,
-            'barcode'      => $validated['barcode'] ?? null,
-            'item_number'  => $productId,
-            'name'         => $validated['name'] ?? '',
-            'type'         => $validated['type'] ?? 'Product',
-            'uom'          => $validated['uom'] ?? '',
-            'base_uom_id'  => $validated['baseUomId'] ?? null,
-            'category_id'  => $validated['categoryId'] ?? null,
-            'current_stock' => $initialStock,
-            'reorder_level' => $validated['reorderLevel'] ?? 0,
-            'unit_cost'    => $validated['unitCost'] ?? 0,
-            'unit_price'   => $validated['unitPrice'] ?? 0,
-        ], $dynamicFields));
+        try {
+            $product = Product::create(array_merge([
+                'id'           => 'PRD-' . Str::random(9),
+                'company_id'   => $user->company_id,
+                'sku'          => $sku,
+                'barcode'      => $validated['barcode'] ?? null,
+                'item_number'  => $productId,
+                'name'         => $validated['name'] ?? '',
+                'type'         => $validated['type'] ?? 'Product',
+                'uom'          => $validated['uom'] ?? '',
+                'base_uom_id'  => $validated['baseUomId'] ?? null,
+                'category_id'  => $validated['categoryId'] ?? null,
+                'current_stock' => $initialStock,
+                'reorder_level' => $validated['reorderLevel'] ?? 0,
+                'unit_cost'    => $validated['unitCost'] ?? 0,
+                'unit_price'   => $validated['unitPrice'] ?? 0,
+            ], $dynamicFields));
 
-        if ($initialStock > 0) {
-            InventoryLedger::create([
-                'id' => 'LEG-' . Str::random(9),
-                'company_id' => $user->company_id,
-                'product_id' => $product->id,
-                'transaction_type' => 'Adjustment_Internal',
-                'quantity_change' => $initialStock,
-                'reference_id' => 'OPENING',
-            ]);
+            if ($initialStock > 0) {
+                InventoryLedger::create([
+                    'id' => 'LEG-' . Str::random(9),
+                    'company_id' => $user->company_id,
+                    'product_id' => $product->id,
+                    'transaction_type' => 'Adjustment_Internal',
+                    'quantity_change' => $initialStock,
+                    'reference_id' => 'OPENING',
+                ]);
+            }
+
+            return new ProductResource($product);
+        } catch (QueryException $e) {
+            return response()->json(['error' => 'Failed to save product. Please check your input and try again.'], 422);
         }
-
-        return new ProductResource($product);
     }
 
     public function update(UpdateProductRequest $request, $id)
     {
-        $product   = Product::findOrFail($id);
+        $user    = $request->get('auth_user');
+        $product = Product::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
         $validated = $request->validated();
 
         $updateData = [
@@ -108,14 +116,20 @@ class ProductController extends Controller
             }
         }
 
-        $product->update($updateData);
-
-        return new ProductResource($product);
+        try {
+            $product->update($updateData);
+            return new ProductResource($product);
+        } catch (QueryException $e) {
+            return response()->json(['error' => 'Failed to update product. Please check your input and try again.'], 422);
+        }
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $user    = $request->get('auth_user');
+        $product = Product::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
 
         if (SaleItem::where('product_id', $id)->exists()) {
             return response()->json(['error' => 'Cannot delete: this product has been used in one or more sales.'], 422);
@@ -162,7 +176,9 @@ class ProductController extends Controller
         $quantityChange = $data['quantityChange'] ?? $data['quantity_change'] ?? 0;
         $type = $data['type'] ?? 'Adjustment_Internal';
 
-        $product = Product::findOrFail($productId);
+        $product = Product::where('id', $productId)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
         $product->current_stock += $quantityChange;
         $product->save();
 
