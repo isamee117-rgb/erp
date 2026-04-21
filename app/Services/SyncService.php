@@ -62,9 +62,9 @@ class SyncService
 
         [$companies, $users, $customRoles] = $this->fetchTenantData($isSuper, $coId);
 
-        $currencySetting      = Setting::where('key', 'currency')->first();
-        $invoiceFormatSetting = Setting::where('key', 'invoice_format')->first();
-        $jobCardModeSetting   = Setting::where('key', 'job_card_mode')->first();
+        $currencySetting      = Setting::where('company_id', $coId)->where('key', 'currency')->first();
+        $invoiceFormatSetting = Setting::where('company_id', $coId)->where('key', 'invoice_format')->first();
+        $jobCardModeSetting   = Setting::where('company_id', $coId)->where('key', 'job_card_mode')->first();
 
         $costingMethod     = 'moving_average';
         $documentSequences = collect();
@@ -121,8 +121,8 @@ class SyncService
         $categories = $this->scopedQuery(Category::query(), $isSuper, $coId);
         $uoms       = $this->scopedQuery(UnitOfMeasure::query(), $isSuper, $coId);
 
-        $entityTypes        = EntityType::all();
-        $businessCategories = BusinessCategory::all();
+        $entityTypes        = $this->scopedQuery(EntityType::query(), $isSuper, $coId);
+        $businessCategories = $this->scopedQuery(BusinessCategory::query(), $isSuper, $coId);
 
         // Field settings payload
         $fieldSettingsPayload = [
