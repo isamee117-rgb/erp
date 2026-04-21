@@ -18,8 +18,8 @@
 <div class="card inv-section-card inv-filter-card">
   <div class="card-body inv-filter-body">
     <div class="row g-2 align-items-end">
-      <div class="col-auto"><label class="pm-label">From</label><input type="date" class="form-control inv-input" id="dateFrom" onchange="renderPage()"></div>
-      <div class="col-auto"><label class="pm-label">To</label><input type="date" class="form-control inv-input" id="dateTo" onchange="renderPage()"></div>
+      <div class="col-auto"><label class="pm-label">From</label><input type="date" class="form-control inv-input" id="dateFrom" onchange="osRefetchIfNeeded(renderPage)"></div>
+      <div class="col-auto"><label class="pm-label">To</label><input type="date" class="form-control inv-input" id="dateTo" onchange="osRefetchIfNeeded(renderPage)"></div>
       <div class="col-auto" class="erp-pt-btn"><button class="btn btn-light inv-input px-3" onclick="document.getElementById('dateFrom').value='';document.getElementById('dateTo').value='';renderPage()"><i class="ti ti-x"></i></button></div>
     </div>
   </div>

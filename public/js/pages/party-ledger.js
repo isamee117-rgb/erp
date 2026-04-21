@@ -1,4 +1,22 @@
 var plPage=1, plPerPage=20;
+
+function plRefetchIfNeeded(callback) {
+    var loadedFrom = window.ERP.state.transactionLoadedFrom;
+    var requestedFrom = (document.getElementById('dateFrom') ? document.getElementById('dateFrom').value : '') || '';
+    var requestedTo   = (document.getElementById('dateTo')   ? document.getElementById('dateTo').value   : '') || '';
+    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
+        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
+            .then(function(txData) {
+                ERP.mergeState(txData);
+                if (txData.loadedFrom) window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                if (typeof callback === 'function') callback();
+            })
+            .catch(function(e) { alert('Error loading data: ' + e.message); });
+    } else {
+        if (typeof callback === 'function') callback();
+    }
+}
+
 window.ERP.onReady = function(){ populateParties(); renderPage(); };
 
 /* ── SDD helpers ── */

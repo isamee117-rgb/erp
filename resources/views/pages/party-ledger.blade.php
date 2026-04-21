@@ -37,11 +37,11 @@
       </div>
       <div class="col-6 col-md-3">
         <label class="pm-label">From</label>
-        <input type="date" class="form-control inv-input" id="dateFrom" onchange="plPage=1;renderPage()">
+        <input type="date" class="form-control inv-input" id="dateFrom" onchange="plPage=1;plRefetchIfNeeded(renderPage)">
       </div>
       <div class="col-6 col-md-3">
         <label class="pm-label">To</label>
-        <input type="date" class="form-control inv-input" id="dateTo" onchange="plPage=1;renderPage()">
+        <input type="date" class="form-control inv-input" id="dateTo" onchange="plPage=1;plRefetchIfNeeded(renderPage)">
       </div>
       <div class="col-auto" class="erp-pt-btn">
         <button class="btn btn-light inv-input px-3" onclick="document.getElementById('dateFrom').value='';document.getElementById('dateTo').value='';renderPage()"><i class="ti ti-x"></i></button>
