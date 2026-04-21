@@ -83,7 +83,7 @@ class AuthController extends Controller
         );
     }
 
-    // Legacy endpoint — backward compatibility ke liye (deprecated)
+    // Legacy endpoint — deprecated. Now returns date-limited data (last 6 months) via getTransactionData default.
     public function sync(Request $request)
     {
         $user = $request->get('auth_user');

@@ -180,6 +180,7 @@ class SyncService
         $recentJobCards = $isSuper ? collect() : JobCard::where('company_id', $coId)
             ->where('status', 'closed')
             ->where('created_at', '>=', $from)
+            ->when($to, fn($q) => $q->where('created_at', '<=', $to))
             ->orderByDesc('closed_at')
             ->limit(100)
             ->get();
@@ -227,7 +228,7 @@ class SyncService
     ) {
         $query->where('created_at', '>=', $from);
         if ($to) {
-            $query->where('created_at', '<=', $to->endOfDay());
+            $query->where('created_at', '<=', $to);
         }
         return $isSuper ? $query->get() : $query->where('company_id', $coId)->get();
     }
