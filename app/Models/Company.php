@@ -67,4 +67,14 @@ class Company extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
+    public function entityTypes()
+    {
+        return $this->hasMany(EntityType::class);
+    }
+
+    public function businessCategories()
+    {
+        return $this->hasMany(BusinessCategory::class);
+    }
 }
