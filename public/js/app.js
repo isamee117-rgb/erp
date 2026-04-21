@@ -59,37 +59,45 @@
 
     // Progressive sync: core → page render → master + transactions background mein
     window.ERP.syncProgressive = function(onCoreReady) {
-        // Step 1: Core (fast) — companies, users, roles, settings
-        return window.ERP.api.syncCore().then(function(coreData) {
-            mergeState(coreData);
-            updateUI();
-            applyPermissions();
+        showSyncSpinner();
 
-            // Page render karo — user blank screen nahi dekhega
-            if (typeof onCoreReady === 'function') {
-                onCoreReady();
-            }
+        return window.ERP.api.syncCore()
+            .then(function(coreData) {
+                mergeState(coreData);
+                updateUI();
+                applyPermissions();
+                hideSyncSpinner();
 
-            // Step 2: Master + Transactions parallel mein background load
-            return Promise.all([
-                window.ERP.api.syncMaster().then(function(masterData) {
-                    mergeState(masterData);
-                    // Page ko refresh karo nayi data ke saath
-                    if (typeof window.ERP.onReady === 'function') {
-                        window.ERP.onReady();
-                    }
-                }),
-                window.ERP.api.syncTransactions().then(function(txData) {
-                    mergeState(txData);
-                    if (txData.loadedFrom) {
-                        window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                    }
-                    if (typeof window.ERP.onReady === 'function') {
-                        window.ERP.onReady();
-                    }
-                })
-            ]);
-        });
+                if (typeof onCoreReady === 'function') {
+                    onCoreReady();
+                }
+
+                return Promise.all([
+                    window.ERP.api.syncMaster().then(function(masterData) {
+                        mergeState(masterData);
+                        if (typeof window.ERP.onReady === 'function') {
+                            window.ERP.onReady();
+                        }
+                    }).catch(function(err) {
+                        console.warn('syncMaster failed after retries:', err.message);
+                    }),
+                    window.ERP.api.syncTransactions().then(function(txData) {
+                        mergeState(txData);
+                        if (txData.loadedFrom) {
+                            window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                        }
+                        if (typeof window.ERP.onReady === 'function') {
+                            window.ERP.onReady();
+                        }
+                    }).catch(function(err) {
+                        console.warn('syncTransactions failed after retries:', err.message);
+                    })
+                ]);
+            })
+            .catch(function(err) {
+                showSyncError();
+                console.error('syncCore failed after all retries:', err.message);
+            });
     };
 
     var SYNC_OVERLAY_ID = 'erp-sync-overlay';
