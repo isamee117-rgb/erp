@@ -1,7 +1,81 @@
 var sSortKey = 'createdAt', sSortDir = 'desc', sCurrentPage = 1, sPerPage = 10;
 var sExpandedId = null;
 
-window.ERP.onReady = function() { renderPage(); };
+function sRefetchIfNeeded(callback) {
+    var loadedFrom = window.ERP.state.transactionLoadedFrom;
+    var requestedFrom = (document.getElementById('sale-date-from').value || '');
+    var requestedTo   = (document.getElementById('sale-date-to').value   || '');
+
+    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
+        var tbody = document.getElementById('salesTableBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+
+        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
+            .then(function(txData) {
+                ERP.mergeState(txData);
+                if (txData.loadedFrom) {
+                    window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                }
+                if (typeof callback === 'function') callback();
+            })
+            .catch(function(e) {
+                alert('Error loading data: ' + e.message);
+            });
+    } else {
+        if (typeof callback === 'function') callback();
+    }
+}
+
+window.ERP.onReady = function() {
+  renderPage();
+
+  var sSearch = document.getElementById('sale-search');
+  if (sSearch) sSearch.addEventListener('input', function() { sCurrentPage = 1; renderPage(); });
+
+  var sPayment = document.getElementById('sale-payment');
+  if (sPayment) sPayment.addEventListener('change', function() { sCurrentPage = 1; renderPage(); });
+
+  ['sale-date-from', 'sale-date-to'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', function() {
+        sCurrentPage = 1;
+        sRefetchIfNeeded(renderPage);
+    });
+    el.addEventListener('input', function() {
+        if (!this.value) return;
+        var parts = this.value.split('-');
+        if (parts[0] && parts[0].length > 4) {
+            parts[0] = parts[0].slice(-4);
+            this.value = parts.join('-');
+            sCurrentPage = 1;
+            sRefetchIfNeeded(renderPage);
+        }
+    });
+  });
+
+  var filterBtn = document.getElementById('sale-filter-toggle-btn');
+  if (filterBtn) {
+    filterBtn.addEventListener('click', function() {
+      var panel = document.getElementById('sale-filters-panel');
+      var isOpen = !panel.classList.contains('d-none');
+      panel.classList.toggle('d-none', isOpen);
+      filterBtn.classList.toggle('active', !isOpen);
+    });
+  }
+
+  var clearBtn = document.getElementById('sale-clear-filters-btn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      document.getElementById('sale-search').value = '';
+      document.getElementById('sale-payment').value = 'all';
+      document.getElementById('sale-date-from').value = '';
+      document.getElementById('sale-date-to').value = '';
+      sCurrentPage = 1;
+      renderPage();
+    });
+  }
+};
 
 function getFilteredSales() {
   var state = window.ERP.state;
@@ -10,8 +84,8 @@ function getFilteredSales() {
   var dateFrom = document.getElementById('sale-date-from').value;
   var dateTo = document.getElementById('sale-date-to').value;
   var parties = state.parties || [];
-  var fromTs = dateFrom ? new Date(dateFrom).setHours(0,0,0,0) : null;
-  var toTs   = dateTo   ? new Date(dateTo).setHours(23,59,59,999) : null;
+  var fromTs = dateFrom ? new Date(dateFrom.replace(/^(\d{5,})-/, function(_, y) { return y.slice(-4) + '-'; })).setHours(0,0,0,0) : null;
+  var toTs   = dateTo   ? new Date(dateTo.replace(/^(\d{5,})-/, function(_, y) { return y.slice(-4) + '-'; })).setHours(23,59,59,999) : null;
 
   var list = (state.sales || []).filter(function(s) {
     var cust = parties.find(function(p) { return p.id === s.customerId; });
@@ -84,10 +158,15 @@ function renderPage() {
             '<td class="text-end">' + ERP.formatCurrency(item.unitPrice || 0) + '</td>' +
             '<td class="text-end fw-semibold">' + ERP.formatCurrency(item.totalLinePrice || 0) + '</td></tr>';
         });
+        var saleItems = sale.items || [];
+        var saleSubtotal = saleItems.reduce(function(s, it) { return s + (it.totalLinePrice || 0) + (it.discount || 0); }, 0);
+        var saleTotalDiscount = saleItems.reduce(function(s, it) { return s + (it.discount || 0); }, 0);
         html += '</tbody></table></div><div class="col-md-5">' +
           '<h4 class="mb-3 erp-table-section-header">Summary</h4>' +
           '<div class="erp-summary-box">' +
-          '<div class="d-flex justify-content-between mb-1 erp-text-85"><span class="text-muted">Total Charged</span><span class="fw-semibold">' + ERP.formatCurrency(sale.totalAmount || 0) + '</span></div>';
+          '<div class="d-flex justify-content-between mb-1 erp-text-85"><span class="text-muted">Subtotal</span><span>' + ERP.formatCurrency(saleSubtotal) + '</span></div>' +
+          (saleTotalDiscount > 0 ? '<div class="d-flex justify-content-between mb-1 erp-text-85 erp-text-danger"><span>Discount</span><span>-' + ERP.formatCurrency(saleTotalDiscount) + '</span></div>' : '') +
+          '<div class="d-flex justify-content-between pt-1 mt-1 erp-border-top-light erp-text-85"><span class="text-muted">Grand Total</span><span class="fw-semibold">' + ERP.formatCurrency(sale.totalAmount || 0) + '</span></div>';
         if (saleReturn) {
           html += '<div class="d-flex justify-content-between pt-1 mt-1 erp-border-top-light erp-text-85 erp-text-danger"><span>Credited Amount</span><span class="fw-semibold">-' + ERP.formatCurrency(saleReturn.totalAmount || 0) + '</span></div>';
         }
