@@ -92,6 +92,49 @@
         });
     };
 
+    var SYNC_OVERLAY_ID = 'erp-sync-overlay';
+
+    function showSyncSpinner() {
+        if (document.getElementById(SYNC_OVERLAY_ID)) return;
+        var overlay = document.createElement('div');
+        overlay.id = SYNC_OVERLAY_ID;
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
+        overlay.innerHTML = '<div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem;"></div>' +
+            '<p class="text-muted mb-0">Loading, please wait...</p>';
+        document.body.appendChild(overlay);
+    }
+
+    function hideSyncSpinner() {
+        var overlay = document.getElementById(SYNC_OVERLAY_ID);
+        if (overlay) overlay.parentNode.removeChild(overlay);
+    }
+
+    function showSyncError() {
+        var overlay = document.getElementById(SYNC_OVERLAY_ID);
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = SYNC_OVERLAY_ID;
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
+            document.body.appendChild(overlay);
+        }
+        overlay.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d63939" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+            '<line x1="1" y1="1" x2="23" y2="23"></line>' +
+            '<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>' +
+            '<path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>' +
+            '<path d="M10.71 5.05A16 16 0 0 1 22.56 9"></path>' +
+            '<path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>' +
+            '<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>' +
+            '<line x1="12" y1="20" x2="12.01" y2="20"></line>' +
+            '</svg>' +
+            '<h3 class="mb-1" style="color:#d63939;">No Internet Connection</h3>' +
+            '<p class="text-muted mb-3">Please check your connection and try again.</p>' +
+            '<button class="btn btn-primary" id="erp-retry-btn">Retry</button>';
+        document.getElementById('erp-retry-btn').addEventListener('click', function() {
+            hideSyncSpinner();
+            window.ERP.init();
+        });
+    }
+
     window.ERP.init = function() {
         var isLoginPage = window.location.pathname === BASE_PATH + '/login';
         var token = localStorage.getItem('leanerp_token');
