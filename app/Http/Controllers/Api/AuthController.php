@@ -68,8 +68,15 @@ class AuthController extends Controller
     // Transactions: sales, purchases, payments, ledger — heavy, background mein
     public function syncTransactions(Request $request)
     {
-        $from = $request->query('from') ? \Carbon\Carbon::parse($request->query('from'))->startOfDay() : null;
-        $to   = $request->query('to')   ? \Carbon\Carbon::parse($request->query('to'))->endOfDay()   : null;
+        $from = null;
+        $to   = null;
+
+        if ($request->filled('from')) {
+            try { $from = \Carbon\Carbon::parse($request->input('from'))->startOfDay(); } catch (\Exception) {}
+        }
+        if ($request->filled('to')) {
+            try { $to = \Carbon\Carbon::parse($request->input('to'))->endOfDay(); } catch (\Exception) {}
+        }
 
         return response()->json(
             $this->syncService->getTransactionData($request->get('auth_user'), $from, $to)

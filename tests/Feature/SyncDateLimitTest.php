@@ -77,4 +77,13 @@ class SyncDateLimitTest extends ApiTestCase
         $ids = collect($response->json('sales'))->pluck('id')->all();
         $this->assertContains('INV-OLD-002', $ids);
     }
+
+    #[Test]
+    public function invalid_date_param_is_silently_ignored(): void
+    {
+        $response = $this->getJson('/api/sync/transactions?from=not-a-date', $this->auth($this->token));
+
+        $response->assertOk();
+        $this->assertArrayHasKey('loadedFrom', $response->json());
+    }
 }
