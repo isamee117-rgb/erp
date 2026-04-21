@@ -13,6 +13,7 @@ use App\Models\SaleReturn;
 use App\Models\PurchaseReturn;
 use App\Models\Payment;
 use App\Services\DocumentSequenceService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class PartyController extends Controller
@@ -58,7 +59,10 @@ class PartyController extends Controller
 
     public function update(UpdatePartyRequest $request, $id)
     {
-        $party = Party::findOrFail($id);
+        $user  = $request->get('auth_user');
+        $party = Party::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
         $data  = $request->validated();
 
         $party->update([
@@ -89,9 +93,12 @@ class PartyController extends Controller
         return new PartyResource($party);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $party = Party::findOrFail($id);
+        $user  = $request->get('auth_user');
+        $party = Party::where('id', $id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
 
         if (SaleOrder::where('customer_id', $id)->exists()) {
             return response()->json(['error' => 'Cannot delete: this party has one or more sales invoices in the system.'], 422);
