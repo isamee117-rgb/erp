@@ -110,8 +110,8 @@
         if (document.getElementById(SYNC_OVERLAY_ID)) return;
         var overlay = document.createElement('div');
         overlay.id = SYNC_OVERLAY_ID;
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
-        overlay.innerHTML = '<div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem;"></div>' +
+        overlay.className = 'erp-sync-overlay';
+        overlay.innerHTML = '<div class="spinner-border text-primary" role="status"></div>' +
             '<p class="text-muted mb-0">Loading, please wait...</p>';
         document.body.appendChild(overlay);
     }
@@ -126,7 +126,7 @@
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = SYNC_OVERLAY_ID;
-            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
+            overlay.className = 'erp-sync-overlay';
             document.body.appendChild(overlay);
         }
         overlay.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d63939" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
@@ -138,7 +138,7 @@
             '<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>' +
             '<line x1="12" y1="20" x2="12.01" y2="20"></line>' +
             '</svg>' +
-            '<h3 class="mb-1" style="color:#d63939;">No Internet Connection</h3>' +
+            '<h3 class="text-danger mb-1">No Internet Connection</h3>' +
             '<p class="text-muted mb-3">Please check your connection and try again.</p>' +
             '<button class="btn btn-primary" id="erp-retry-btn">Retry</button>';
         document.getElementById('erp-retry-btn').onclick = function() {
