@@ -34,7 +34,11 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, $id)
     {
-        $user    = User::findOrFail($id);
+        $authUser = $request->get('auth_user');
+        $user     = User::where('id', $id)
+            ->where('company_id', $authUser->company_id)
+            ->firstOrFail();
+
         $data    = $request->validated();
         $updates = [];
 
@@ -51,14 +55,22 @@ class UserController extends Controller
 
     public function setStatus(Request $request, $id)
     {
-        $user = User::findOrFail($id);
+        $authUser = $request->get('auth_user');
+        $user     = User::where('id', $id)
+            ->where('company_id', $authUser->company_id)
+            ->firstOrFail();
+
         $user->update(['is_active' => $request->input('isActive') ?? $request->input('is_active')]);
         return response()->json(['success' => true]);
     }
 
     public function updatePassword(UpdatePasswordRequest $request, $id)
     {
-        $user = User::findOrFail($id);
+        $authUser = $request->get('auth_user');
+        $user     = User::where('id', $id)
+            ->where('company_id', $authUser->company_id)
+            ->firstOrFail();
+
         $user->update(['password' => $request->validated()['password']]);
         return response()->json(['success' => true]);
     }
