@@ -26,6 +26,31 @@ var poExpandedId = null;
 var poItems = [];
 var receivePOId = null;
 
+function poRefetchIfNeeded(callback) {
+    var loadedFrom = window.ERP.state.transactionLoadedFrom;
+    var requestedFrom = (document.getElementById('po-date-from').value || '');
+    var requestedTo   = (document.getElementById('po-date-to').value   || '');
+
+    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
+        var tbody = document.getElementById('poTableBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+
+        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
+            .then(function(txData) {
+                ERP.mergeState(txData);
+                if (txData.loadedFrom) {
+                    window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                }
+                if (typeof callback === 'function') callback();
+            })
+            .catch(function(e) {
+                alert('Error loading data: ' + e.message);
+            });
+    } else {
+        if (typeof callback === 'function') callback();
+    }
+}
+
 window.ERP.onReady = function() {
   populateVendorFilter();
   renderPage();
@@ -117,8 +142,8 @@ function renderPage() {
       if (isExpanded) {
         html += '<tr class="expand-row"><td colspan="8"><div class="p-3"><div class="row"><div class="col-md-7">' +
           '<h4 class="mb-3" class="erp-table-section-header">Order Items</h4>' +
-          '<table class="table table-sm mb-0"><thead><tr><th>Product</th><th class="text-center">UOM</th><th class="text-center">Ordered</th><th class="text-center">Received</th><th class="text-end">Unit Cost</th><th class="text-end">Line Total</th></tr></thead><tbody>';
-        (po.items || []).forEach(function(item) {
+          '<table class="table table-sm mb-0"><thead><tr><th class="po-th-col" style="width:36px;">#</th><th class="po-th-col">Product</th><th class="po-th-col text-center">UOM</th><th class="po-th-col text-center">Ordered</th><th class="po-th-col text-center">Received</th><th class="po-th-col text-end">Unit Cost</th><th class="po-th-col text-end">Line Total</th></tr></thead><tbody>';
+        (po.items || []).forEach(function(item, idx) {
           var prod = products.find(function(p) { return p.id === item.productId; });
           var received = item.receivedQuantity || 0;
           var uomLabel = 'Base';
@@ -126,12 +151,14 @@ function renderPage() {
             var conv = (prod.uomConversions || []).find(function(c) { return c.uomId === item.uomId; });
             if (conv) uomLabel = conv.uomName || item.uomId;
           }
-          html += '<tr><td>' + (prod ? prod.name : 'Deleted Product') + '</td>' +
+          html += '<tr>' +
+            '<td class="text-center" style="color:#9CA3AF;font-size:0.78rem;">' + (idx + 1) + '</td>' +
+            '<td>' + (prod ? prod.name : 'Deleted Product') + '</td>' +
             '<td class="text-center"><span class="po-uom-badge">' + uomLabel + '</span></td>' +
             '<td class="text-center">' + (item.quantity || 0) + '</td>' +
             '<td class="text-center"><span class="' + (received < item.quantity ? 'text-primary' : 'text-success') + '">' + received + ' / ' + item.quantity + '</span></td>' +
             '<td class="text-end">' + ERP.formatCurrency(item.unitCost || 0) + '</td>' +
-            '<td class="text-end" class="fw-semibold">' + ERP.formatCurrency(item.totalLineCost || 0) + '</td></tr>';
+            '<td class="text-end fw-semibold">' + ERP.formatCurrency(item.totalLineCost || 0) + '</td></tr>';
         });
         html += '</tbody></table></div><div class="col-md-5">' +
           '<h4 class="mb-3" class="erp-table-section-header">Summary</h4>' +
@@ -140,10 +167,12 @@ function renderPage() {
           '</div>' +
           '<div class="d-flex gap-2 mt-3">';
         if (po.status === 'Draft' || po.status === 'Partially Received') {
-          html += '<button class="pm-btn-save flex-fill btn-erp-receive" onclick="event.stopPropagation();openReceiveModal(\'' + po.id + '\')"><i class="ti ti-package-import me-1"></i>' + (po.status === 'Partially Received' ? 'Receive More' : 'Receive Goods') + '</button>';
+          html += '<button class="btn-erp-receive flex-fill" onclick="event.stopPropagation();openReceiveModal(\'' + po.id + '\')"><i class="ti ti-package-import me-1"></i>' + (po.status === 'Partially Received' ? 'Receive More' : 'Receive Goods') + '</button>';
         } else {
           html += '<div class="po-received-status"><i class="ti ti-check me-1"></i>Goods Received</div>';
         }
+        var receiptCount = (po.receives || []).length;
+        html += '<button class="btn-erp-receipts" onclick="event.stopPropagation();openReceiptsPanel(\'' + po.id + '\')"><i class="ti ti-receipt me-1"></i>Receipts' + (receiptCount ? ' (' + receiptCount + ')' : '') + '</button>';
         html += '</div></div></div></div></td></tr>';
       }
     });
@@ -238,7 +267,7 @@ function renderProductSDD(idx, selectedId) {
     return '<div class="sdd-opt' + (p.id === selectedId ? ' sdd-selected' : '') + '" data-val="' + escHtml(p.id) + '" onclick="sddSelectProd(' + idx + ',\'' + escHtml(p.id) + '\',\'' + escHtml(p.name).replace(/'/g,'&#39;') + '\')">' + escHtml(p.name) + '</div>';
   }).join('');
   return '<div class="sdd-wrap" id="npo-prod-sdd-' + idx + '">' +
-    '<div class="sdd-trigger pm-input po-input-sm" onclick="sddToggle(\'npo-prod-sdd-' + idx + '\')">' +
+    '<div class="sr-sdd-trigger" onclick="sddToggle(\'npo-prod-sdd-' + idx + '\')">' +
       '<span class="sdd-disp" style="color:' + dispColor + '">' + dispTxt + '</span>' +
       '<i class="ti ti-chevron-down sdd-caret"></i>' +
     '</div>' +
@@ -274,6 +303,9 @@ function openNewPOModal() {
   if (wrap) wrap.querySelectorAll('.sdd-opt').forEach(function(o){ o.classList.remove('sdd-selected'); });
   document.getElementById('npo-items').innerHTML = '';
   document.getElementById('npo-total').textContent = '0.00';
+  document.getElementById('npo-vendor-error').classList.add('d-none');
+  document.getElementById('npo-items-error').classList.add('d-none');
+  document.getElementById('npo-save-error').classList.add('d-none');
   // Set today's date as default
   var today = new Date();
   var yyyy = today.getFullYear();
@@ -309,13 +341,13 @@ function renderPOItems() {
   var html = '';
   poItems.forEach(function(item, idx) {
     html += '<tr>' +
-      '<td class="po-td-input align-middle" style="color:#9CA3AF;font-size:0.78rem;width:32px;">' + (idx + 1) + '</td>' +
+      '<td class="po-td-input" style="color:#9CA3AF;font-size:0.78rem;text-align:center;">' + (idx + 1) + '</td>' +
       '<td class="po-td-input">' + renderProductSDD(idx, item.productId) + '</td>' +
       renderUomCell(idx, item) +
       '<td class="po-td-input"><input type="number" class="form-control pm-input text-center po-input-sm" value="' + item.quantity + '" onchange="updatePOItem(' + idx + ',\'quantity\',this.value)"></td>' +
       '<td class="po-td-input"><input type="number" step="0.01" class="form-control pm-input po-input-sm" value="' + item.unitCost + '" onchange="updatePOItem(' + idx + ',\'unitCost\',this.value)"></td>' +
       '<td class="po-td-input text-end" style="font-weight:600;color:#1A1D2E;white-space:nowrap;">' + ERP.formatCurrency(item.quantity * item.unitCost) + '</td>' +
-      '<td class="po-td-input text-center"><button type="button" class="pg-action-btn text-danger" onclick="removePOItem(' + idx + ')"><i class="ti ti-trash"></i></button></td></tr>';
+      '<td class="po-td-input text-center"><button type="button" class="po-del-btn" onclick="removePOItem(' + idx + ')"><i class="ti ti-x"></i></button></td></tr>';
   });
   tbody.innerHTML = html;
   updatePOTotal();
@@ -370,12 +402,22 @@ function updatePOTotal() {
 }
 
 async function createPO() {
+  var vendorErr  = document.getElementById('npo-vendor-error');
+  var itemsErr   = document.getElementById('npo-items-error');
+  var saveErrBox = document.getElementById('npo-save-error');
+  var saveErrMsg = document.getElementById('npo-save-error-msg');
+  vendorErr.classList.add('d-none');
+  itemsErr.classList.add('d-none');
+  saveErrBox.classList.add('d-none');
+
   var vendorId = document.getElementById('npo-vendor').value;
-  if (!vendorId) { alert('Please select a vendor'); return; }
+  if (!vendorId) { vendorErr.classList.remove('d-none'); return; }
+
   var validItems = poItems.filter(function(i) { return i.productId; }).map(function(i) {
     return { productId: i.productId, uomId: i.uomId || null, quantity: i.quantity, unitCost: i.unitCost };
   });
-  if (validItems.length === 0) { alert('Add at least one product'); return; }
+  if (validItems.length === 0) { itemsErr.classList.remove('d-none'); return; }
+
   if (!await showConfirm('Save Purchase Order', 'Are you sure you want to save this Purchase Order?')) return;
 
   try {
@@ -384,7 +426,10 @@ async function createPO() {
     bootstrap.Modal.getInstance(document.getElementById('newPOModal')).hide();
     await ERP.sync();
     renderPage();
-  } catch(e) { alert(e.message || 'Failed to create PO'); }
+  } catch(e) {
+    saveErrMsg.textContent = e.message || 'Failed to create purchase order.';
+    saveErrBox.classList.remove('d-none');
+  }
 }
 
 function openReceiveModal(poId) {
@@ -395,19 +440,29 @@ function openReceiveModal(poId) {
 
   document.getElementById('recv-po-id').textContent = 'PO: ' + po.id;
   document.getElementById('recv-notes').value = '';
+  var today = new Date();
+  document.getElementById('recv-date').value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
 
   var tbody = document.getElementById('recv-items');
   var html = '';
-  (po.items || []).forEach(function(item) {
+  (po.items || []).forEach(function(item, idx) {
     var prod = products.find(function(p) { return p.id === item.productId; });
     var received = item.receivedQuantity || 0;
     var remaining = item.quantity - received;
     html += '<tr>' +
+      '<td class="po-td-center" style="color:#9CA3AF;font-size:0.78rem;">' + (idx + 1) + '</td>' +
       '<td class="po-td-item">' + (prod ? prod.name : 'Item') + '</td>' +
       '<td class="po-td-center">' + item.quantity + '</td>' +
       '<td class="po-td-center">' + received + '</td>' +
-      '<td class="po-td-remain ' + (remaining > 0 ? 'text-primary' : 'text-success') + '">' + remaining + '</td>' +
-      '<td class="po-td-input"><input type="number" class="form-control pm-input text-center recv-qty po-input-sm" data-item-id="' + item.id + '" data-product-id="' + item.productId + '" data-unit-cost="' + item.unitCost + '" max="' + remaining + '" value="' + Math.max(0, remaining) + '"></td></tr>';
+      '<td class="po-td-center ' + (remaining > 0 ? 'text-primary' : 'text-success') + ' fw-semibold">' + remaining + '</td>' +
+      '<td class="po-td-input">' +
+        '<input type="number" class="form-control pm-input text-center recv-qty po-input-sm" ' +
+          'data-item-id="' + item.id + '" data-product-id="' + item.productId + '" ' +
+          'data-unit-cost="' + item.unitCost + '" data-max="' + remaining + '" ' +
+          'min="0" max="' + remaining + '" value="' + Math.max(0, remaining) + '" ' +
+          'oninput="validateRecvQty(this)">' +
+        '<div class="text-danger" style="font-size:0.72rem;min-height:14px;" id="recv-err-' + item.id + '"></div>' +
+      '</td></tr>';
   });
   tbody.innerHTML = html;
   new bootstrap.Modal(document.getElementById('receiveModal')).show();
@@ -466,10 +521,71 @@ document.addEventListener('DOMContentLoaded', function() {
       if (inp) inp.focus();
     });
   }
+
+  // Filter bar wiring
+  var poSearch = document.getElementById('po-search');
+  if (poSearch) poSearch.addEventListener('input', function() { poCurrentPage = 1; renderPage(); });
+  var poStatus = document.getElementById('po-status');
+  if (poStatus) poStatus.addEventListener('change', function() { poCurrentPage = 1; renderPage(); });
+  var poVendor = document.getElementById('po-vendor');
+  if (poVendor) poVendor.addEventListener('change', function() { poCurrentPage = 1; renderPage(); });
+  var poDateFrom = document.getElementById('po-date-from');
+  if (poDateFrom) poDateFrom.addEventListener('change', function() { poCurrentPage = 1; poRefetchIfNeeded(renderPage); });
+  var poDateTo = document.getElementById('po-date-to');
+  if (poDateTo) poDateTo.addEventListener('change', function() { poCurrentPage = 1; poRefetchIfNeeded(renderPage); });
+
+  // Filter toggle
+  var filterBtn = document.getElementById('po-filter-toggle-btn');
+  if (filterBtn) {
+    filterBtn.addEventListener('click', function() {
+      var panel = document.getElementById('po-filters-panel');
+      var isOpen = !panel.classList.contains('d-none');
+      panel.classList.toggle('d-none', isOpen);
+      filterBtn.classList.toggle('active', !isOpen);
+    });
+  }
+
+  // Clear filters
+  var clearBtn = document.getElementById('po-clear-filters-btn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      document.getElementById('po-search').value = '';
+      document.getElementById('po-status').value = 'all';
+      document.getElementById('po-vendor').value = 'all';
+      document.getElementById('po-date-from').value = '';
+      document.getElementById('po-date-to').value = '';
+      poCurrentPage = 1;
+      renderPage();
+    });
+  }
 });
+
+function validateRecvQty(inp) {
+  var val = parseInt(inp.value);
+  var max = parseInt(inp.dataset.max) || 0;
+  var errEl = document.getElementById('recv-err-' + inp.dataset.itemId);
+  if (!errEl) return;
+  if (isNaN(val) || val < 0) {
+    errEl.textContent = 'Cannot be negative.';
+    inp.classList.add('is-invalid');
+  } else if (val > max) {
+    errEl.textContent = 'Max ' + max + ' remaining.';
+    inp.classList.add('is-invalid');
+  } else {
+    errEl.textContent = '';
+    inp.classList.remove('is-invalid');
+  }
+}
 
 async function submitReceive() {
   if (!receivePOId) return;
+  // Validate all qty inputs before confirming
+  var hasError = false;
+  document.querySelectorAll('.recv-qty').forEach(function(inp) {
+    validateRecvQty(inp);
+    if (inp.classList.contains('is-invalid')) hasError = true;
+  });
+  if (hasError) return;
   if (!await showConfirm('Receive Goods', 'Are you sure you want to receive these goods? This will update your inventory stock.', 'Yes, Receive', 'ti-package-import')) return;
   var inputs = document.querySelectorAll('.recv-qty');
   var items = [];
@@ -486,13 +602,14 @@ async function submitReceive() {
   });
   if (items.length === 0) { alert('Enter at least one quantity to receive'); return; }
   var notes = document.getElementById('recv-notes').value;
+  var receiveDate = document.getElementById('recv-date').value;
 
   var btn = document.getElementById('recv-submit');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Receiving...';
 
   try {
-    await ERP.api.partialReceivePurchaseOrder(receivePOId, items, notes || undefined);
+    await ERP.api.partialReceivePurchaseOrder(receivePOId, items, notes || undefined, receiveDate || undefined);
     bootstrap.Modal.getInstance(document.getElementById('receiveModal')).hide();
     await ERP.sync();
     renderPage();
@@ -502,4 +619,54 @@ async function submitReceive() {
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-check me-1"></i>Receive Goods';
   }
+}
+
+function openReceiptsPanel(poId) {
+  var po = (window.ERP.state.purchaseOrders || []).find(function(x) { return x.id === poId; });
+  if (!po) return;
+  var products = window.ERP.state.products || [];
+  var receives = (po.receives || []).slice().sort(function(a, b) { return new Date(b.receiveDate || b.createdAt) - new Date(a.receiveDate || a.createdAt); });
+
+  document.getElementById('receipts-po-sub').textContent = 'PO: ' + po.id + ' — ' + receives.length + ' receipt(s)';
+
+  var html = '';
+  if (!receives.length) {
+    html = '<div style="text-align:center;color:#9CA3AF;padding:32px 0;font-size:0.875rem;">No receipts yet.</div>';
+  } else {
+    receives.forEach(function(rcv, i) {
+      var dateStr = rcv.receiveDate || (rcv.createdAt ? new Date(rcv.createdAt).toLocaleDateString('en-GB') : '—');
+      var total = (rcv.items || []).reduce(function(s, it) { return s + (it.quantity * it.unitCost); }, 0);
+      html += '<div style="border:1px solid #E8EAF0;border-radius:8px;padding:14px 16px;margin-bottom:12px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+          '<div style="font-weight:600;font-size:0.875rem;color:#1A1D2E;"><i class="ti ti-receipt me-1" style="color:#CD0000;"></i>Receipt #' + (receives.length - i) + '</div>' +
+          '<div style="font-size:0.78rem;color:#6B7280;">' + dateStr + (rcv.notes ? ' · ' + escHtml(rcv.notes) : '') + '</div>' +
+        '</div>' +
+        '<table style="width:100%;font-size:0.8rem;border-collapse:collapse;">' +
+          '<thead><tr style="color:#6B7280;font-size:0.72rem;text-transform:uppercase;">' +
+            '<th style="padding:4px 6px;text-align:left;">Product</th>' +
+            '<th style="padding:4px 6px;text-align:center;">Qty</th>' +
+            '<th style="padding:4px 6px;text-align:right;">Unit Cost</th>' +
+            '<th style="padding:4px 6px;text-align:right;">Total</th>' +
+          '</tr></thead><tbody>';
+      (rcv.items || []).forEach(function(it) {
+        var prod = products.find(function(p) { return p.id === it.productId; });
+        html += '<tr style="border-top:1px solid #F0F2F8;">' +
+          '<td style="padding:5px 6px;">' + (prod ? escHtml(prod.name) : 'Deleted Product') + '</td>' +
+          '<td style="padding:5px 6px;text-align:center;">' + it.quantity + '</td>' +
+          '<td style="padding:5px 6px;text-align:right;">' + ERP.formatCurrency(it.unitCost) + '</td>' +
+          '<td style="padding:5px 6px;text-align:right;font-weight:600;">' + ERP.formatCurrency(it.quantity * it.unitCost) + '</td>' +
+        '</tr>';
+      });
+      html += '</tbody><tfoot><tr>' +
+        '<td colspan="3" style="padding:6px 6px 2px;text-align:right;font-size:0.78rem;color:#6B7280;">Receipt Total</td>' +
+        '<td style="padding:6px 6px 2px;text-align:right;font-weight:700;color:#CD0000;">' + ERP.formatCurrency(total) + '</td>' +
+      '</tr></tfoot></table></div>';
+    });
+  }
+  document.getElementById('receipts-list').innerHTML = html;
+  document.getElementById('poReceiptsOverlay').classList.remove('d-none');
+}
+
+function closeReceiptsPanel() {
+  document.getElementById('poReceiptsOverlay').classList.add('d-none');
 }
