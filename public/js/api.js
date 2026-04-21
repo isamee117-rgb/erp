@@ -59,10 +59,17 @@
             if (!token) return Promise.resolve({});
             return request('GET', '/sync/master').catch(function() { return {}; });
         },
-        syncTransactions: function() {
+        syncTransactions: function(params) {
             var token = getToken();
             if (!token) return Promise.resolve({});
-            return request('GET', '/sync/transactions').catch(function() { return {}; });
+            var qs = '';
+            if (params && (params.from || params.to)) {
+                var parts = [];
+                if (params.from) parts.push('from=' + encodeURIComponent(params.from));
+                if (params.to)   parts.push('to='   + encodeURIComponent(params.to));
+                qs = '?' + parts.join('&');
+            }
+            return request('GET', '/sync/transactions' + qs).catch(function() { return {}; });
         },
         createCompany: function(name, adminUsername, adminPassword, limit, registrationPayment, saasPlan) {
             return request('POST', '/companies', { name: name, adminUsername: adminUsername, adminPassword: adminPassword, limit: limit, registrationPayment: registrationPayment, saasPlan: saasPlan });
@@ -159,8 +166,8 @@
             var body = items ? { items: items, notes: notes } : {};
             return request('PUT', '/purchases/' + poId + '/receive', body);
         },
-        partialReceivePurchaseOrder: function(poId, items, notes) {
-            return request('POST', '/purchases/' + poId + '/partial-receive', { items: items, notes: notes });
+        partialReceivePurchaseOrder: function(poId, items, notes, receiveDate) {
+            return request('POST', '/purchases/' + poId + '/partial-receive', { items: items, notes: notes, receiveDate: receiveDate });
         },
         createPurchaseReturn: function(poId, items, reason) {
             return request('POST', '/purchases/return', { poId: poId, items: items, reason: reason });

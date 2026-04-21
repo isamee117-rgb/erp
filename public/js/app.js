@@ -45,6 +45,7 @@
             }
         }
     }
+    window.ERP.mergeState = mergeState;
 
     // Legacy full sync (still works)
     window.ERP.sync = function() {
@@ -80,6 +81,9 @@
                 }),
                 window.ERP.api.syncTransactions().then(function(txData) {
                     mergeState(txData);
+                    if (txData.loadedFrom) {
+                        window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
+                    }
                     if (typeof window.ERP.onReady === 'function') {
                         window.ERP.onReady();
                     }
