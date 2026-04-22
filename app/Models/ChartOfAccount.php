@@ -18,6 +18,7 @@ class ChartOfAccount extends Model
         'name',
         'type',
         'sub_type',
+        'opening_balance',
         'is_system',
         'is_active',
     ];

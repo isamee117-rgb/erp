@@ -35,7 +35,13 @@ class JournalEntryController extends Controller
             $query->where('is_posted', $request->input('status') === 'posted');
         }
 
-        $entries = $query->orderByDesc('date')->paginate(20);
+        $sortBy  = $request->input('sort_by', 'date');
+        $sortDir = $request->input('sort_dir', 'desc') === 'asc' ? 'asc' : 'desc';
+        $allowedSort = ['entry_no', 'date'];
+        if (!in_array($sortBy, $allowedSort)) $sortBy = 'date';
+        $query->orderBy($sortBy, $sortDir);
+
+        $entries = $query->paginate(20);
         return JournalEntryResource::collection($entries);
     }
 

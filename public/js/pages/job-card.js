@@ -1,7 +1,7 @@
 'use strict';
 
-var jcTabs     = [];   // array of job card objects (open cards)
-var jcActiveId = null; // currently visible tab id
+var jcTabs     = [];
+var jcActiveId = null;
 
 window.ERP.onReady = function() { jcInit(); };
 
@@ -16,74 +16,86 @@ function jcInit() {
 }
 
 function jcBindStaticEvents() {
-    // New Job Card button → open modal
     document.getElementById('jc-new-tab-btn').addEventListener('click', jcOpenNewModal);
-    // Modal save
     document.getElementById('jcm-save-btn').addEventListener('click', jcSaveNewModal);
-    // Modal customer search
-    document.getElementById('jcm-search').addEventListener('input', jcModalCustomerSearch);
-    // Hide suggestions when clicking outside
     document.addEventListener('click', function(e) {
-        var sugg = document.getElementById('jcm-suggestions');
-        if (sugg && !sugg.contains(e.target) && e.target.id !== 'jcm-search') {
-            sugg.style.display = 'none';
+        if (!e.target.closest('#jcm-customer-sdd')) {
+            var wrap = document.getElementById('jcm-customer-sdd');
+            if (wrap) wrap.classList.remove('open');
         }
     });
+}
+
+// ── SDD (Searchable Dropdown) for Customer ────────────────────────────────────
+
+function jcSddToggle() {
+    var wrap = document.getElementById('jcm-customer-sdd');
+    var isOpen = wrap.classList.contains('open');
+    wrap.classList.toggle('open', !isOpen);
+    if (!isOpen) {
+        var inp = wrap.querySelector('.sdd-search-inp');
+        if (inp) { inp.value = ''; jcSddFilter(''); setTimeout(function() { inp.focus(); }, 50); }
+    }
+}
+
+function jcSddFilter(query) {
+    var wrap = document.getElementById('jcm-customer-sdd');
+    var q = query.toLowerCase().trim();
+    var opts = wrap.querySelectorAll('.sdd-opt');
+    var visible = 0;
+    opts.forEach(function(o) {
+        var match = !q || o.dataset.search.indexOf(q) !== -1;
+        o.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    var nr = wrap.querySelector('.sdd-no-res');
+    if (nr) nr.style.display = visible === 0 ? '' : 'none';
+}
+
+function jcSddSelectCustomer(partyId, partyName) {
+    document.getElementById('jcm-customer-id').value = partyId;
+    var disp = document.getElementById('jcm-customer-disp');
+    disp.textContent = partyName;
+    disp.style.color = '#1A1D2E';
+    document.getElementById('jcm-customer-sdd').classList.remove('open');
+    var party = (window.ERP.state.parties || []).find(function(p) { return p.id === partyId; });
+    if (party) jcModalFillCustomer(party);
+}
+
+function jcSddPopulate() {
+    var user      = window.ERP.state.currentUser || {};
+    var customers = (window.ERP.state.parties || []).filter(function(p) {
+        return p.type === 'Customer' && (p.companyId === user.companyId || !p.companyId);
+    });
+    var html = '';
+    customers.forEach(function(c) {
+        var label  = escHtml(c.name) + (c.phone ? ' <span class="text-muted" style="font-size:0.8rem">· ' + escHtml(c.phone) + '</span>' : '');
+        var search = (c.name + ' ' + (c.phone || '')).toLowerCase();
+        html += '<div class="sdd-opt" data-search="' + escHtml(search) + '" onclick="jcSddSelectCustomer(\'' + escHtml(c.id) + '\',\'' + escHtml(c.name) + '\')">' + label + '</div>';
+    });
+    html += '<div class="sdd-no-res" style="display:none">No customers found</div>';
+    document.getElementById('jcm-customer-opts').innerHTML = html;
 }
 
 // ── New Job Card Modal ────────────────────────────────────────────────────────
 
 function jcOpenNewModal() {
-    // Clear modal
-    ['jcm-search','jcm-name','jcm-phone','jcm-vreg','jcm-make','jcm-vin','jcm-engine','jcm-lift'].forEach(function(id) {
+    ['jcm-name','jcm-phone','jcm-vreg','jcm-make','jcm-vin','jcm-engine','jcm-lift'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.value = '';
     });
     var odom = document.getElementById('jcm-odometer');
     if (odom) odom.value = '';
+
+    // Reset SDD
     document.getElementById('jcm-customer-id').value = '';
-    document.getElementById('jcm-suggestions').style.display = 'none';
+    var disp = document.getElementById('jcm-customer-disp');
+    disp.textContent = '— Select or search customer —';
+    disp.style.color = '#B0B7C9';
+    document.getElementById('jcm-customer-sdd').classList.remove('open');
+    jcSddPopulate();
+
     new bootstrap.Modal(document.getElementById('jcNewCardModal')).show();
-}
-
-function jcModalCustomerSearch() {
-    var q    = (document.getElementById('jcm-search').value || '').trim().toLowerCase();
-    var sugg = document.getElementById('jcm-suggestions');
-
-    if (!q || q.length < 2) { sugg.style.display = 'none'; return; }
-
-    var user    = window.ERP.state.currentUser || {};
-    var parties = (window.ERP.state.parties || []).filter(function(p) {
-        return p.type === 'Customer' &&
-               (p.companyId === user.companyId || !p.companyId) &&
-               (
-                   (p.name  && p.name.toLowerCase().indexOf(q)  !== -1) ||
-                   (p.phone && p.phone.toLowerCase().indexOf(q) !== -1)
-               );
-    }).slice(0, 8);
-
-    sugg.innerHTML = '';
-    if (parties.length === 0) {
-        sugg.style.display = 'none';
-        return;
-    }
-
-    parties.forEach(function(p) {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2';
-        btn.innerHTML = '<i class="ti ti-user text-muted" style="font-size:0.85rem"></i>' +
-            '<span><strong>' + escHtml(p.name) + '</strong>' +
-            (p.phone ? ' <span class="text-muted" style="font-size:0.8rem">· ' + escHtml(p.phone) + '</span>' : '') +
-            '</span>';
-        btn.addEventListener('click', function() {
-            jcModalFillCustomer(p);
-            sugg.style.display = 'none';
-            document.getElementById('jcm-search').value = '';
-        });
-        sugg.appendChild(btn);
-    });
-    sugg.style.display = 'block';
 }
 
 function jcModalFillCustomer(party) {

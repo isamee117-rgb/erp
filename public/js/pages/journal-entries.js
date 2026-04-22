@@ -1,6 +1,7 @@
 var _jeMeta = { currentPage: 1, lastPage: 1, total: 0 };
 var _jeDeleteId = null;
 var _jeCurrentId = null;
+var _jeSort = { by: 'date', dir: 'desc' };
 
 window.ERP.onReady = function() {
     setDefaultDates();
@@ -22,7 +23,7 @@ function formatDate(d) {
 
 async function loadJournals(page) {
     page = page || 1;
-    var params = { page: page };
+    var params = { page: page, sort_by: _jeSort.by, sort_dir: _jeSort.dir };
     var from   = document.getElementById('jeFrom').value;
     var to     = document.getElementById('jeTo').value;
     var type   = document.getElementById('jeType').value;
@@ -34,7 +35,8 @@ async function loadJournals(page) {
 
     try {
         var res = await ERP.api.getJournals(params);
-        _jeMeta = { currentPage: res.current_page, lastPage: res.last_page, total: res.total };
+        var meta = res.meta || res;
+        _jeMeta = { currentPage: meta.current_page || 1, lastPage: meta.last_page || 1, total: meta.total || 0 };
         renderJournals(res.data || []);
         renderPagination();
     } catch(e) {
@@ -70,18 +72,50 @@ function renderJournals(journals) {
     document.getElementById('jeBody').innerHTML = html;
 }
 
-function renderPagination() {
-    var html = '';
-    html += '<span class="text-muted">Total: ' + _jeMeta.total + '</span>';
-    if (_jeMeta.lastPage > 1) {
-        html += '<div class="d-flex gap-1 ms-3">';
-        for (var i = 1; i <= _jeMeta.lastPage; i++) {
-            var active = i === _jeMeta.currentPage ? 'btn-primary' : 'btn-outline-secondary';
-            html += '<button class="btn btn-sm ' + active + '" onclick="loadJournals(' + i + ')">' + i + '</button>';
-        }
-        html += '</div>';
+function toggleJeSort(col) {
+    if (_jeSort.by === col) {
+        _jeSort.dir = _jeSort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        _jeSort.by  = col;
+        _jeSort.dir = 'asc';
     }
-    document.getElementById('jePagination').innerHTML = html;
+    updateJeSortHeaders();
+    loadJournals(1);
+}
+
+function updateJeSortHeaders() {
+    var th = document.getElementById('jeThEntryNo');
+    if (!th) return;
+    var icon = _jeSort.by === 'entry_no'
+        ? (_jeSort.dir === 'asc' ? ' <i class="ti ti-arrow-up" style="font-size:0.7rem;"></i>' : ' <i class="ti ti-arrow-down" style="font-size:0.7rem;"></i>')
+        : ' <i class="ti ti-arrows-sort" style="font-size:0.7rem;opacity:0.4;"></i>';
+    th.innerHTML = 'Entry No.' + icon;
+}
+
+function renderPagination() {
+    var cur   = _jeMeta.currentPage;
+    var last  = _jeMeta.lastPage;
+    var total = _jeMeta.total;
+    var perPage = 20;
+    var start = (cur - 1) * perPage;
+
+    document.getElementById('jePaginationInfo').textContent =
+        'Showing ' + (total ? start + 1 : 0) + ' to ' + Math.min(start + perPage, total) + ' of ' + total;
+
+    var ph = '';
+    ph += '<li class="page-item ' + (cur <= 1 ? 'disabled' : '') + '"><a class="page-link" href="javascript:void(0)"' + (cur > 1 ? ' onclick="loadJournals(' + (cur - 1) + ')"' : '') + '>&#171;</a></li>';
+
+    var _pgL = 0;
+    for (var i = 1; i <= last; i++) {
+        if (i === 1 || i === last || (i >= cur - 2 && i <= cur + 2)) {
+            if (_pgL > 0 && i - _pgL > 1) ph += '<li class="page-item disabled"><a class="page-link">&hellip;</a></li>';
+            ph += '<li class="page-item ' + (i === cur ? 'active' : '') + '"><a class="page-link" href="javascript:void(0)" onclick="loadJournals(' + i + ')">' + i + '</a></li>';
+            _pgL = i;
+        }
+    }
+
+    ph += '<li class="page-item ' + (cur >= last ? 'disabled' : '') + '"><a class="page-link" href="javascript:void(0)"' + (cur < last ? ' onclick="loadJournals(' + (cur + 1) + ')"' : '') + '>&#187;</a></li>';
+    document.getElementById('jePagination').innerHTML = ph;
 }
 
 async function viewJe(id) {

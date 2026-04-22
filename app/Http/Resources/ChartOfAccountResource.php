@@ -18,7 +18,8 @@ class ChartOfAccountResource extends JsonResource
             'isSystem'  => $this->is_system,
             'isActive'  => $this->is_active,
             'companyId' => $this->company_id,
-            'balance'   => (float) ($this->balance ?? 0),
+            'openingBalance' => (float) ($this->opening_balance ?? 0),
+            'balance'        => (float) ($this->balance ?? 0),
         ];
     }
 }

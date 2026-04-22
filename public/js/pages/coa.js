@@ -15,7 +15,8 @@ var TYPE_BADGES = {
 };
 
 var _coaDeleteId   = null;
-var _coaSortDir    = 'asc'; // 'asc' | 'desc'
+var _coaSortDir    = 'asc';
+var _coaObId       = null;
 
 window.ERP.onReady = function() { renderCoa(); };
 
@@ -48,22 +49,23 @@ function renderCoa() {
             : '<span class="badge-pill badge-gray">Inactive</span>';
         var systemBadge = a.isSystem ? '<span class="badge-pill badge-gray ms-1">System</span>' : '';
         var editBtn = a.isSystem ? '' : '<button class="btn-icon-sm me-1" onclick="openEditAccount(\'' + a.id + '\')" title="Edit"><i class="ti ti-pencil"></i></button>';
+        var obBtn   = a.isSystem ? '' : '<button class="btn-icon-sm me-1" onclick="openObModal(\'' + a.id + '\')" title="Set Opening Balance"><i class="ti ti-scale"></i></button>';
         var delBtn  = a.isSystem ? '' : '<button class="btn-icon-sm danger" onclick="confirmCoaDelete(\'' + a.id + '\')" title="Delete"><i class="ti ti-trash"></i></button>';
         var bal = a.balance || 0;
-        var balColor = bal > 0 ? '#059669' : bal < 0 ? '#dc2626' : '#94a3b8';
-        var balLabel = bal > 0 ? ' <small style="color:#94a3b8;">Dr</small>' : bal < 0 ? ' <small style="color:#94a3b8;">Cr</small>' : '';
-        var balCell = '<span style="font-weight:600;color:' + balColor + ';">' + ERP.formatCurrency(Math.abs(bal)) + '</span>' + balLabel;
+        var debitCell  = bal > 0 ? '<span style="font-weight:600;color:#059669;">' + ERP.formatCurrency(bal) + '</span>' : '<span style="color:#94a3b8;">—</span>';
+        var creditCell = bal < 0 ? '<span style="font-weight:600;color:#dc2626;">' + ERP.formatCurrency(Math.abs(bal)) + '</span>' : '<span style="color:#94a3b8;">—</span>';
         html += '<tr>' +
             '<td><code style="font-size:0.82rem;color:#3B4FE4;">' + a.code + '</code></td>' +
             '<td>' + a.name + systemBadge + '</td>' +
             '<td><span class="badge-pill ' + typeBadge + '">' + a.type + '</span></td>' +
             '<td><span class="text-muted" style="font-size:0.82rem;">' + (a.subType || '—').replace(/_/g, ' ') + '</span></td>' +
-            '<td class="text-end">' + balCell + '</td>' +
+            '<td class="text-end">' + debitCell + '</td>' +
+            '<td class="text-end">' + creditCell + '</td>' +
             '<td>' + statusBadge + '</td>' +
-            '<td>' + editBtn + delBtn + '</td>' +
+            '<td>' + editBtn + obBtn + delBtn + '</td>' +
             '</tr>';
     });
-    if (!html) html = '<tr><td colspan="7" class="text-center text-muted py-4">No accounts found.</td></tr>';
+    if (!html) html = '<tr><td colspan="8" class="text-center text-muted py-4">No accounts found.</td></tr>';
     document.getElementById('coaBody').innerHTML = html;
 }
 
@@ -106,6 +108,34 @@ function openEditAccount(id) {
     new bootstrap.Modal(document.getElementById('coaModal')).show();
 }
 
+function openObModal(id) {
+    var accounts = window.ERP.state.chartOfAccounts || [];
+    var a = accounts.find(function(x) { return x.id === id; });
+    if (!a) return;
+    _coaObId = id;
+    document.getElementById('coaObName').textContent = a.code + ' — ' + a.name;
+    document.getElementById('coaObAmount').value = a.openingBalance || 0;
+    new bootstrap.Modal(document.getElementById('coaObModal')).show();
+}
+
+async function saveOpeningBalance() {
+    if (!_coaObId) return;
+    var raw = document.getElementById('coaObAmount').value;
+    var amount = raw === '' ? 0 : parseFloat(raw);
+    if (isNaN(amount)) amount = 0;
+    try {
+        await ERP.api.updateAccount(_coaObId, { openingBalance: amount });
+        bootstrap.Modal.getInstance(document.getElementById('coaObModal')).hide();
+        var core = await ERP.api.syncCore();
+        ERP.state.chartOfAccounts = core.chartOfAccounts || [];
+        ERP.state.accountMappings = core.accountMappings || {};
+        renderCoa();
+        _coaObId = null;
+    } catch(e) {
+        alert('Error: ' + e.message);
+    }
+}
+
 // ── Save flow: modal → confirm overlay → doSave → success overlay ─────────
 
 function confirmSave() {
@@ -133,12 +163,12 @@ function cancelCoaSave() {
 
 async function doSaveAccount() {
     document.getElementById('coaSaveConfirm').classList.add('d-none');
-    var id   = document.getElementById('coaId').value;
+    var id = document.getElementById('coaId').value;
     var data = {
         code:    document.getElementById('coaCode').value.trim(),
         name:    document.getElementById('coaName').value.trim(),
         type:    document.getElementById('coaType').value,
-        subType: document.getElementById('coaSubType').value
+        subType: document.getElementById('coaSubType').value,
     };
     try {
         if (id) {

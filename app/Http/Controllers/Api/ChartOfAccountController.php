@@ -16,11 +16,13 @@ class ChartOfAccountController extends Controller
 
         $accounts = ChartOfAccount::where('company_id', $user->company_id)
             ->selectRaw('chart_of_accounts.*, (
-                SELECT COALESCE(SUM(jel.debit), 0) - COALESCE(SUM(jel.credit), 0)
-                FROM journal_entry_lines jel
-                JOIN journal_entries je ON je.id = jel.journal_entry_id
-                WHERE je.is_posted = 1
-                AND jel.account_id = chart_of_accounts.id
+                COALESCE(opening_balance, 0) + (
+                    SELECT COALESCE(SUM(jel.debit), 0) - COALESCE(SUM(jel.credit), 0)
+                    FROM journal_entry_lines jel
+                    JOIN journal_entries je ON je.id = jel.journal_entry_id
+                    WHERE je.is_posted = 1
+                    AND jel.account_id = chart_of_accounts.id
+                )
             ) as balance')
             ->orderBy('code')
             ->get();
@@ -68,17 +70,19 @@ class ChartOfAccountController extends Controller
     {
         $account = ChartOfAccount::findOrFail($id);
         $data    = $request->validate([
-            'name'     => 'sometimes|string|max:255',
-            'type'     => 'sometimes|in:Asset,Liability,Equity,Revenue,Expense',
-            'subType'  => 'nullable|string|max:100',
-            'isActive' => 'sometimes|boolean',
+            'name'           => 'sometimes|string|max:255',
+            'type'           => 'sometimes|in:Asset,Liability,Equity,Revenue,Expense',
+            'subType'        => 'nullable|string|max:100',
+            'isActive'       => 'sometimes|boolean',
+            'openingBalance' => 'sometimes|numeric',
         ]);
 
         $account->update([
-            'name'      => $data['name']     ?? $account->name,
-            'type'      => $data['type']     ?? $account->type,
-            'sub_type'  => $data['subType']  ?? $account->sub_type,
-            'is_active' => $data['isActive'] ?? $account->is_active,
+            'name'            => $data['name']           ?? $account->name,
+            'type'            => $data['type']           ?? $account->type,
+            'sub_type'        => $data['subType']        ?? $account->sub_type,
+            'is_active'       => $data['isActive']       ?? $account->is_active,
+            'opening_balance' => $data['openingBalance'] ?? $account->opening_balance,
         ]);
 
         return new ChartOfAccountResource($account);

@@ -40,10 +40,22 @@
       <div class="modal-body pm-modal-body">
 
         {{-- Customer Search --}}
-        <div class="mb-3 position-relative">
-          <label class="pm-label"><i class="ti ti-search me-1"></i>Customer Search</label>
-          <input type="text" id="jcm-search" class="form-control pm-input" placeholder="Type name, phone or vehicle reg to search existing customers...">
-          <div id="jcm-suggestions" class="list-group position-absolute w-100" style="z-index:9999;top:100%;left:0;display:none;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.12)"></div>
+        <div class="pm-field-row">
+          <label class="pm-label"><i class="ti ti-user me-1"></i>Customer Search</label>
+          <div class="sdd-wrap" id="jcm-customer-sdd">
+            <div class="sdd-trigger pm-sdd-trigger" id="jcm-customer-trigger" onclick="jcSddToggle()">
+              <span class="sdd-disp" id="jcm-customer-disp" style="color:#B0B7C9;">— Select or search customer —</span>
+              <i class="ti ti-chevron-down sdd-caret"></i>
+            </div>
+            <div class="sdd-panel">
+              <div class="sdd-search-row">
+                <i class="ti ti-search"></i>
+                <input type="text" class="sdd-search-inp" placeholder="Search by name or phone..." oninput="jcSddFilter(this.value)" onclick="event.stopPropagation()">
+              </div>
+              <div class="sdd-opts-wrap" id="jcm-customer-opts"></div>
+            </div>
+            <input type="hidden" id="jcm-customer-id">
+          </div>
         </div>
 
         <div class="row g-3">
@@ -81,8 +93,6 @@
           </div>
         </div>
 
-        {{-- Hidden customer id --}}
-        <input type="hidden" id="jcm-customer-id">
 
       </div>
       <div class="modal-footer pm-modal-footer">

@@ -92,7 +92,7 @@
     <table class="table table-hover table-vcenter inv-table mb-0">
       <thead>
         <tr>
-          <th class="inv-th">Entry No.</th>
+          <th class="inv-th inv-th-sort" id="jeThEntryNo" onclick="toggleJeSort('entry_no')" style="cursor:pointer;user-select:none;">Entry No. <i class="ti ti-arrows-sort" style="font-size:0.7rem;opacity:0.4;"></i></th>
           <th class="inv-th">Date</th>
           <th class="inv-th">Description</th>
           <th class="inv-th">Type</th>
@@ -105,7 +105,10 @@
       <tbody id="jeBody"></tbody>
     </table>
   </div>
-  <div id="jePagination" class="d-flex justify-content-end align-items-center gap-2 p-3 border-top" style="font-size:0.82rem;"></div>
+  <div class="card-footer pty-table-footer d-flex align-items-center justify-content-between">
+    <div class="text-muted" id="jePaginationInfo" style="font-size:0.82rem;"></div>
+    <ul class="pagination mb-0" id="jePagination"></ul>
+  </div>
 </div>
 
 </div>
@@ -129,6 +132,7 @@
 .pm-input:focus{border-color:var(--inv-primary)!important;box-shadow:0 0 0 3px rgba(205,0,0,0.08)!important;}
 .inv-table thead{background:#F8F9FC;}
 .inv-th{font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;border-bottom:2px solid #E8EAF0!important;white-space:nowrap;padding:10px 14px!important;}
+.inv-th-sort:hover{color:#CD0000;background:#FFF5F5;}
 .inv-table tbody tr{transition:background-color 0.15s ease;}
 .inv-table tbody tr:hover{background-color:#F5F7FF!important;}
 .inv-table tbody td{padding:10px 14px!important;vertical-align:middle;border-bottom:1px solid #F0F2F8!important;border-top:none!important;font-size:0.85rem;}

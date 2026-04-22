@@ -60,6 +60,30 @@
   </div>
 </div>
 
+{{-- Opening Balance Modal --}}
+<div class="modal modal-blur fade" id="coaObModal" tabindex="-1" aria-labelledby="coaObModalLabel" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+    <div class="modal-content pm-modal-content">
+      <div class="modal-header pm-modal-header">
+        <h5 class="modal-title pm-modal-title" id="coaObModalLabel"><i class="ti ti-scale me-2"></i>Set Opening Balance</h5>
+        <button type="button" class="pm-modal-close" data-bs-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body pm-modal-body">
+        <p class="mb-3" id="coaObName" style="font-size:0.85rem;font-weight:600;color:#1e293b;"></p>
+        <div class="pm-field-row mb-0">
+          <label class="pm-label">Opening Balance</label>
+          <input type="number" class="form-control pm-input" id="coaObAmount" placeholder="0.00" step="0.01">
+          <small class="text-muted mt-1 d-block" style="font-size:0.75rem;">This is the starting balance before any transactions. Positive = Debit, Negative = Credit.</small>
+        </div>
+      </div>
+      <div class="modal-footer pm-modal-footer">
+        <button type="button" class="pm-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="pm-btn-save" onclick="saveOpeningBalance()"><i class="ti ti-device-floppy me-1"></i>Save Balance</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {{-- Add / Edit Modal --}}
 <div class="modal modal-blur fade" id="coaModal" tabindex="-1" aria-labelledby="coaModalLabel" aria-modal="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -147,7 +171,8 @@
           <th class="inv-th">Account Name</th>
           <th class="inv-th">Type</th>
           <th class="inv-th">Sub-Type</th>
-          <th class="inv-th text-end">Balance</th>
+          <th class="inv-th text-end">Debit</th>
+          <th class="inv-th text-end">Credit</th>
           <th class="inv-th">Status</th>
           <th class="inv-th">Actions</th>
         </tr>

@@ -80,11 +80,13 @@ class SyncService
             $documentSequences = DocumentSequence::where('company_id', $coId)->get();
             $chartOfAccounts   = ChartOfAccount::where('company_id', $coId)
                 ->selectRaw('chart_of_accounts.*, (
-                    SELECT COALESCE(SUM(jel.debit), 0) - COALESCE(SUM(jel.credit), 0)
-                    FROM journal_entry_lines jel
-                    JOIN journal_entries je ON je.id = jel.journal_entry_id
-                    WHERE je.is_posted = 1
-                    AND jel.account_id = chart_of_accounts.id
+                    COALESCE(opening_balance, 0) + (
+                        SELECT COALESCE(SUM(jel.debit), 0) - COALESCE(SUM(jel.credit), 0)
+                        FROM journal_entry_lines jel
+                        JOIN journal_entries je ON je.id = jel.journal_entry_id
+                        WHERE je.is_posted = 1
+                        AND jel.account_id = chart_of_accounts.id
+                    )
                 ) as balance')
                 ->orderBy('code')
                 ->get();
