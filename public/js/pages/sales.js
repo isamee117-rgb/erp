@@ -131,7 +131,8 @@ function renderPage() {
       var cust = parties.find(function(p) { return p.id === sale.customerId; });
       var custName = cust ? cust.name : 'Walk-in Customer';
       var isExpanded = sExpandedId === sale.id;
-      var saleReturn = salesReturns.find(function(r) { return r.originalSaleId === sale.id; });
+      var invoiceReturns = salesReturns.filter(function(r) { return r.originalSaleId === sale.id; });
+      var totalCredited = invoiceReturns.reduce(function(acc, r) { return acc + (r.totalAmount || 0); }, 0);
       var payBadge = sale.paymentMethod === 'Cash' ? 'pg-badge pg-badge-cash' : 'pg-badge pg-badge-credit';
       var statusBadge = sale.isReturned ? '<span class="pg-badge pg-badge-returned">Returned</span>' : '<span class="pg-badge pg-badge-completed">Completed</span>';
 
@@ -167,8 +168,8 @@ function renderPage() {
           '<div class="d-flex justify-content-between mb-1 erp-text-85"><span class="text-muted">Subtotal</span><span>' + ERP.formatCurrency(saleSubtotal) + '</span></div>' +
           (saleTotalDiscount > 0 ? '<div class="d-flex justify-content-between mb-1 erp-text-85 erp-text-danger"><span>Discount</span><span>-' + ERP.formatCurrency(saleTotalDiscount) + '</span></div>' : '') +
           '<div class="d-flex justify-content-between pt-1 mt-1 erp-border-top-light erp-text-85"><span class="text-muted">Grand Total</span><span class="fw-semibold">' + ERP.formatCurrency(sale.totalAmount || 0) + '</span></div>';
-        if (saleReturn) {
-          html += '<div class="d-flex justify-content-between pt-1 mt-1 erp-border-top-light erp-text-85 erp-text-danger"><span>Credited Amount</span><span class="fw-semibold">-' + ERP.formatCurrency(saleReturn.totalAmount || 0) + '</span></div>';
+        if (totalCredited > 0) {
+          html += '<div class="d-flex justify-content-between pt-1 mt-1 erp-border-top-light erp-text-85 erp-text-danger"><span>Credited Amount</span><span class="fw-semibold">-' + ERP.formatCurrency(totalCredited) + '</span></div>';
         }
         html += '</div></div></div></div></td></tr>';
       }
