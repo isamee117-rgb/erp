@@ -1004,7 +1004,16 @@ function runSalesReport() {
   var partyMap = {};
   (state.parties || []).forEach(function(p){ partyMap[p.id] = p.name || p.id; });
 
-  var html = '', totalInvoices = 0, totalItems = 0, grandTotal = 0;
+  var salesReturns = (state.salesReturns || []).filter(function(r){ return !coId || r.companyId === coId; });
+  if (fromTs) salesReturns = salesReturns.filter(function(r){ return (r.createdAt||0) >= fromTs; });
+  if (toTs)   salesReturns = salesReturns.filter(function(r){ return (r.createdAt||0) <= toTs; });
+  var returnsBySaleId = {};
+  salesReturns.forEach(function(r){
+    if (!returnsBySaleId[r.originalSaleId]) returnsBySaleId[r.originalSaleId] = [];
+    returnsBySaleId[r.originalSaleId].push(r);
+  });
+
+  var html = '', totalInvoices = 0, totalItems = 0, grandTotal = 0, totalReturns = 0;
 
   sales.forEach(function(s) {
     totalInvoices++;
@@ -1058,6 +1067,34 @@ function runSalesReport() {
     html += '<td class="text-end" class="rpt-total-val">'+ERP.formatCurrency(s.totalAmount||0)+'</td>';
     html += '<td></td>';
     html += '</tr>';
+
+    // 4. Return (CM) rows — one per credit memo against this sale
+    var saleReturns = returnsBySaleId[s.id] || [];
+    var returnedAmt = saleReturns.reduce(function(acc, r){ return acc + (r.totalAmount||0); }, 0);
+    totalReturns += returnedAmt;
+    saleReturns.forEach(function(r){
+      var retDt = r.createdAt ? new Date(r.createdAt) : null;
+      var retDateStr = retDt ? retDt.toLocaleDateString()+' '+retDt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—';
+      html += '<tr class="rpt-sales-item-row" style="background:#FFF5F5 !important;">';
+      html += '<td></td>';
+      html += '<td class="rpt-secondary-text">'+(r.reason||'—')+'</td>';
+      html += '<td class="rpt-indent-cell"><span class="rpt-badge rpt-badge-red">CM</span> '+r.id+'</td>';
+      html += '<td></td>';
+      html += '<td class="text-end" style="color:#dc2626;font-size:0.8rem;">Return</td>';
+      html += '<td class="text-end" style="color:#dc2626;font-weight:600;">-'+ERP.formatCurrency(r.totalAmount||0)+'</td>';
+      html += '<td class="rpt-meta-text">'+retDateStr+'</td>';
+      html += '</tr>';
+    });
+
+    // 5. Net amount row — only shown when at least one return exists
+    if (saleReturns.length > 0) {
+      html += '<tr class="rpt-sales-item-row" style="background:#F0FDF4 !important;">';
+      html += '<td colspan="4"></td>';
+      html += '<td class="text-end rpt-total-label" style="color:#059669;">Net Amount</td>';
+      html += '<td class="text-end rpt-total-val" style="color:#059669;">'+ERP.formatCurrency((s.totalAmount||0) - returnedAmt)+'</td>';
+      html += '<td></td>';
+      html += '</tr>';
+    }
   });
 
   if (!sales.length) {
@@ -1066,14 +1103,27 @@ function runSalesReport() {
 
   document.getElementById('rptSalesBody').innerHTML = html;
   document.getElementById('rptSalesFoot').innerHTML = sales.length
-    ? '<tr><td colspan="5" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalInvoices+' invoices, '+totalItems+' items)</span></td>'
+    ? '<tr><td colspan="5" class="fw-bold">Gross Sales &nbsp;<span class="rpt-count-span">('+totalInvoices+' invoices, '+totalItems+' items)</span></td>'
       +'<td class="text-end fw-bold">'+ERP.formatCurrency(grandTotal)+'</td>'
       +'<td></td></tr>'
+      +(totalReturns > 0
+        ? '<tr><td colspan="5" class="fw-bold" style="color:#dc2626;">Total Returns</td>'
+          +'<td class="text-end fw-bold" style="color:#dc2626;">-'+ERP.formatCurrency(totalReturns)+'</td>'
+          +'<td></td></tr>'
+          +'<tr><td colspan="5" class="fw-bold" style="color:#059669;">Net Sales</td>'
+          +'<td class="text-end fw-bold" style="color:#059669;">'+ERP.formatCurrency(grandTotal - totalReturns)+'</td>'
+          +'<td></td></tr>'
+        : '')
     : '';
   document.getElementById('rptSalesSummary').innerHTML = sales.length
     ? '<div class="rpt-summary-bar d-print-none"><span><b>'+totalInvoices+'</b> invoices</span>'
       +'<span>Total Items: <b>'+totalItems+'</b></span>'
-      +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span></div>'
+      +'<span>Gross: <b>'+ERP.formatCurrency(grandTotal)+'</b></span>'
+      +(totalReturns > 0
+        ? '<span style="color:#dc2626;">Returns: <b>-'+ERP.formatCurrency(totalReturns)+'</b></span>'
+          +'<span style="color:#059669;">Net: <b>'+ERP.formatCurrency(grandTotal - totalReturns)+'</b></span>'
+        : '')
+      +'</div>'
     : '';
 
   // Print header

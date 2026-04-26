@@ -51,7 +51,18 @@ function renderPage(){
         html+='<td class="fw-bold">'+(party?party.name:'—')+'</td>';
         html+='<td><span class="badge-pill '+(isReceived?'badge-green':'badge-red')+'">'+(isReceived?'Payment Received':(p.type||'—'))+'</span></td>';
         html+='<td class="fw-bold">'+ERP.formatCurrency(p.amount||0)+'</td>';
-        html+='<td>'+(p.referenceNo||'—')+'</td>';
+        var refNo = p.referenceNo || '';
+        var refHtml = '—';
+        if(refNo){
+            if(refNo.indexOf('SR-')===0){
+                refHtml = '<span class="badge-pill badge-orange" style="font-size:10px;margin-right:4px;">CM</span>'+escHtml(refNo);
+            } else if(refNo.indexOf('PR-')===0){
+                refHtml = '<span class="badge-pill badge-orange" style="font-size:10px;margin-right:4px;">DM</span>'+escHtml(refNo);
+            } else {
+                refHtml = escHtml(refNo);
+            }
+        }
+        html+='<td>'+refHtml+'</td>';
         html+='<td><span class="text-muted">'+(p.notes||'—')+'</span></td>';
         html+='</tr>';
     });
@@ -150,10 +161,18 @@ function updateRefDropdown(){
                 var lbl=escHtml(s.id)+' — '+escHtml(ERP.formatCurrency(s.totalAmount))+' ('+escHtml(new Date(s.createdAt).toLocaleDateString())+')';
                 html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(s.id)+'\',\''+escHtml(s.id)+'\')">' +lbl+'</div>';
             });
+            (state.salesReturns||[]).filter(function(r){return r.customerId===partyId;}).forEach(function(r){
+                var lbl=escHtml(r.id)+' — '+escHtml(ERP.formatCurrency(r.totalAmount))+' ('+escHtml(new Date(r.createdAt).toLocaleDateString())+')';
+                html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(r.id)+'\',\''+escHtml(r.id)+'\')">'+lbl+'</div>';
+            });
         } else {
             (state.purchaseOrders||[]).filter(function(po){return po.vendorId===partyId;}).forEach(function(po){
                 var lbl=escHtml(po.id)+' — '+escHtml(ERP.formatCurrency(po.totalAmount))+' ('+escHtml(new Date(po.createdAt).toLocaleDateString())+')';
                 html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(po.id)+'\',\''+escHtml(po.id)+'\')">' +lbl+'</div>';
+            });
+            (state.purchaseReturns||[]).filter(function(r){return r.vendorId===partyId;}).forEach(function(r){
+                var lbl=escHtml(r.id)+' — '+escHtml(ERP.formatCurrency(r.totalAmount))+' ('+escHtml(new Date(r.createdAt).toLocaleDateString())+')';
+                html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(r.id)+'\',\''+escHtml(r.id)+'\')">'+lbl+'</div>';
             });
         }
     }

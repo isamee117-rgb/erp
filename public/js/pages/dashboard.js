@@ -18,10 +18,13 @@ function renderPage() {
 function renderSuperAdminDashboard(state, container) {
   var companies = state.companies || [];
   var allSales = state.sales || [];
+  var allReturns = state.salesReturns || [];
   var allUsers = state.users || [];
 
   var saasRevenue = companies.reduce(function(acc, co) { return acc + (co.registrationPayment || 0); }, 0);
-  var bizVolume = allSales.reduce(function(acc, s) { return acc + (s.totalAmount || 0); }, 0);
+  var grossVolume = allSales.reduce(function(acc, s) { return acc + (s.totalAmount || 0); }, 0);
+  var returnVolume = allReturns.reduce(function(acc, r) { return acc + (r.totalAmount || 0); }, 0);
+  var bizVolume = grossVolume - returnVolume;
   var totalSeats = companies.reduce(function(acc, co) { return acc + (co.maxUserLimit || 0); }, 0);
   var activeSeats = allUsers.filter(function(u) { return u.companyId !== null; }).length;
   var seatUtil = totalSeats > 0 ? Math.round((activeSeats / totalSeats) * 100) : 0;
@@ -35,7 +38,7 @@ function renderSuperAdminDashboard(state, container) {
   html += '<div class="db-kpi-grid">';
   var cards = [
     { label: 'SaaS Earnings', value: ERP.formatCurrency(saasRevenue), icon: 'ti-coin', color: 'db-kpi-icon-green', sub: 'Total Registration Fees' },
-    { label: 'Gross Business Volume', value: ERP.formatCurrency(bizVolume), icon: 'ti-bolt', color: 'db-kpi-icon-blue', sub: 'Aggregate Tenant Sales' },
+    { label: 'Net Business Volume', value: ERP.formatCurrency(bizVolume), icon: 'ti-bolt', color: 'db-kpi-icon-blue', sub: 'Gross ' + ERP.formatCurrency(grossVolume) + ' · Returns ' + ERP.formatCurrency(returnVolume) },
     { label: 'Platform Tenants', value: companies.length, icon: 'ti-building', color: 'db-kpi-icon-purple', sub: activeCompanies + ' Active Workspaces' },
     { label: 'Seat Utilization', value: seatUtil + '%', icon: 'ti-users', color: 'db-kpi-icon-orange', sub: activeSeats + ' / ' + totalSeats + ' Seats' }
   ];
@@ -80,7 +83,7 @@ function renderSuperAdminDashboard(state, container) {
   if (!sorted.length) tbodyHtml = '<tr><td colspan="4" class="db-td db-empty"><i class="ti ti-building db-empty-icon"></i>No companies found</td></tr>';
   tbody.innerHTML = tbodyHtml;
 
-  var trendData = buildTrendData(allSales);
+  var trendData = buildTrendData(allSales, allReturns);
   renderAreaChart('sales-chart', trendData);
 
   var distData = companies.filter(function(co) { return (co.registrationPayment || 0) > 0; }).map(function(co) { return { name: co.name, value: co.registrationPayment || 0 }; });
@@ -90,9 +93,12 @@ function renderSuperAdminDashboard(state, container) {
 function renderUserDashboard(state, container, companyId) {
   var products = (state.products || []).filter(function(p) { return p.companyId === companyId; });
   var sales = (state.sales || []).filter(function(s) { return s.companyId === companyId; });
+  var salesReturns = (state.salesReturns || []).filter(function(r) { return r.companyId === companyId; });
   var pos = (state.purchaseOrders || []).filter(function(po) { return po.companyId === companyId; });
 
-  var totalSales = sales.reduce(function(acc, s) { return acc + (s.total || s.totalAmount || 0); }, 0);
+  var grossSales = sales.reduce(function(acc, s) { return acc + (s.total || s.totalAmount || 0); }, 0);
+  var totalReturns = salesReturns.reduce(function(acc, r) { return acc + (r.totalAmount || 0); }, 0);
+  var totalSales = grossSales - totalReturns;
   var inventoryVal = products.reduce(function(acc, p) { return acc + ((p.currentStock || 0) * (p.costPrice || p.unitCost || 0)); }, 0);
   var lowStock = products.filter(function(p) { return (p.currentStock || 0) <= (p.reorderLevel || 0); }).length;
   var pendingPOs = pos.filter(function(po) { return po.status === 'Draft'; }).length;
@@ -103,7 +109,7 @@ function renderUserDashboard(state, container, companyId) {
 
   html += '<div class="db-kpi-grid">';
   var cards = [
-    { label: 'Gross Sales', value: ERP.formatCurrency(totalSales), icon: 'ti-trending-up', color: 'db-kpi-icon-green', sub: sales.length + ' total orders' },
+    { label: 'Net Sales', value: ERP.formatCurrency(totalSales), icon: 'ti-trending-up', color: 'db-kpi-icon-green', sub: sales.length + ' orders · ' + salesReturns.length + ' returns' },
     { label: 'Inventory Value', value: ERP.formatCurrency(inventoryVal), icon: 'ti-package', color: 'db-kpi-icon-blue', sub: products.length + ' products tracked' },
     { label: 'Low Stock Alerts', value: lowStock, icon: 'ti-alert-triangle', color: 'db-kpi-icon-orange', sub: 'Products at reorder level' },
     { label: 'Pending Purchases', value: pendingPOs, icon: 'ti-shopping-bag', color: 'db-kpi-icon-purple', sub: 'Draft purchase orders' }
@@ -126,7 +132,7 @@ function renderUserDashboard(state, container, companyId) {
 
   container.innerHTML = html;
 
-  var trendData = buildTrendData(sales);
+  var trendData = buildTrendData(sales, salesReturns);
   renderAreaChart('sales-chart', trendData);
 
   var activityEl = document.getElementById('activity-list');
@@ -147,17 +153,21 @@ function renderUserDashboard(state, container, companyId) {
   }
 }
 
-function buildTrendData(sales) {
+function buildTrendData(sales, returns) {
+  returns = returns || [];
   var days = [];
   for (var i = 6; i >= 0; i--) {
     var d = new Date(); d.setDate(d.getDate() - i);
     days.push(d.toISOString().split('T')[0]);
   }
   return days.map(function(date) {
-    var total = sales.filter(function(s) {
+    var salesTotal = sales.filter(function(s) {
       return new Date(s.createdAt).toISOString().split('T')[0] === date;
     }).reduce(function(acc, s) { return acc + (s.total || s.totalAmount || 0); }, 0);
-    return { label: new Date(date).toLocaleDateString(undefined, { weekday: 'short' }), value: total };
+    var returnsTotal = returns.filter(function(r) {
+      return new Date(r.createdAt).toISOString().split('T')[0] === date;
+    }).reduce(function(acc, r) { return acc + (r.totalAmount || 0); }, 0);
+    return { label: new Date(date).toLocaleDateString(undefined, { weekday: 'short' }), value: Math.max(0, salesTotal - returnsTotal) };
   });
 }
 
