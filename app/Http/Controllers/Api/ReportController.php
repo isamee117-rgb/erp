@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\JournalEntryLine;
+use App\Models\SaleReturn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -55,13 +56,23 @@ class ReportController extends Controller
         $totalRevenue  = $revenue->sum(fn($a) => $a->total_credit - $a->total_debit);
         $totalCogs     = $cogsAccounts->sum(fn($a) => $a->total_debit - $a->total_credit);
         $totalExpenses = $opexAccounts->sum(fn($a) => $a->total_debit - $a->total_credit);
-        $grossProfit   = $totalRevenue - $totalCogs;
-        $netProfit     = $grossProfit - $totalExpenses;
+
+        $salesReturns = (float) SaleReturn::where('sale_returns.company_id', $user->company_id)
+            ->join('sale_orders', 'sale_returns.original_sale_id', '=', 'sale_orders.invoice_no')
+            ->whereDate('sale_orders.created_at', '>=', $from)
+            ->whereDate('sale_orders.created_at', '<=', $to)
+            ->sum('sale_returns.total_amount');
+
+        $netRevenue  = $totalRevenue - $salesReturns;
+        $grossProfit = $netRevenue - $totalCogs;
+        $netProfit   = $grossProfit - $totalExpenses;
 
         return response()->json([
             'period'         => ['from' => $from, 'to' => $to],
             'revenue'        => $this->formatAccountGroup($revenue->groupBy('sub_type'), 'credit'),
             'totalRevenue'   => round($totalRevenue, 2),
+            'salesReturns'   => round($salesReturns, 2),
+            'netRevenue'     => round($netRevenue, 2),
             'cogs'           => $this->formatAccountGroup($cogsAccounts->groupBy('sub_type'), 'debit'),
             'totalCogs'      => round($totalCogs, 2),
             'grossProfit'    => round($grossProfit, 2),

@@ -47,11 +47,13 @@ async function loadPL() {
 function renderPL(data, from, to) {
     document.getElementById('plPeriodLabel').textContent = 'Period: ' + from + ' to ' + to;
 
-    var revenue  = data.revenue  || {};
-    var cogs     = data.cogs     || {};
-    var expenses = data.expenses || {};
-    var netProfit = (data.totalRevenue || 0) - (data.totalCogs || 0) - (data.totalExpenses || 0);
-    var grossProfit = (data.totalRevenue || 0) - (data.totalCogs || 0);
+    var revenue      = data.revenue  || {};
+    var cogs         = data.cogs     || {};
+    var expenses     = data.expenses || {};
+    var salesReturns = data.salesReturns || 0;
+    var netRevenue   = data.netRevenue   || (data.totalRevenue || 0);
+    var grossProfit  = netRevenue - (data.totalCogs || 0);
+    var netProfit    = grossProfit - (data.totalExpenses || 0);
 
     var html = '';
 
@@ -61,6 +63,16 @@ function renderPL(data, from, to) {
     html += '<tr class="pl-subtotal-row">' +
         '<td>Total Revenue</td>' +
         '<td class="text-end">' + ERP.formatCurrency(data.totalRevenue || 0) + '</td>' +
+        '</tr>';
+
+    // Sales Returns deduction
+    html += '<tr>' +
+        '<td style="padding-left:28px!important;color:#dc2626;">Less: Sales Returns</td>' +
+        '<td class="text-end" style="color:#dc2626;">(' + ERP.formatCurrency(salesReturns) + ')</td>' +
+        '</tr>';
+    html += '<tr class="pl-subtotal-row">' +
+        '<td>Net Revenue</td>' +
+        '<td class="text-end">' + ERP.formatCurrency(netRevenue) + '</td>' +
         '</tr>';
 
     // COGS section
