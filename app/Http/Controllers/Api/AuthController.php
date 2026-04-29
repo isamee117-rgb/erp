@@ -49,6 +49,15 @@ class AuthController extends Controller
         ]);
     }
 
+    public function logout(Request $request)
+    {
+        $user = $request->get('auth_user');
+        $user->api_token = null;
+        $user->save();
+
+        return response()->json(['message' => 'Logged out successfully']);
+    }
+
     // Core: user, companies, roles, settings — fast, page render ke liye
     public function syncCore(Request $request)
     {

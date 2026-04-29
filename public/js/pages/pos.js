@@ -356,7 +356,8 @@ async function completeSale() {
       })
     };
     var result = await ERP.api.createSale(saleData);
-    lastSaleData = result;
+    var saleData2 = result.data || result;
+    lastSaleData = saleData2;
     posCart = [];
     // Reset customer SDD for next sale
     document.getElementById('pos-customer').value = '';
@@ -364,9 +365,10 @@ async function completeSale() {
     document.getElementById('pos-customer-disp').style.color = '#B0B7C9';
     await ERP.sync();
 
-    document.getElementById('sale-success-id').textContent = result.id || '';
-    document.getElementById('sale-success-amount').textContent = ERP.formatCurrency(result.totalAmount || 0);
+    document.getElementById('sale-success-id').textContent = saleData2.id || '';
+    document.getElementById('sale-success-amount').textContent = ERP.formatCurrency(saleData2.totalAmount || 0);
     new bootstrap.Modal(document.getElementById('saleSuccessModal')).show();
+    if (result.warning) showJournalWarning(result.warning);
 
     renderPage();
   } catch(e) {

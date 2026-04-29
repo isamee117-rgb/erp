@@ -260,8 +260,9 @@ async function submitReturn(){
 
     var reason = document.getElementById('returnReason').value;
     try {
-        await ERP.api.createPurchaseReturn(poId, items, reason);
+        var result = await ERP.api.createPurchaseReturn(poId, items, reason);
         bootstrap.Modal.getInstance(document.getElementById('newPReturnModal')).hide();
         await ERP.sync(); renderPage();
+        if (result && result.warning) showJournalWarning(result.warning);
     } catch(e) { showPretError(e.message || 'Failed to create return.'); }
 }

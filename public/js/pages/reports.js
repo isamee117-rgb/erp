@@ -194,13 +194,17 @@ function rptOpen(type) {
     document.getElementById('rpt-balanceSheet-panel').classList.remove('d-none');
     rptBsSetDate('today');
     runBalanceSheet();
+  } else if (type === 'journal') {
+    document.getElementById('rpt-journal-panel').classList.remove('d-none');
+    rptJrnSetDefaultDates();
+    runJournalReport();
   }
 }
 function rptBack() {
   ['rpt-product-panel','rpt-customer-panel','rpt-vendor-panel','rpt-sales-panel',
    'rpt-purchase-panel','rpt-salesReturn-panel','rpt-purchaseReturn-panel',
    'rpt-salesByCustomer-panel','rpt-purchaseByVendor-panel',
-   'rpt-profitLoss-panel','rpt-balanceSheet-panel']
+   'rpt-profitLoss-panel','rpt-balanceSheet-panel','rpt-journal-panel']
     .forEach(function(id){ document.getElementById(id).classList.add('d-none'); });
   document.getElementById('rpt-tiles-view').classList.remove('d-none');
 }
@@ -2098,6 +2102,10 @@ function rptRenderBS(data, asOf) {
 
   var liabHtml = rptRenderBsGrouped(data.liabilities||{});
   liabHtml += rptRenderBsGrouped(data.equity||{});
+  if (data.openingBalanceEquity && Math.abs(data.openingBalanceEquity) > 0.009) {
+    liabHtml += '<tr class="bs-section-row"><td colspan="2">Opening Balances</td></tr>';
+    liabHtml += '<tr><td style="padding-left:20px!important;font-size:0.85rem;">Opening Balance Equity</td><td class="text-end">' + ERP.formatCurrency(data.openingBalanceEquity||0) + '</td></tr>';
+  }
   if (data.retainedEarnings !== undefined) {
     liabHtml += '<tr><td style="padding-left:20px!important;font-size:0.85rem;font-style:italic;">Retained Earnings</td><td class="text-end">' + ERP.formatCurrency(data.retainedEarnings||0) + '</td></tr>';
   }
@@ -2124,4 +2132,306 @@ function rptRenderBsGrouped(grouped) {
     });
   });
   return html;
+}
+
+// ── Journal Entries Report ───────────────────────────────────────────────────
+var _jrnAllEntries = [];
+
+function rptJrnSetDefaultDates() {
+  var now = new Date();
+  var y = now.getFullYear(), m = now.getMonth();
+  var firstDay = y + '-' + String(m+1).padStart(2,'0') + '-01';
+  var lastDay  = new Date(y, m+1, 0);
+  var lastStr  = y + '-' + String(m+1).padStart(2,'0') + '-' + String(lastDay.getDate()).padStart(2,'0');
+  if (!document.getElementById('rptJrnFrom').value) document.getElementById('rptJrnFrom').value = firstDay;
+  if (!document.getElementById('rptJrnTo').value)   document.getElementById('rptJrnTo').value   = lastStr;
+}
+
+function rptJrnClear() {
+  document.getElementById('rptJrnFrom').value   = '';
+  document.getElementById('rptJrnTo').value     = '';
+  document.getElementById('rptJrnType').value   = '';
+  document.getElementById('rptJrnStatus').value = '';
+  document.getElementById('rptJrnSearch').value = '';
+  rptJrnSetDefaultDates();
+  runJournalReport();
+}
+
+async function runJournalReport() {
+  var from   = document.getElementById('rptJrnFrom').value;
+  var to     = document.getElementById('rptJrnTo').value;
+  var type   = document.getElementById('rptJrnType').value;
+  var status = document.getElementById('rptJrnStatus').value;
+
+  document.getElementById('rpt-journal-results').classList.add('d-none');
+  document.getElementById('rptJrnLoading').classList.remove('d-none');
+
+  try {
+    var params = { per_page: 500 };
+    if (from)   params.from   = from;
+    if (to)     params.to     = to;
+    if (type)   params.type   = type;
+    if (status) params.status = status;
+    params.sort_by  = 'date';
+    params.sort_dir = 'asc';
+
+    var resp = await ERP.api.getJournals(params);
+    _jrnAllEntries = resp.data || [];
+
+    document.getElementById('rptJrnLoading').classList.add('d-none');
+    document.getElementById('rpt-journal-results').classList.remove('d-none');
+
+    // Set print params
+    var state = window.ERP.state;
+    var coId = (state.currentUser || {}).companyId;
+    var company = (state.companies || []).find(function(c){ return c.id === coId; }) || {};
+    document.getElementById('rptJrnPrintCompany').textContent = company.name || '';
+    var paramTxt = [];
+    if (from || to) paramTxt.push('Period: ' + (from||'*') + ' to ' + (to||'*'));
+    if (type)   paramTxt.push('Type: ' + type);
+    if (status) paramTxt.push('Status: ' + status);
+    document.getElementById('rptJrnPrintParams').textContent = paramTxt.join(' | ');
+
+    rptJournalClientFilter();
+  } catch(e) {
+    document.getElementById('rptJrnLoading').classList.add('d-none');
+    alert('Error loading journal entries: ' + e.message);
+  }
+}
+
+function rptJournalClientFilter() {
+  var search = (document.getElementById('rptJrnSearch').value || '').trim().toLowerCase();
+  var entries = _jrnAllEntries;
+
+  if (search) {
+    entries = entries.filter(function(e) {
+      return (e.entryNo || '').toLowerCase().indexOf(search) >= 0 ||
+             (e.description || '').toLowerCase().indexOf(search) >= 0;
+    });
+  }
+
+  rptJournalRender(entries);
+}
+
+function rptJournalRefTypeLabel(type) {
+  var map = {
+    sale_order:       'Sale',
+    sale_return:      'Sale Return',
+    purchase_receive: 'Purchase',
+    purchase_return:  'Purch. Return',
+    payment:          'Payment',
+    manual:           'Manual',
+  };
+  return map[type] || (type || '—');
+}
+
+function rptJrnCleanDesc(desc, docNo, partyName) {
+  if (!desc) return '';
+  var s = desc;
+  if (docNo)     s = s.replace('#' + docNo, '').replace(docNo, '');
+  if (partyName) s = s.replace('- ' + partyName, '').replace(partyName, '');
+  return s.replace(/\s*-\s*$/, '').replace(/\s*against\s*$/, '').replace(/\s+/g, ' ').trim();
+}
+
+function rptJournalRender(entries) {
+  var html = '';
+  var grandDebit = 0, grandCredit = 0;
+  var unbalanced = [];
+
+  entries.forEach(function(entry) {
+    var lines      = entry.lines || [];
+    var entDebit   = entry.totalDebit  || 0;
+    var entCredit  = entry.totalCredit || 0;
+    var isBalanced = Math.abs(entDebit - entCredit) < 0.01;
+    var rowSpan    = lines.length || 1;
+
+    grandDebit  += entDebit;
+    grandCredit += entCredit;
+
+    if (!isBalanced) unbalanced.push(entry);
+
+    var statusBadge = entry.isPosted
+      ? '<span class="badge jrn-badge-posted">Posted</span>'
+      : '<span class="badge jrn-badge-draft">Draft</span>';
+
+    var balBadge = isBalanced
+      ? '<span class="jrn-bal-ok" title="Balanced"><i class="ti ti-check"></i></span>'
+      : '<span class="jrn-bal-err" title="Unbalanced — Debit ≠ Credit"><i class="ti ti-alert-triangle"></i></span>';
+
+    var refLabel  = rptJournalRefTypeLabel(entry.referenceType);
+    var docNo     = entry.documentNo  ? '<span class="jrn-doc-no">' + entry.documentNo + '</span>' : '<span class="text-muted">—</span>';
+    var partyCell = entry.partyName   ? '<span class="jrn-party-name">' + entry.partyName + '</span>' : '<span class="text-muted">—</span>';
+    var entryDesc = rptJrnCleanDesc(entry.description, entry.documentNo, entry.partyName);
+
+    if (lines.length === 0) {
+      html += '<tr class="jrn-entry-row' + (!isBalanced ? ' jrn-row-unbalanced' : '') + '">';
+      html += '<td class="jrn-entry-no">' + balBadge + ' ' + (entry.entryNo || '—') + '</td>';
+      html += '<td>' + (entry.date || '—') + '</td>';
+      html += '<td>' + docNo + '</td>';
+      html += '<td>' + partyCell + '</td>';
+      html += '<td><span class="jrn-ref-type">' + refLabel + '</span></td>';
+      html += '<td class="text-muted fst-italic">' + (entryDesc || '—') + '</td>';
+      html += '<td>' + statusBadge + '</td>';
+      html += '<td class="text-end">—</td><td class="text-end">—</td>';
+      html += '</tr>';
+      return;
+    }
+
+    lines.forEach(function(line, idx) {
+      html += '<tr class="' + (idx === 0 ? 'jrn-entry-row' : 'jrn-line-row') + (!isBalanced ? ' jrn-row-unbalanced' : '') + '">';
+
+      if (idx === 0) {
+        html += '<td class="jrn-entry-no" rowspan="' + rowSpan + '">' + balBadge + ' ' + (entry.entryNo || '—') + '</td>';
+        html += '<td rowspan="' + rowSpan + '">' + (entry.date || '—') + '</td>';
+        html += '<td rowspan="' + rowSpan + '">' + docNo + '</td>';
+        html += '<td rowspan="' + rowSpan + '">' + partyCell + '</td>';
+        html += '<td rowspan="' + rowSpan + '"><span class="jrn-ref-type">' + refLabel + '</span></td>';
+        html += '<td>';
+        html += '<div class="jrn-entry-desc">' + (entryDesc || '—') + '</div>';
+        if (line.description) html += '<div class="jrn-line-narration">' + line.description + '</div>';
+        html += '<div class="jrn-account-name"><code class="jrn-acc-code">' + (line.accountCode || line.accountId || '') + '</code> ' + (line.accountName || '') + '</div>';
+        html += '</td>';
+        html += '<td rowspan="' + rowSpan + '">' + statusBadge + '</td>';
+      } else {
+        html += '<td>';
+        if (line.description) html += '<div class="jrn-line-narration">' + line.description + '</div>';
+        html += '<div class="jrn-account-name"><code class="jrn-acc-code">' + (line.accountCode || line.accountId || '') + '</code> ' + (line.accountName || '') + '</div>';
+        html += '</td>';
+      }
+
+      html += '<td class="text-end jrn-debit-cell">'  + (line.debit  > 0 ? ERP.formatCurrency(line.debit)  : '') + '</td>';
+      html += '<td class="text-end jrn-credit-cell">' + (line.credit > 0 ? ERP.formatCurrency(line.credit) : '') + '</td>';
+      html += '</tr>';
+    });
+
+    if (lines.length > 1) {
+      html += '<tr class="jrn-entry-subtotal' + (!isBalanced ? ' jrn-row-unbalanced' : '') + '">';
+      html += '<td colspan="7" class="text-end" style="font-size:0.78rem;color:var(--erp-text-muted);">Entry Total</td>';
+      html += '<td class="text-end">' + ERP.formatCurrency(entDebit) + '</td>';
+      html += '<td class="text-end">' + ERP.formatCurrency(entCredit) + '</td>';
+      html += '</tr>';
+    }
+
+    html += '<tr class="jrn-spacer"><td colspan="9"></td></tr>';
+  });
+
+  if (!entries.length) {
+    html = '<tr><td colspan="9" class="text-center text-muted py-5"><i class="ti ti-notebook fs-1 d-block mb-2"></i>No journal entries found for selected filters</td></tr>';
+  }
+
+  document.getElementById('rptJrnBody').innerHTML = html;
+
+  // Grand total footer
+  var balanced = Math.abs(grandDebit - grandCredit) < 0.01;
+  var footHtml = '<tr class="rpt-total-row">';
+  footHtml += '<td colspan="7" class="text-end fw-bold">Grand Total</td>';
+  footHtml += '<td class="text-end fw-bold">' + ERP.formatCurrency(grandDebit) + '</td>';
+  footHtml += '<td class="text-end fw-bold">' + ERP.formatCurrency(grandCredit) + '</td>';
+  footHtml += '</tr>';
+  document.getElementById('rptJrnFoot').innerHTML = footHtml;
+
+  // Balance check banner
+  var balCheckEl = document.getElementById('rptJrnBalanceCheck');
+  if (entries.length > 0) {
+    balCheckEl.classList.remove('d-none');
+    if (balanced) {
+      balCheckEl.innerHTML = '<div class="jrn-grand-ok"><i class="ti ti-circle-check me-1"></i>All entries balanced — Total Debit ' + ERP.formatCurrency(grandDebit) + ' = Total Credit ' + ERP.formatCurrency(grandCredit) + '</div>';
+    } else {
+      var diff = Math.abs(grandDebit - grandCredit);
+      balCheckEl.innerHTML = '<div class="jrn-grand-err"><i class="ti ti-alert-triangle me-1"></i>Grand total out of balance by ' + ERP.formatCurrency(diff) + ' (Debit ' + ERP.formatCurrency(grandDebit) + ' vs Credit ' + ERP.formatCurrency(grandCredit) + ')</div>';
+    }
+  } else {
+    balCheckEl.classList.add('d-none');
+  }
+
+  // Discrepancy section
+  var discEl = document.getElementById('rptJrnDiscrepancy');
+  if (unbalanced.length > 0) {
+    discEl.classList.remove('d-none');
+    var dHtml = '<div class="jrn-discrepancy-box"><div class="jrn-discrepancy-title"><i class="ti ti-alert-triangle me-1"></i>' + unbalanced.length + ' Unbalanced ' + (unbalanced.length === 1 ? 'Entry' : 'Entries') + ' Detected</div>';
+    dHtml += '<div class="jrn-discrepancy-list">';
+    unbalanced.forEach(function(e) {
+      var diff = Math.abs((e.totalDebit||0) - (e.totalCredit||0));
+      dHtml += '<div class="jrn-discrepancy-item"><span class="jrn-entry-no-ref">' + (e.entryNo||e.id) + '</span>';
+      dHtml += ' <span class="text-muted">' + (e.date||'') + '</span>';
+      dHtml += ' — ' + (e.description||'') + ' — ';
+      dHtml += '<span class="jrn-diff-amt">Difference: ' + ERP.formatCurrency(diff) + '</span>';
+      dHtml += ' <span class="text-muted">(Dr: ' + ERP.formatCurrency(e.totalDebit||0) + ' | Cr: ' + ERP.formatCurrency(e.totalCredit||0) + ')</span></div>';
+    });
+    dHtml += '</div></div>';
+    discEl.innerHTML = dHtml;
+  } else {
+    discEl.classList.add('d-none');
+  }
+
+  // Summary
+  document.getElementById('rptJrnSummary').innerHTML = entries.length > 0
+    ? '<div class="rpt-summary-bar">' + entries.length + ' ' + (entries.length===1?'entry':'entries') + ' &nbsp;|&nbsp; ' + (unbalanced.length > 0 ? '<span class="text-danger fw-semibold">' + unbalanced.length + ' unbalanced</span>' : '<span class="text-success">All balanced</span>') + '</div>'
+    : '';
+}
+
+// ── Journal Export helpers ───────────────────────────────────────────────────
+function exportJournalExcel() {
+  if (!_jrnAllEntries.length) { alert('No data to export.'); return; }
+  var wb = XLSX.utils.book_new();
+  var rows = [['Entry No.', 'Date', 'Description', 'Doc. No.', 'Customer/Vendor', 'Ref. Type', 'Status', 'Account Code', 'Account Name', 'Line Narration', 'Debit', 'Credit']];
+  _jrnAllEntries.forEach(function(entry) {
+    (entry.lines || []).forEach(function(line) {
+      rows.push([
+        entry.entryNo || '',
+        entry.date    || '',
+        entry.description || '',
+        entry.documentNo  || '',
+        entry.partyName   || '',
+        entry.referenceType || '',
+        entry.isPosted ? 'Posted' : 'Draft',
+        line.accountCode || line.accountId || '',
+        line.accountName || '',
+        line.description || '',
+        line.debit  || 0,
+        line.credit || 0,
+      ]);
+    });
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Journal Entries');
+  XLSX.writeFile(wb, 'journal-entries-report.xlsx');
+}
+
+function exportJournalPDF() {
+  if (!_jrnAllEntries.length) { alert('No data to export.'); return; }
+  var doc = new jspdf.jsPDF({ orientation: 'landscape' });
+  var jrnState = window.ERP.state;
+  var jrnCoId  = (jrnState.currentUser || {}).companyId;
+  var jrnCo    = (jrnState.companies || []).find(function(c){ return c.id === jrnCoId; }) || {};
+  doc.setFontSize(14);
+  doc.text((jrnCo.name || 'Company') + ' — Journal Entries Report', 14, 18);
+  doc.setFontSize(9);
+  var rows = [];
+  _jrnAllEntries.forEach(function(entry) {
+    (entry.lines || []).forEach(function(line) {
+      rows.push([
+        entry.entryNo || '',
+        entry.date    || '',
+        entry.description || '',
+        entry.documentNo  || '',
+        entry.partyName   || '',
+        entry.referenceType || '',
+        entry.isPosted ? 'Posted' : 'Draft',
+        (line.accountCode ? line.accountCode + ' ' : '') + (line.accountName || line.accountId || ''),
+        line.description || '',
+        line.debit  > 0 ? line.debit.toFixed(2)  : '',
+        line.credit > 0 ? line.credit.toFixed(2) : '',
+      ]);
+    });
+  });
+  doc.autoTable({
+    startY: 26,
+    head: [['Entry No.','Date','Description','Doc. No.','Party','Type','Status','Account','Narration','Debit','Credit']],
+    body: rows,
+    styles: { fontSize: 7, cellPadding: 2 },
+    headStyles: { fillColor: [205, 0, 0] },
+    columnStyles: { 9: { halign: 'right' }, 10: { halign: 'right' } },
+  });
+  doc.save('journal-entries-report.pdf');
 }

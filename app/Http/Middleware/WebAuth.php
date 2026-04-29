@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 
@@ -14,6 +15,13 @@ class WebAuth
         $token = $_COOKIE['leanerp_token'] ?? null;
 
         if (!$token) {
+            return redirect(url('/login'));
+        }
+
+        // Verify token is valid and user is still active
+        $user = User::where('api_token', $token)->where('is_active', true)->first();
+
+        if (!$user) {
             return redirect(url('/login'));
         }
 

@@ -121,6 +121,14 @@
             </div>
             <div class="rpt-tile-arrow"><i class="ti ti-chevron-right"></i></div>
           </div>
+          <div class="rpt-tile" onclick="rptOpen('journal')">
+            <div class="rpt-tile-icon rpt-tile-icon-journal"><i class="ti ti-notebook"></i></div>
+            <div class="rpt-tile-body">
+              <div class="rpt-tile-name">Journal Entries Report</div>
+              <div class="rpt-tile-desc">All journal entries with debit/credit lines, balance check, and discrepancy detection</div>
+            </div>
+            <div class="rpt-tile-arrow"><i class="ti ti-chevron-right"></i></div>
+          </div>
         </div>
       </div>
 
@@ -873,6 +881,99 @@
           <div class="card inv-section-card">
             <div class="set-card-body" id="rptBsBalanceCheck"></div>
           </div>
+        </div>
+      </div>
+
+      {{-- Journal Entries Report Panel --}}
+      <div id="rpt-journal-panel" class="d-none">
+        <div class="rpt-report-header d-print-none">
+          <button class="btn btn-light btn-sm" onclick="rptBack()"><i class="ti ti-arrow-left me-1"></i>Back</button>
+          <span class="rpt-report-title"><i class="ti ti-notebook me-2 rpt-icon-journal-color"></i>Journal Entries Report</span>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm rpt-export-btn rpt-excel-btn" onclick="exportJournalExcel()" title="Export to Excel"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button>
+            <button class="btn btn-sm rpt-export-btn rpt-pdf-btn" onclick="exportJournalPDF()" title="Export to PDF"><i class="ti ti-file-type-pdf me-1"></i>PDF</button>
+            <button class="btn btn-light btn-sm" onclick="window.print()"><i class="ti ti-printer me-1"></i>Print</button>
+          </div>
+        </div>
+
+        <div class="rpt-filter-bar d-print-none">
+          <div class="row g-2 align-items-end">
+            <div class="col-auto">
+              <label class="pm-label">From</label>
+              <input type="date" class="form-control inv-input" id="rptJrnFrom" onchange="runJournalReport()">
+            </div>
+            <div class="col-auto">
+              <label class="pm-label">To</label>
+              <input type="date" class="form-control inv-input" id="rptJrnTo" onchange="runJournalReport()">
+            </div>
+            <div class="col-auto">
+              <label class="pm-label">Type</label>
+              <select class="form-select inv-input" id="rptJrnType" onchange="runJournalReport()">
+                <option value="">All Types</option>
+                <option value="manual">Manual</option>
+                <option value="auto">Auto-Posted</option>
+              </select>
+            </div>
+            <div class="col-auto">
+              <label class="pm-label">Status</label>
+              <select class="form-select inv-input" id="rptJrnStatus" onchange="runJournalReport()">
+                <option value="">All Statuses</option>
+                <option value="posted">Posted</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+            <div class="col-auto">
+              <label class="pm-label">Entry No. / Description</label>
+              <input type="text" class="form-control inv-input" id="rptJrnSearch" placeholder="Search..." style="width:210px;" oninput="rptJournalClientFilter()">
+            </div>
+            <div class="col-auto">
+              <button class="btn btn-light inv-input px-3 me-1" onclick="rptJrnClear()" title="Clear filters"><i class="ti ti-x"></i></button>
+              <button class="btn btn-primary rpt-btn" onclick="runJournalReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
+            </div>
+          </div>
+        </div>
+
+        {{-- Print-only header --}}
+        <div class="d-none d-print-block rpt-print-top">
+          <div class="rpt-print-company" id="rptJrnPrintCompany"></div>
+          <div class="rpt-print-title">Journal Entries Report</div>
+          <div class="rpt-print-params" id="rptJrnPrintParams"></div>
+        </div>
+
+        <div id="rptJrnLoading" class="text-center py-5 d-none">
+          <div class="spinner-border text-primary"></div>
+          <div class="mt-2 text-muted" style="font-size:0.85rem;">Loading journal entries...</div>
+        </div>
+
+        <div id="rpt-journal-results" class="d-none">
+          {{-- Discrepancy alert --}}
+          <div id="rptJrnDiscrepancy" class="d-none"></div>
+
+          {{-- Grand total balance check --}}
+          <div id="rptJrnBalanceCheck" class="d-none"></div>
+
+          {{-- Entries table --}}
+          <div class="table-responsive">
+            <table class="table table-vcenter inv-table mb-0 rpt-compact-table rpt-journal-table">
+              <thead>
+                <tr>
+                  <th class="inv-th" style="width:110px;">Entry No.</th>
+                  <th class="inv-th" style="width:95px;">Date</th>
+                  <th class="inv-th" style="width:120px;">Doc. No.</th>
+                  <th class="inv-th" style="width:150px;">Customer / Vendor</th>
+                  <th class="inv-th" style="width:100px;">Ref. Type</th>
+                  <th class="inv-th">Description / Account</th>
+                  <th class="inv-th" style="width:90px;">Status</th>
+                  <th class="inv-th text-end" style="width:120px;">Debit</th>
+                  <th class="inv-th text-end" style="width:120px;">Credit</th>
+                </tr>
+              </thead>
+              <tbody id="rptJrnBody"></tbody>
+              <tfoot id="rptJrnFoot"></tfoot>
+            </table>
+          </div>
+
+          <div id="rptJrnSummary"></div>
         </div>
       </div>
 

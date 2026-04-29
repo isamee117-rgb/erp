@@ -35,7 +35,7 @@
                 </button>
                 <h1 class="navbar-brand navbar-brand-autodark">
                     <a href="{{ $base }}/dashboard">
-                        <span class="text-white fw-bold erp-brand-name">LeanERP</span>
+                        <img src="{{ $base }}/logos/leanerp-logo-black.png?v={{ filemtime(public_path('logos/leanerp-logo-black.png')) }}" alt="LeanERP" class="sidebar-logo">
                     </a>
                 </h1>
                 <div class="navbar-nav flex-row d-lg-none">

@@ -95,11 +95,11 @@
                 ]);
             })
             .catch(function(err) {
-                if (err.message && err.message.indexOf('401') !== -1) {
+                if (err.status === 401 || (err.message && err.message.indexOf('401') !== -1)) {
                     window.ERP.logout();
                     return;
                 }
-                showSyncError();
+                showSyncError(err);
                 console.error('syncCore failed after all retries:', err.message);
             });
     };
@@ -121,10 +121,16 @@
         if (overlay) overlay.parentNode.removeChild(overlay);
     }
 
-    function showSyncError() {
+    function showSyncError(err) {
         var overlay = document.getElementById(SYNC_OVERLAY_ID);
         if (!overlay) { return; }
         overlay.className = 'erp-sync-overlay';
+        var isOffline = !navigator.onLine;
+        var isTimeout = err && err.message && err.message.indexOf('timed out') !== -1;
+        var title = isOffline ? 'No Internet Connection' : (isTimeout ? 'Connection Timed Out' : 'Could Not Reach Server');
+        var msg = isOffline
+            ? 'Please check your internet connection and try again.'
+            : (isTimeout ? 'The server took too long to respond. Please try again.' : 'Server unreachable. Please refresh or try again.');
         overlay.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d63939" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
             '<line x1="1" y1="1" x2="23" y2="23"></line>' +
             '<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>' +
@@ -134,8 +140,8 @@
             '<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>' +
             '<line x1="12" y1="20" x2="12.01" y2="20"></line>' +
             '</svg>' +
-            '<h3 class="text-danger mb-1">No Internet Connection</h3>' +
-            '<p class="text-muted mb-3">Please check your connection and try again.</p>' +
+            '<h3 class="text-danger mb-1">' + title + '</h3>' +
+            '<p class="text-muted mb-3">' + msg + '</p>' +
             '<button class="btn btn-primary" id="erp-retry-btn">Retry</button>';
         document.getElementById('erp-retry-btn').addEventListener('click', function() {
             hideSyncSpinner();
@@ -189,6 +195,9 @@
     };
 
     window.ERP.logout = function() {
+        // Invalidate token server-side first (fire and forget)
+        window.ERP.api.logout();
+
         localStorage.removeItem('leanerp_token');
         localStorage.removeItem('leanerp_user');
         localStorage.removeItem('leanerp_pos_cart');
@@ -201,6 +210,22 @@
         var currency = window.ERP.state.currency || 'Rs.';
         var num = parseFloat(amount) || 0;
         return currency + ' ' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    window.showJournalWarning = function(message) {
+        var existing = document.getElementById('journal-warning-toast');
+        if (existing) existing.remove();
+
+        var el = document.createElement('div');
+        el.id = 'journal-warning-toast';
+        el.style.cssText = 'position:fixed;top:80px;right:24px;z-index:9999;max-width:420px;';
+        el.innerHTML = '<div class="alert alert-warning alert-dismissible shadow" role="alert" style="border-left:4px solid #f59e0b;">' +
+            '<i class="ti ti-alert-triangle me-2"></i><strong>Journal Posting Skipped</strong><br>' +
+            '<span style="font-size:0.875rem;">' + message + '</span>' +
+            '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+            '</div>';
+        document.body.appendChild(el);
+        setTimeout(function() { if (el.parentNode) el.remove(); }, 10000);
     };
 
     function updateUI() {

@@ -40,6 +40,12 @@ body { font-family: var(--tblr-font-sans-serif); }
 .erp-brand-name {
     font-size: 1.25rem;
 }
+.sidebar-logo {
+    height: 42px;
+    width: auto;
+    object-fit: contain;
+    margin-top: 8px;
+}
 
 .erp-nav-section-label {
     font-size: 0.625rem;
@@ -1879,19 +1885,15 @@ body { font-family: var(--tblr-font-sans-serif); }
 .page.page-center::after{content:'';position:absolute;top:-15%;right:-8%;width:480px;height:480px;background:rgba(255,255,255,0.05);border-radius:50%;pointer-events:none;}
 .login-wrap{width:100%;max-width:420px;padding:24px;position:relative;z-index:1;}
 .login-card{background:#EFEDE6;border-radius:8px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.35),0 0 0 1px rgba(255,255,255,0.08);}
-.login-header{background:linear-gradient(135deg,#CD0000 0%,#e53333 100%);padding:40px 32px 32px;text-align:center;position:relative;overflow:hidden;}
-.login-header::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.12) 1px,transparent 1px);background-size:16px 16px;opacity:0.6;pointer-events:none;}
-.login-header::after{content:'';position:absolute;bottom:-50px;right:-30px;width:160px;height:160px;background:rgba(255,255,255,0.06);border-radius:50%;pointer-events:none;}
-.login-logo-circle{width:68px;height:68px;border-radius:8px;background:rgba(239,237,230,0.18);border:2px solid rgba(239,237,230,0.28);display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative;z-index:1;}
-.login-logo-circle i{font-size:3rem;color:#EFEDE6;}
-.login-brand{font-size:2rem;font-weight:800;color:#EFEDE6;margin:0 0 8px;letter-spacing:-0.5px;position:relative;z-index:1;font-family:'Inter',sans-serif;}
-.login-tagline{font-size:0.6875rem;color:rgba(239,237,230,0.72);margin:0;text-transform:uppercase;letter-spacing:0.14em;position:relative;z-index:1;}
-.login-body{padding:32px 32px 24px;background:#EFEDE6;}
-.login-welcome{margin-bottom:24px;}
+.login-header{background:#EFEDE6;padding:12px 32px 0px;text-align:center;}
+.login-logo-wrap{display:flex;align-items:center;justify-content:center;}
+.login-logo-img{max-height:180px;max-width:380px;width:auto;object-fit:contain;}
+.login-body{padding:8px 32px 16px;background:#EFEDE6;}
+.login-welcome{margin-bottom:16px;}
 .login-heading{font-size:1.125rem;font-weight:700;color:#1e293b;margin:0 0 8px;font-family:'Inter',sans-serif;}
 .login-subheading{font-size:0.875rem;color:#94a3b8;margin:0;}
 .login-error-box{border-radius:8px;font-size:0.875rem;padding:8px 16px;margin-bottom:24px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#dc2626;display:flex;align-items:center;}/* Body Small */
-.login-field{margin-bottom:16px;}
+.login-field{margin-bottom:10px;}
 .login-label{display:block;font-size:0.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:8px;}
 .login-input-wrap{position:relative;display:flex;align-items:center;}
 .login-input-icon{position:absolute;left:16px;color:#94a3b8;font-size:1rem;pointer-events:none;display:flex;align-items:center;z-index:1;}
@@ -1905,7 +1907,7 @@ body { font-family: var(--tblr-font-sans-serif); }
 .login-btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(205,0,0,0.45);}
 .login-btn:active{transform:translateY(0);}
 .login-btn:disabled{opacity:0.75;cursor:not-allowed;transform:none;}
-.login-footer{padding:16px 32px;background:#EFEDE6;border-top:1px solid #d4d0c9;text-align:center;font-size:0.75rem;color:#94a3b8;}
+.login-footer{padding:10px 32px;background:#EFEDE6;border-top:1px solid #d4d0c9;text-align:center;font-size:0.75rem;color:#94a3b8;}
 .login-footer strong{color:#64748b;}
 
 /* ─── Reports Page ────────────────────────────────── */
@@ -2115,3 +2117,56 @@ body { font-family: var(--tblr-font-sans-serif); }
     width: 3rem;
     height: 3rem;
 }
+
+/* ── Journal Entries Report ──────────────────────────────────────── */
+.rpt-tile-icon-journal        { background: #EFF6FF; color: #2563EB; }
+.rpt-icon-journal-color       { color: #2563EB; }
+
+/* Entry rows */
+.rpt-journal-table .jrn-entry-row td  { background: #F8FAFF; border-top: 2px solid #E8EAF0; font-weight: 600; }
+.rpt-journal-table .jrn-line-row  td  { background: #fff; border-top: none; font-size: 0.85rem; }
+.rpt-journal-table .jrn-entry-subtotal td { background: #F1F5F9; font-size: 0.78rem; border-top: 1px dashed #CBD5E1; }
+.rpt-journal-table .jrn-spacer td     { height: 6px; background: #F8F9FC; border: none; padding: 0 !important; }
+.jrn-row-unbalanced td                { background: #FFF5F5 !important; }
+
+/* Entry No cell */
+.jrn-entry-no     { font-weight: 700; font-size: 0.82rem; white-space: nowrap; color: #1A1D2E; }
+.jrn-entry-no-ref { font-weight: 700; color: #2563EB; font-size: 0.82rem; }
+
+/* Entry description + account */
+.jrn-entry-desc   { font-weight: 600; font-size: 0.86rem; color: #1A1D2E; margin-bottom: 2px; }
+.jrn-account-name { font-size: 0.8rem; color: #475569; }
+.jrn-line-narration { font-size: 0.77rem; color: #64748b; font-style: italic; margin-bottom: 2px; }
+.jrn-acc-code     { font-size: 0.72rem; color: #2563EB; background: #EFF6FF; border-radius: 3px; padding: 1px 4px; font-family: monospace; }
+
+/* Ref type + badges */
+.jrn-ref-type   { font-size: 0.75rem; color: #64748b; text-transform: capitalize; }
+.jrn-badge-posted { background: rgba(5,150,105,0.12); color: #059669; font-size: 0.7rem; font-weight: 600; border-radius: 4px; padding: 2px 8px; }
+.jrn-badge-draft  { background: rgba(100,116,139,0.12); color: #64748b; font-size: 0.7rem; font-weight: 600; border-radius: 4px; padding: 2px 8px; }
+
+/* Balance indicators */
+.jrn-bal-ok  { color: #059669; font-size: 0.78rem; margin-right: 4px; }
+.jrn-bal-err { color: #dc2626; font-size: 0.78rem; margin-right: 4px; }
+
+/* Debit/Credit cells */
+.jrn-debit-cell  { font-family: 'Courier New', monospace; font-size: 0.85rem; color: #1e40af; }
+.jrn-credit-cell { font-family: 'Courier New', monospace; font-size: 0.85rem; color: #059669; }
+
+/* Doc No + Party */
+.jrn-doc-no    { font-size: 0.8rem; font-weight: 600; color: #2563EB; font-family: monospace; }
+.jrn-party-name { font-size: 0.8rem; color: #374151; }
+
+/* Grand total balance banner */
+.jrn-grand-ok  { background: rgba(5,150,105,0.08); color: #059669; padding: 10px 16px; font-size: 0.85rem; font-weight: 600; border-radius: 8px; border-left: 4px solid #059669; margin: 8px 18px; }
+.jrn-grand-err { background: rgba(220,38,38,0.08); color: #dc2626; padding: 10px 16px; font-size: 0.85rem; font-weight: 600; border-radius: 8px; border-left: 4px solid #dc2626; margin: 8px 18px; }
+
+/* Discrepancy box */
+.jrn-discrepancy-box   { background: #FFF5F5; border: 1px solid #FECACA; border-radius: 8px; margin: 8px 18px; padding: 12px 16px; }
+.jrn-discrepancy-title { font-size: 0.85rem; font-weight: 700; color: #dc2626; margin-bottom: 8px; }
+.jrn-discrepancy-list  { display: flex; flex-direction: column; gap: 4px; }
+.jrn-discrepancy-item  { font-size: 0.8rem; color: #7f1d1d; padding: 4px 0; border-bottom: 1px dashed #FECACA; }
+.jrn-discrepancy-item:last-child { border-bottom: none; }
+.jrn-diff-amt { font-weight: 700; color: #dc2626; }
+
+/* Summary bar */
+.rpt-summary-bar { padding: 8px 18px; font-size: 0.8rem; color: #64748b; border-top: 1px solid #E8EAF0; }

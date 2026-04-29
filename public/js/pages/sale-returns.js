@@ -299,10 +299,11 @@ async function submitReturn() {
 
     var reason = document.getElementById('returnReason').value;
     try {
-        await ERP.api.createSaleReturn(saleId, items, reason);
+        var result = await ERP.api.createSaleReturn(saleId, items, reason);
         bootstrap.Modal.getInstance(document.getElementById('newSReturnModal')).hide();
         await ERP.sync();
         renderPage();
+        if (result && result.warning) showJournalWarning(result.warning);
     } catch(e) {
         showSretError(e.message || 'Failed to create return.');
     }

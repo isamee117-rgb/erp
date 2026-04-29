@@ -6,6 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\JournalEntryResource;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use App\Models\Payment;
+use App\Models\PurchaseReceive;
+use App\Models\PurchaseReturn;
+use App\Models\SaleOrder;
+use App\Models\SaleReturn;
 use App\Services\DocumentSequenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -41,8 +46,77 @@ class JournalEntryController extends Controller
         if (!in_array($sortBy, $allowedSort)) $sortBy = 'date';
         $query->orderBy($sortBy, $sortDir);
 
-        $entries = $query->paginate(20);
+        $perPage = min((int) $request->input('per_page', 20), 500);
+        $entries = $query->paginate($perPage);
+
+        $this->enrichEntries($entries->items());
+
         return JournalEntryResource::collection($entries);
+    }
+
+    // Batch-load document numbers and party names to avoid N+1 queries
+    private function enrichEntries(array $entries): void
+    {
+        $grouped = collect($entries)->groupBy('reference_type');
+
+        foreach ($grouped as $type => $group) {
+            $ids = $group->pluck('reference_id')->filter()->values()->toArray();
+            if (empty($ids)) continue;
+
+            [$docNos, $parties] = match ($type) {
+                'sale_order'       => $this->loadSaleOrderData($ids),
+                'sale_return'      => $this->loadSaleReturnData($ids),
+                'purchase_receive' => $this->loadPurchaseReceiveData($ids),
+                'purchase_return'  => $this->loadPurchaseReturnData($ids),
+                'payment'          => $this->loadPaymentData($ids),
+                default            => [[], []],
+            };
+
+            foreach ($group as $entry) {
+                $entry->document_no = $docNos[$entry->reference_id]  ?? null;
+                $entry->party_name  = $parties[$entry->reference_id] ?? null;
+            }
+        }
+    }
+
+    private function loadSaleOrderData(array $ids): array
+    {
+        $rows = SaleOrder::whereIn('id', $ids)->with('customer')->get();
+        $docNos  = $rows->pluck('invoice_no', 'id')->toArray();
+        $parties = $rows->mapWithKeys(fn($r) => [$r->id => $r->customer?->name])->toArray();
+        return [$docNos, $parties];
+    }
+
+    private function loadSaleReturnData(array $ids): array
+    {
+        $rows = SaleReturn::whereIn('id', $ids)->with('customer')->get();
+        $docNos  = $rows->pluck('return_no', 'id')->toArray();
+        $parties = $rows->mapWithKeys(fn($r) => [$r->id => $r->customer?->name])->toArray();
+        return [$docNos, $parties];
+    }
+
+    private function loadPurchaseReceiveData(array $ids): array
+    {
+        $rows = PurchaseReceive::whereIn('id', $ids)->with('purchaseOrder.vendor')->get();
+        $docNos  = $rows->mapWithKeys(fn($r) => [$r->id => $r->purchaseOrder?->po_no])->toArray();
+        $parties = $rows->mapWithKeys(fn($r) => [$r->id => $r->purchaseOrder?->vendor?->name])->toArray();
+        return [$docNos, $parties];
+    }
+
+    private function loadPurchaseReturnData(array $ids): array
+    {
+        $rows = PurchaseReturn::whereIn('id', $ids)->with('vendor')->get();
+        $docNos  = $rows->pluck('return_no', 'id')->toArray();
+        $parties = $rows->mapWithKeys(fn($r) => [$r->id => $r->vendor?->name])->toArray();
+        return [$docNos, $parties];
+    }
+
+    private function loadPaymentData(array $ids): array
+    {
+        $rows = Payment::whereIn('id', $ids)->with('party')->get();
+        $docNos  = $rows->pluck('reference_no', 'id')->toArray();
+        $parties = $rows->mapWithKeys(fn($r) => [$r->id => $r->party?->name])->toArray();
+        return [$docNos, $parties];
     }
 
     public function store(Request $request)

@@ -24,7 +24,7 @@ class JournalPostingService
     public function postSaleInvoice(SaleOrder $sale): void
     {
         $company = Company::find($sale->company_id);
-        if (!$this->isAccountingActive($company)) return;
+        $this->requireAccountingActive($company);
 
         $sale->loadMissing('items');
 
@@ -60,7 +60,7 @@ class JournalPostingService
         $this->createEntry([
             'company_id'     => $sale->company_id,
             'date'           => $sale->created_at->toDateString(),
-            'description'    => "Sales Invoice #{$sale->invoice_no} - {$customerName}",
+            'description'    => 'Sales Invoice',
             'reference_type' => 'sale_order',
             'reference_id'   => $sale->id,
             'created_by'     => $sale->company_id, // fallback — caller injects user if needed
@@ -70,7 +70,7 @@ class JournalPostingService
     public function postSaleReturn(SaleReturn $return, string $userId): void
     {
         $company = Company::find($return->company_id);
-        if (!$this->isAccountingActive($company)) return;
+        $this->requireAccountingActive($company);
 
         $return->loadMissing('items.product');
 
@@ -87,7 +87,7 @@ class JournalPostingService
         $this->createEntry([
             'company_id'     => $return->company_id,
             'date'           => $return->created_at->toDateString(),
-            'description'    => "Sale Return #{$return->return_no} against Invoice #{$return->original_sale_id}",
+            'description'    => 'Sale Return',
             'reference_type' => 'sale_return',
             'reference_id'   => $return->id,
             'created_by'     => $userId,
@@ -102,7 +102,7 @@ class JournalPostingService
     public function postPurchaseReceive(PurchaseReceive $receive, string $userId): void
     {
         $company = Company::find($receive->company_id);
-        if (!$this->isAccountingActive($company)) return;
+        $this->requireAccountingActive($company);
 
         $receive->loadMissing(['items', 'purchaseOrder.vendor']);
 
@@ -116,7 +116,7 @@ class JournalPostingService
         $this->createEntry([
             'company_id'     => $receive->company_id,
             'date'           => $receive->created_at->toDateString(),
-            'description'    => "Goods Received - PO# {$poNo} - {$vendor}",
+            'description'    => 'Goods Received',
             'reference_type' => 'purchase_receive',
             'reference_id'   => $receive->id,
             'created_by'     => $userId,
@@ -129,7 +129,7 @@ class JournalPostingService
     public function postPurchaseReturn(PurchaseReturn $return, string $userId): void
     {
         $company = Company::find($return->company_id);
-        if (!$this->isAccountingActive($company)) return;
+        $this->requireAccountingActive($company);
 
         $payableAccount   = $this->getMapping($return->company_id, 'accounts_payable');
         $inventoryAccount = $this->getMapping($return->company_id, 'inventory_asset');
@@ -139,7 +139,7 @@ class JournalPostingService
         $this->createEntry([
             'company_id'     => $return->company_id,
             'date'           => $return->created_at->toDateString(),
-            'description'    => "Purchase Return #{$return->return_no} against PO #{$return->original_purchase_id}",
+            'description'    => 'Purchase Return',
             'reference_type' => 'purchase_return',
             'reference_id'   => $return->id,
             'created_by'     => $userId,
@@ -152,7 +152,7 @@ class JournalPostingService
     public function postPayment(Payment $payment, string $userId): void
     {
         $company = Company::find($payment->company_id);
-        if (!$this->isAccountingActive($company)) return;
+        $this->requireAccountingActive($company);
 
         $receivableAccount = $this->getMapping($payment->company_id, 'accounts_receivable');
         $payableAccount    = $this->getMapping($payment->company_id, 'accounts_payable');
@@ -196,15 +196,27 @@ class JournalPostingService
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private function isAccountingActive(?Company $company): bool
-    {
-        if (!$company || !$company->id) return false;
-        return $this->hasMappings($company->id);
-    }
+    private static array $mappingLabels = [
+        'sales_revenue'       => 'Sales Revenue',
+        'cost_of_goods_sold'  => 'Cost of Goods Sold',
+        'inventory_asset'     => 'Inventory Asset',
+        'accounts_receivable' => 'Accounts Receivable',
+        'accounts_payable'    => 'Accounts Payable',
+        'cash_account'        => 'Cash / Bank Account',
+    ];
 
-    private function hasMappings(string $companyId): bool
+    private function requireAccountingActive(?Company $company): void
     {
-        return AccountMapping::where('company_id', $companyId)->exists();
+        if (!$company || !$company->id) {
+            throw new \RuntimeException('Company not found. Journal posting aborted.');
+        }
+
+        if (!AccountMapping::where('company_id', $company->id)->exists()) {
+            throw new \RuntimeException(
+                'Posting accounts have not been configured for this company. ' .
+                'Please go to System Setup → Accounting to set up posting accounts.'
+            );
+        }
     }
 
     private function getMapping(string $companyId, string $key): ChartOfAccount
@@ -215,7 +227,11 @@ class JournalPostingService
             ->first();
 
         if (!$mapping || !$mapping->account) {
-            throw new \RuntimeException("Account mapping missing: {$key} for company {$companyId}");
+            $label = self::$mappingLabels[$key] ?? $key;
+            throw new \RuntimeException(
+                "Posting account \"{$label}\" is not configured. " .
+                'Please go to System Setup → Accounting to set up posting accounts.'
+            );
         }
 
         return $mapping->account;

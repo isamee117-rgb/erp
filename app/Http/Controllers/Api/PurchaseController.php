@@ -43,6 +43,7 @@ class PurchaseController extends Controller
             return response()->json(['error' => $e->getMessage()], $status);
         }
 
+        $journalWarning = null;
         try {
             $latestReceive = $po->receives()->latest()->first();
             if ($latestReceive) {
@@ -50,9 +51,10 @@ class PurchaseController extends Controller
             }
         } catch (\Throwable $e) {
             Log::error('Journal posting failed for purchase receive', ['po_id' => $po->id, 'error' => $e->getMessage()]);
+            $journalWarning = $e->getMessage();
         }
 
-        return new PurchaseOrderResource($po);
+        return (new PurchaseOrderResource($po))->additional(array_filter(['warning' => $journalWarning]));
     }
 
     public function createReturn(Request $request)
@@ -66,12 +68,14 @@ class PurchaseController extends Controller
             return response()->json(['error' => $e->getMessage()], $status);
         }
 
+        $journalWarning = null;
         try {
             $this->journalService->postPurchaseReturn($purchaseReturn, $user->id);
         } catch (\Throwable $e) {
             Log::error('Journal posting failed for purchase return', ['return_id' => $purchaseReturn->id, 'error' => $e->getMessage()]);
+            $journalWarning = $e->getMessage();
         }
 
-        return new PurchaseReturnResource($purchaseReturn);
+        return (new PurchaseReturnResource($purchaseReturn))->additional(array_filter(['warning' => $journalWarning]));
     }
 }

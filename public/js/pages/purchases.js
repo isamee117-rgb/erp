@@ -609,10 +609,11 @@ async function submitReceive() {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Receiving...';
 
   try {
-    await ERP.api.partialReceivePurchaseOrder(receivePOId, items, notes || undefined, receiveDate || undefined);
+    var result = await ERP.api.partialReceivePurchaseOrder(receivePOId, items, notes || undefined, receiveDate || undefined);
     bootstrap.Modal.getInstance(document.getElementById('receiveModal')).hide();
     await ERP.sync();
     renderPage();
+    if (result && result.warning) showJournalWarning(result.warning);
   } catch(e) {
     alert(e.message || 'Failed to receive goods');
   } finally {

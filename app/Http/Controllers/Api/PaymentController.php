@@ -43,13 +43,15 @@ class PaymentController extends Controller
             $party->save();
         }
 
+        $journalWarning = null;
         try {
             $this->journalService->postPayment($payment, $user->id);
         } catch (\Throwable $e) {
             Log::error('Journal posting failed for payment', ['payment_id' => $payment->id, 'error' => $e->getMessage()]);
+            $journalWarning = $e->getMessage();
         }
 
-        return new PaymentResource($payment);
+        return (new PaymentResource($payment))->additional(array_filter(['warning' => $journalWarning]));
     }
 
     public function destroy(Request $request, $id)

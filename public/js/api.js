@@ -38,16 +38,24 @@
             .then(function(res) {
                 clearTimeout(timeoutId);
                 if (!res.ok) {
+                    var status = res.status;
                     return res.json().catch(function() { return { message: 'Request failed' }; }).then(function(err) {
+                        var e;
                         if (err.errors && typeof err.errors === 'object') {
                             var msgs = [];
                             Object.keys(err.errors).forEach(function(field) {
                                 var fieldErrors = Array.isArray(err.errors[field]) ? err.errors[field] : [err.errors[field]];
                                 fieldErrors.forEach(function(msg) { msgs.push(msg); });
                             });
-                            if (msgs.length) { throw new Error(msgs.join('; ')); }
+                            if (msgs.length) {
+                                e = new Error(msgs.join('; '));
+                                e.status = status;
+                                throw e;
+                            }
                         }
-                        throw new Error(err.message || err.error || 'Request failed');
+                        e = new Error(err.message || err.error || 'Request failed');
+                        e.status = status;
+                        throw e;
                     });
                 }
                 return res.json();
@@ -66,6 +74,9 @@
             return request('POST', '/login', { username: username, password: password }).then(function(data) {
                 return { token: data.token, user: data.user };
             });
+        },
+        logout: function() {
+            return request('POST', '/logout').catch(function() {});
         },
         sync: function() {
             var token = getToken();

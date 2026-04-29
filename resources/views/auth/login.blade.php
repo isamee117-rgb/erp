@@ -6,11 +6,9 @@
   <div class="login-card">
 
     <div class="login-header">
-      <div class="login-logo-circle">
-        <i class="ti ti-building-factory-2"></i>
+      <div class="login-logo-wrap">
+        <img src="{{ url('logos/leanerp-logo1-removebg-preview.png') }}?v={{ filemtime(public_path('logos/leanerp-logo1-removebg-preview.png')) }}" alt="LeanERP" class="login-logo-img" id="login-logo-img">
       </div>
-      <h1 class="login-brand">LeanERP</h1>
-      <p class="login-tagline">Enterprise Resource Planning</p>
     </div>
 
     <div class="login-body">

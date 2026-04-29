@@ -17,6 +17,8 @@ class JournalEntryResource extends JsonResource
             'description'   => $this->description,
             'referenceType' => $this->reference_type,
             'referenceId'   => $this->reference_id,
+            'documentNo'    => $this->document_no  ?? null,
+            'partyName'     => $this->party_name   ?? null,
             'isPosted'      => $this->is_posted,
             'createdBy'     => $this->created_by,
             'totalDebit'    => $this->whenLoaded('lines', fn() => round($this->lines->sum('debit'), 2)),

@@ -23,13 +23,15 @@ class SaleController extends Controller
         $user = $request->get('auth_user');
         $sale = $this->saleService->createSale($user, $request->validated());
 
+        $journalWarning = null;
         try {
             $this->journalService->postSaleInvoice($sale);
         } catch (\Throwable $e) {
             Log::error('Journal posting failed for sale', ['sale_id' => $sale->id, 'error' => $e->getMessage()]);
+            $journalWarning = $e->getMessage();
         }
 
-        return new SaleOrderResource($sale);
+        return (new SaleOrderResource($sale))->additional(array_filter(['warning' => $journalWarning]));
     }
 
     public function createReturn(Request $request)
@@ -43,12 +45,14 @@ class SaleController extends Controller
             return response()->json(['error' => $e->getMessage()], $status);
         }
 
+        $journalWarning = null;
         try {
             $this->journalService->postSaleReturn($saleReturn, $user->id);
         } catch (\Throwable $e) {
             Log::error('Journal posting failed for sale return', ['return_id' => $saleReturn->id, 'error' => $e->getMessage()]);
+            $journalWarning = $e->getMessage();
         }
 
-        return new SaleReturnResource($saleReturn);
+        return (new SaleReturnResource($saleReturn))->additional(array_filter(['warning' => $journalWarning]));
     }
 }

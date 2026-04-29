@@ -212,9 +212,10 @@ async function savePayment(){
     };
     if(data.amount<=0){alert('Amount must be positive');return;}
     try{
-        await ERP.api.addPayment(data);
+        var result = await ERP.api.addPayment(data);
         bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
         await ERP.sync(); renderPage();
+        if (result && result.warning) showJournalWarning(result.warning);
     }catch(e){alert('Error: '+e.message);}
 }
 

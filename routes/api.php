@@ -19,9 +19,10 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\JobCardController;
 use App\Http\Middleware\ApiTokenAuth;
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
 Route::middleware(ApiTokenAuth::class)->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/sync', [AuthController::class, 'sync']);
     Route::get('/sync/core',         [AuthController::class, 'syncCore']);
     Route::get('/sync/master',       [AuthController::class, 'syncMaster']);
