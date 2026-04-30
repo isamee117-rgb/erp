@@ -63,12 +63,4 @@
         });
     });
 
-    if (localStorage.getItem('leanerp_token')) {
-        var existingToken = localStorage.getItem('leanerp_token');
-        var cookiePath = BASE_URL ? (new URL(BASE_URL)).pathname : '/';
-        if (!cookiePath.endsWith('/')) cookiePath += '/';
-        var expires = new Date(Date.now() + 8 * 60 * 60 * 1000).toUTCString();
-        document.cookie = 'leanerp_token=' + encodeURIComponent(existingToken) + '; expires=' + expires + '; path=' + cookiePath + '; SameSite=Lax';
-        window.location.href = BASE_URL + '/dashboard';
-    }
 })();
