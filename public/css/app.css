@@ -581,6 +581,36 @@ body { font-family: var(--tblr-font-sans-serif); }
     height: 300px;
 }
 
+/* ─── Dashboard Date Filter Buttons ─────────────────── */
+.db-filter-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.db-filter-btn {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1.5px solid var(--erp-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--erp-text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.db-filter-btn:hover {
+    border-color: var(--erp-primary);
+    color: var(--erp-primary);
+}
+
+.db-filter-btn.active {
+    background: var(--erp-primary);
+    border-color: var(--erp-primary);
+    color: #fff;
+    font-weight: 600;
+}
+
 /* ─── Recon badge ─────────────────────────────────── */
 .cr-status-badge {
     background: rgba(20, 184, 166, 0.1);

@@ -1,5 +1,8 @@
 window.ERP.onReady = function() { renderPage(); };
 
+var currentFilter = 'month';
+var dashboardChart = null;
+
 function renderPage() {
   var state = window.ERP.state;
   var user = state.currentUser;
@@ -83,7 +86,7 @@ function renderSuperAdminDashboard(state, container) {
   if (!sorted.length) tbodyHtml = '<tr><td colspan="4" class="db-td db-empty"><i class="ti ti-building db-empty-icon"></i>No companies found</td></tr>';
   tbody.innerHTML = tbodyHtml;
 
-  var trendData = buildTrendData(allSales, allReturns);
+  var trendData = buildTrendData(allSales, allReturns, 'month');
   renderAreaChart('sales-chart', trendData);
 
   var distData = companies.filter(function(co) { return (co.registrationPayment || 0) > 0; }).map(function(co) { return { name: co.name, value: co.registrationPayment || 0 }; });
@@ -91,52 +94,68 @@ function renderSuperAdminDashboard(state, container) {
 }
 
 function renderUserDashboard(state, container, companyId) {
-  var products = (state.products || []).filter(function(p) { return p.companyId === companyId; });
-  var sales = (state.sales || []).filter(function(s) { return s.companyId === companyId; });
-  var salesReturns = (state.salesReturns || []).filter(function(r) { return r.companyId === companyId; });
-  var pos = (state.purchaseOrders || []).filter(function(po) { return po.companyId === companyId; });
+  var products  = (state.products      || []).filter(function(p)  { return p.companyId  === companyId; });
+  var allSales  = (state.sales         || []).filter(function(s)  { return s.companyId  === companyId; });
+  var allReturns= (state.salesReturns  || []).filter(function(r)  { return r.companyId  === companyId; });
+  var pos       = (state.purchaseOrders|| []).filter(function(po) { return po.companyId === companyId; });
 
-  var grossSales = sales.reduce(function(acc, s) { return acc + (s.total || s.totalAmount || 0); }, 0);
-  var totalReturns = salesReturns.reduce(function(acc, r) { return acc + (r.totalAmount || 0); }, 0);
-  var totalSales = grossSales - totalReturns;
+  // These 3 are NOT date-filtered — always current state
   var inventoryVal = products.reduce(function(acc, p) { return acc + ((p.currentStock || 0) * (p.costPrice || p.unitCost || 0)); }, 0);
-  var lowStock = products.filter(function(p) { return (p.currentStock || 0) <= (p.reorderLevel || 0); }).length;
-  var pendingPOs = pos.filter(function(po) { return po.status === 'Draft'; }).length;
+  var lowStock     = products.filter(function(p) { return (p.currentStock || 0) <= (p.reorderLevel || 0); }).length;
+  var pendingPOs   = pos.filter(function(po) { return po.status === 'Draft'; }).length;
 
   var html = '<div class="db-page-header">' +
-    '<div class="db-page-title"><i class="ti ti-layout-dashboard me-2"></i>Business Dashboard</div>' +
-    '<div class="db-page-subtitle">Real-time performance metrics for your organization.</div></div>';
+    '<div class="d-flex align-items-center justify-content-between">' +
+    '<div><div class="db-page-title"><i class="ti ti-layout-dashboard me-2"></i>Business Dashboard</div>' +
+    '<div class="db-page-subtitle">Real-time performance metrics for your organization.</div></div>' +
+    '<div class="db-filter-btns" id="db-filter-btns">' +
+    '<button class="db-filter-btn" data-filter="today">Today</button>' +
+    '<button class="db-filter-btn active" data-filter="month">This Month</button>' +
+    '<button class="db-filter-btn" data-filter="year">This Year</button>' +
+    '</div></div></div>';
 
   html += '<div class="db-kpi-grid">';
-  var cards = [
-    { label: 'Net Sales', value: ERP.formatCurrency(totalSales), icon: 'ti-trending-up', color: 'db-kpi-icon-green', sub: sales.length + ' orders · ' + salesReturns.length + ' returns' },
-    { label: 'Inventory Value', value: ERP.formatCurrency(inventoryVal), icon: 'ti-package', color: 'db-kpi-icon-blue', sub: products.length + ' products tracked' },
-    { label: 'Low Stock Alerts', value: lowStock, icon: 'ti-alert-triangle', color: 'db-kpi-icon-orange', sub: 'Products at reorder level' },
-    { label: 'Pending Purchases', value: pendingPOs, icon: 'ti-shopping-bag', color: 'db-kpi-icon-purple', sub: 'Draft purchase orders' }
-  ];
-  cards.forEach(function(c) {
-    html += '<div class="db-kpi-card">' +
-      '<div class="db-kpi-icon-wrap ' + c.color + '"><i class="ti ' + c.icon + '"></i></div>' +
-      '<div class="db-kpi-label">' + c.label + '</div>' +
-      '<div class="db-kpi-value">' + c.value + '</div>' +
-      '<div class="db-kpi-sub">' + c.sub + '</div>' +
-      '</div>';
-  });
+  // Filterable KPI — placeholder, filled by applyDashboardFilter
+  html += '<div class="db-kpi-card">' +
+    '<div class="db-kpi-icon-wrap db-kpi-icon-green"><i class="ti ti-trending-up"></i></div>' +
+    '<div class="db-kpi-label">Net Sales</div>' +
+    '<div class="db-kpi-value" id="kpi-net-sales">--</div>' +
+    '<div class="db-kpi-sub" id="kpi-net-sales-sub">&nbsp;</div>' +
+    '</div>';
+  // Static KPIs — not date-filtered
+  html += '<div class="db-kpi-card">' +
+    '<div class="db-kpi-icon-wrap db-kpi-icon-blue"><i class="ti ti-package"></i></div>' +
+    '<div class="db-kpi-label">Inventory Value</div>' +
+    '<div class="db-kpi-value">' + ERP.formatCurrency(inventoryVal) + '</div>' +
+    '<div class="db-kpi-sub">' + products.length + ' products tracked</div>' +
+    '</div>';
+  html += '<div class="db-kpi-card">' +
+    '<div class="db-kpi-icon-wrap db-kpi-icon-orange"><i class="ti ti-alert-triangle"></i></div>' +
+    '<div class="db-kpi-label">Low Stock Alerts</div>' +
+    '<div class="db-kpi-value">' + lowStock + '</div>' +
+    '<div class="db-kpi-sub">Products at reorder level</div>' +
+    '</div>';
+  html += '<div class="db-kpi-card">' +
+    '<div class="db-kpi-icon-wrap db-kpi-icon-purple"><i class="ti ti-shopping-bag"></i></div>' +
+    '<div class="db-kpi-label">Pending Purchases</div>' +
+    '<div class="db-kpi-value">' + pendingPOs + '</div>' +
+    '<div class="db-kpi-sub">Draft purchase orders</div>' +
+    '</div>';
   html += '</div>';
 
   html += '<div class="db-row db-row-8-4">' +
-    '<div class="db-section-card"><div class="db-section-header"><i class="ti ti-chart-area" class="text-erp-primary"></i><span class="db-section-title">Revenue Trend (Last 7 Days)</span></div>' +
+    '<div class="db-section-card"><div class="db-section-header"><i class="ti ti-chart-area" class="text-erp-primary"></i>' +
+    '<span class="db-section-title" id="db-chart-title">Revenue Trend (This Month)</span></div>' +
     '<div class="db-chart-body"><div id="sales-chart" class="db-chart-div"></div></div></div>' +
-    '<div class="db-section-card"><div class="db-section-header"><i class="ti ti-activity" class="text-success"></i><span class="db-section-title">Recent Transactions</span></div>' +
+    '<div class="db-section-card"><div class="db-section-header"><i class="ti ti-activity" class="text-success"></i>' +
+    '<span class="db-section-title">Recent Transactions</span></div>' +
     '<div id="activity-list"></div></div></div>';
 
   container.innerHTML = html;
 
-  var trendData = buildTrendData(sales, salesReturns);
-  renderAreaChart('sales-chart', trendData);
-
+  // Recent transactions — always latest 10, no date filter
   var activityEl = document.getElementById('activity-list');
-  var recentSales = sales.slice(-10).reverse();
+  var recentSales = allSales.slice(-10).reverse();
   if (recentSales.length === 0) {
     activityEl.innerHTML = '<div class="db-empty"><span class="db-empty-icon ti ti-shopping-bag"></span>No transactions yet</div>';
   } else {
@@ -151,30 +170,152 @@ function renderUserDashboard(state, container, companyId) {
     });
     activityEl.innerHTML = aHtml;
   }
+
+  // Wire up filter buttons
+  var filterBtns = document.querySelectorAll('#db-filter-btns .db-filter-btn');
+  filterBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      currentFilter = this.getAttribute('data-filter');
+      filterBtns.forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      applyDashboardFilter(allSales, allReturns, currentFilter);
+    });
+  });
+
+  // Initial render with default filter
+  applyDashboardFilter(allSales, allReturns, currentFilter);
 }
 
-function buildTrendData(sales, returns) {
+function applyDashboardFilter(allSales, allReturns, filter) {
+  var sales   = filterByDate(allSales,   filter);
+  var returns = filterByDate(allReturns, filter);
+
+  var grossSales   = sales.reduce(  function(acc, s) { return acc + (s.total || s.totalAmount || 0); }, 0);
+  var totalReturns = returns.reduce(function(acc, r) { return acc + (r.totalAmount || 0); }, 0);
+  var netSales     = grossSales - totalReturns;
+
+  var kpiValue = document.getElementById('kpi-net-sales');
+  var kpiSub   = document.getElementById('kpi-net-sales-sub');
+  var chartTitle = document.getElementById('db-chart-title');
+
+  if (kpiValue)    kpiValue.textContent = ERP.formatCurrency(netSales);
+  if (kpiSub)      kpiSub.textContent   = sales.length + ' orders · ' + returns.length + ' returns';
+
+  var titleMap = {
+    today: 'Revenue Trend (Today)',
+    month: 'Revenue Trend (This Month)',
+    year:  'Revenue Trend (This Year)'
+  };
+  if (chartTitle) chartTitle.textContent = titleMap[filter] || 'Revenue Trend';
+
+  var trendData = buildTrendData(allSales, allReturns, filter);
+
+  if (dashboardChart) {
+    dashboardChart.destroy();
+    dashboardChart = null;
+  }
+  dashboardChart = renderAreaChart('sales-chart', trendData);
+}
+
+function filterByDate(items, filter) {
+  var now = new Date();
+  return items.filter(function(item) {
+    var d = new Date(item.createdAt);
+    if (filter === 'today') {
+      return d.toDateString() === now.toDateString();
+    } else if (filter === 'month') {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    } else if (filter === 'year') {
+      return d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  });
+}
+
+function buildTrendData(sales, returns, filter) {
   returns = returns || [];
+  filter  = filter  || 'month';
+  var now = new Date();
+  var periods = [];
+
+  if (filter === 'today') {
+    for (var h = 0; h < 24; h++) {
+      periods.push({
+        label: (h < 10 ? '0' : '') + h + ':00',
+        match: function(d, hour) { return d.toDateString() === now.toDateString() && d.getHours() === hour; }.bind(null, null, h),
+        h: h
+      });
+    }
+    return periods.map(function(p) {
+      var s = sales.filter(function(x) {
+        var d = new Date(x.createdAt);
+        return d.toDateString() === now.toDateString() && d.getHours() === p.h;
+      }).reduce(function(acc, x) { return acc + (x.total || x.totalAmount || 0); }, 0);
+      var r = returns.filter(function(x) {
+        var d = new Date(x.createdAt);
+        return d.toDateString() === now.toDateString() && d.getHours() === p.h;
+      }).reduce(function(acc, x) { return acc + (x.totalAmount || 0); }, 0);
+      return { label: p.label, value: Math.max(0, s - r) };
+    });
+  }
+
+  if (filter === 'month') {
+    var daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    for (var day = 1; day <= daysInMonth; day++) {
+      periods.push({ label: '' + day, day: day });
+    }
+    return periods.map(function(p) {
+      var s = sales.filter(function(x) {
+        var d = new Date(x.createdAt);
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === p.day;
+      }).reduce(function(acc, x) { return acc + (x.total || x.totalAmount || 0); }, 0);
+      var r = returns.filter(function(x) {
+        var d = new Date(x.createdAt);
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === p.day;
+      }).reduce(function(acc, x) { return acc + (x.totalAmount || 0); }, 0);
+      return { label: p.label, value: Math.max(0, s - r) };
+    });
+  }
+
+  if (filter === 'year') {
+    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    for (var m = 0; m < 12; m++) {
+      periods.push({ label: monthNames[m], month: m });
+    }
+    return periods.map(function(p) {
+      var s = sales.filter(function(x) {
+        var d = new Date(x.createdAt);
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === p.month;
+      }).reduce(function(acc, x) { return acc + (x.total || x.totalAmount || 0); }, 0);
+      var r = returns.filter(function(x) {
+        var d = new Date(x.createdAt);
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === p.month;
+      }).reduce(function(acc, x) { return acc + (x.totalAmount || 0); }, 0);
+      return { label: p.label, value: Math.max(0, s - r) };
+    });
+  }
+
+  // fallback — last 7 days
   var days = [];
   for (var i = 6; i >= 0; i--) {
     var d = new Date(); d.setDate(d.getDate() - i);
     days.push(d.toISOString().split('T')[0]);
   }
   return days.map(function(date) {
-    var salesTotal = sales.filter(function(s) {
-      return new Date(s.createdAt).toISOString().split('T')[0] === date;
-    }).reduce(function(acc, s) { return acc + (s.total || s.totalAmount || 0); }, 0);
-    var returnsTotal = returns.filter(function(r) {
-      return new Date(r.createdAt).toISOString().split('T')[0] === date;
-    }).reduce(function(acc, r) { return acc + (r.totalAmount || 0); }, 0);
-    return { label: new Date(date).toLocaleDateString(undefined, { weekday: 'short' }), value: Math.max(0, salesTotal - returnsTotal) };
+    var s = sales.filter(function(x) {
+      return new Date(x.createdAt).toISOString().split('T')[0] === date;
+    }).reduce(function(acc, x) { return acc + (x.total || x.totalAmount || 0); }, 0);
+    var r = returns.filter(function(x) {
+      return new Date(x.createdAt).toISOString().split('T')[0] === date;
+    }).reduce(function(acc, x) { return acc + (x.totalAmount || 0); }, 0);
+    return { label: new Date(date).toLocaleDateString(undefined, { weekday: 'short' }), value: Math.max(0, s - r) };
   });
 }
 
 function renderAreaChart(elId, data) {
   var el = document.getElementById(elId);
-  if (!el) return;
-  new ApexCharts(el, {
+  if (!el) return null;
+  var chart = new ApexCharts(el, {
     chart: { type: 'area', height: 300, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', sparkline: { enabled: false } },
     series: [{ name: 'Revenue', data: data.map(function(d) { return d.value; }) }],
     xaxis: { categories: data.map(function(d) { return d.label; }), axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { fontSize: '11px', colors: '#94a3b8' } } },
@@ -185,7 +326,9 @@ function renderAreaChart(elId, data) {
     dataLabels: { enabled: false },
     grid: { borderColor: '#F0F2F8', strokeDashArray: 3, padding: { left: 8, right: 8 } },
     tooltip: { y: { formatter: function(val) { return ERP.formatCurrency(val); } } }
-  }).render();
+  });
+  chart.render();
+  return chart;
 }
 
 function renderPieChart(elId, data) {
