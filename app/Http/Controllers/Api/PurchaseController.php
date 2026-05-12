@@ -40,6 +40,7 @@ class PurchaseController extends Controller
             );
         } catch (\RuntimeException $e) {
             $status = $e->getMessage() === 'Purchase order not found' ? 404 : 400;
+            Log::warning('Purchase receive rejected', ['user_id' => $user->id, 'company_id' => $user->company_id, 'error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], $status);
         }
 
@@ -65,6 +66,7 @@ class PurchaseController extends Controller
             $purchaseReturn = $this->purchaseService->createReturn($user, $request->all());
         } catch (\RuntimeException $e) {
             $status = $e->getMessage() === 'Purchase order not found' ? 404 : 422;
+            Log::warning('Purchase return rejected', ['user_id' => $user->id, 'company_id' => $user->company_id, 'error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], $status);
         }
 

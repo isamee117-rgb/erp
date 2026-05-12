@@ -17,6 +17,7 @@ use App\Models\Product;
 use App\Models\Party;
 use App\Services\DocumentSequenceService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class SettingsController extends Controller
@@ -206,6 +207,7 @@ class SettingsController extends Controller
                 'isLocked'   => (bool) $seq->is_locked,
             ]);
         } catch (\Exception $e) {
+            Log::error('Document sequence update failed', ['user_id' => $user->id, 'company_id' => $user->company_id, 'type' => $type, 'error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 422);
         }
     }

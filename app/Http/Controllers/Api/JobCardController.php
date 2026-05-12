@@ -10,6 +10,7 @@ use App\Http\Resources\JobCardResource;
 use App\Models\JobCard;
 use App\Services\JobCardService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class JobCardController extends Controller
 {
@@ -72,6 +73,7 @@ class JobCardController extends Controller
         try {
             $item = $this->service->addItem($card, $request->all());
         } catch (\RuntimeException $e) {
+            Log::warning('Job card add item rejected', ['user_id' => $user->id, 'card_id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 422);
         }
 
@@ -92,6 +94,7 @@ class JobCardController extends Controller
         try {
             $item = $this->service->updateItem($card, $itemId, $request->all());
         } catch (\RuntimeException $e) {
+            Log::warning('Job card update item rejected', ['user_id' => $user->id, 'card_id' => $id, 'item_id' => $itemId, 'error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 422);
         }
 
@@ -108,6 +111,7 @@ class JobCardController extends Controller
         try {
             $this->service->removeItem($card, $itemId);
         } catch (\RuntimeException $e) {
+            Log::warning('Job card remove item rejected', ['user_id' => $user->id, 'card_id' => $id, 'item_id' => $itemId, 'error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 422);
         }
 
@@ -129,6 +133,7 @@ class JobCardController extends Controller
         try {
             $card = $this->service->finalize($card, $user);
         } catch (\RuntimeException $e) {
+            Log::warning('Job card finalize rejected', ['user_id' => $user->id, 'card_id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 422);
         }
 

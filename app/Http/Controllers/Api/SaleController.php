@@ -42,6 +42,7 @@ class SaleController extends Controller
             $saleReturn = $this->saleService->createReturn($user, $request->all());
         } catch (\RuntimeException $e) {
             $status = $e->getMessage() === 'Sale not found' ? 404 : 422;
+            Log::warning('Sale return rejected', ['user_id' => $user->id, 'company_id' => $user->company_id, 'error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], $status);
         }
 

@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductPriceTier;
 use App\Models\ProductUomConversion;
 use App\Models\InventoryLedger;
+use Illuminate\Support\Facades\Log;
 use App\Models\SaleItem;
 use App\Models\PurchaseItem;
 use App\Models\SaleReturnItem;
@@ -81,6 +82,7 @@ class ProductController extends Controller
 
             return new ProductResource($product);
         } catch (QueryException $e) {
+            Log::error('Product store DB error', ['user_id' => $user->id, 'company_id' => $user->company_id, 'error' => $e->getMessage()]);
             return response()->json(['error' => 'Failed to save product. Please check your input and try again.'], 422);
         }
     }
@@ -120,6 +122,7 @@ class ProductController extends Controller
             $product->update($updateData);
             return new ProductResource($product);
         } catch (QueryException $e) {
+            Log::error('Product update DB error', ['user_id' => $user->id, 'company_id' => $user->company_id, 'product_id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['error' => 'Failed to update product. Please check your input and try again.'], 422);
         }
     }
