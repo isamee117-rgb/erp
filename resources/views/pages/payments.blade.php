@@ -22,24 +22,35 @@
 
 <div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-center">
-      <div class="col-12 col-md-3">
-        <div class="position-relative">
-          <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search" class="erp-icon-sm"></i></span>
-          <input type="text" class="form-control inv-input ps-5" id="searchInput" placeholder="Search payments...">
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="searchInput" placeholder="Search payments...">
+      </div>
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="pm-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
+      </div>
+    </div>
+    <div id="pm-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <select class="form-select inv-input" id="typeFilter">
+            <option value="">All Types</option>
+            <option value="Payment Received">Received</option>
+            <option value="Payment Made">Made</option>
+          </select>
         </div>
-      </div>
-      <div class="col-6 col-md-2">
-        <select class="form-select inv-input" id="typeFilter">
-          <option value="">All Types</option>
-          <option value="Payment Received">Received</option>
-          <option value="Payment Made">Made</option>
-        </select>
-      </div>
-      <div class="col-6 col-md-3"><input type="date" class="form-control inv-input" id="dateFrom"></div>
-      <div class="col-6 col-md-3"><input type="date" class="form-control inv-input" id="dateTo"></div>
-      <div class="col-auto ms-md-auto">
-        <button class="btn btn-light inv-input px-3" onclick="clearFilters()"><i class="ti ti-x"></i></button>
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateFrom" title="From Date">
+        </div>
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateTo" title="To Date">
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="pm-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
       </div>
     </div>
   </div>
@@ -144,6 +155,7 @@
           <textarea class="form-control pm-textarea" id="pmNotes" rows="2"></textarea>
         </div>
       </div>
+      <div id="pm-save-error" class="alert alert-danger d-none mx-3 mb-0 py-2" style="font-size:0.82rem;"></div>
       <div class="modal-footer pm-modal-footer">
         <button class="pm-btn-cancel" data-bs-dismiss="modal">Cancel</button>
         <button class="pm-btn-save" onclick="savePayment()"><i class="ti ti-device-floppy me-1"></i>Save Payment</button>
@@ -354,6 +366,35 @@
     {{-- Footer --}}
     <div class="cr-detail-footer">
       <button onclick="document.getElementById('crDetailOverlay').style.display='none'" class="cr-detail-close-solid">Close</button>
+    </div>
+  </div>
+</div>
+
+{{-- Payment Confirm --}}
+<div class="ms-overlay d-none" id="pmConfirmOverlay">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-confirm"><i class="ti ti-device-floppy"></i></div>
+      <div class="ms-title">Confirm Payment</div>
+      <p class="ms-sub" id="pmConfirmMessage">Are you sure you want to save this payment?</p>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-cancel" id="pmConfirmCancel">Cancel</button>
+      <button class="ms-btn-confirm" id="pmConfirmOk"><i class="ti ti-device-floppy me-1"></i>Yes, Save</button>
+    </div>
+  </div>
+</div>
+
+{{-- Payment Success --}}
+<div class="ms-overlay d-none" id="pmSuccessOverlay">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-success"><i class="ti ti-circle-check"></i></div>
+      <div class="ms-title">Payment Saved!</div>
+      <p class="ms-sub">Payment has been recorded successfully.</p>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-ok" id="pmSuccessOk"><i class="ti ti-check me-1"></i>OK</button>
     </div>
   </div>
 </div>

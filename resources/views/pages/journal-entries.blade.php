@@ -17,6 +17,35 @@
   </div>
 </div>
 
+{{-- Post Confirm Overlay --}}
+<div id="jePostConfirm" class="d-none ms-overlay">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-confirm"><i class="ti ti-notebook"></i></div>
+      <div class="ms-title">Post Journal Entry?</div>
+      <div class="ms-sub">Once posted, this entry cannot be edited or deleted.</div>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-cancel" onclick="cancelJePost()">Cancel</button>
+      <button class="ms-btn-confirm" onclick="doPostCurrentJe()"><i class="ti ti-check me-1"></i>Yes, Post</button>
+    </div>
+  </div>
+</div>
+
+{{-- Post Success Overlay --}}
+<div id="jePostSuccess" class="d-none ms-overlay">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-success"><i class="ti ti-circle-check"></i></div>
+      <div class="ms-title">Entry Posted!</div>
+      <div class="ms-sub">Journal entry has been posted successfully.</div>
+    </div>
+    <div class="ms-footer" style="justify-content:center;">
+      <button class="ms-btn-ok" onclick="document.getElementById('jePostSuccess').classList.add('d-none')"><i class="ti ti-check me-1"></i>OK</button>
+    </div>
+  </div>
+</div>
+
 {{-- View Lines Modal --}}
 <div class="modal modal-blur fade" id="jeViewModal" tabindex="-1" aria-labelledby="jeViewModalLabel" aria-modal="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -51,38 +80,49 @@
 </div>
 
 {{-- Filters --}}
-<div class="card inv-section-card">
-  <div class="set-card-body d-flex gap-3 flex-wrap align-items-end">
-    <div>
-      <label class="pm-label">From Date</label>
-      <input type="date" class="form-control pm-input" id="jeFrom" style="min-width:150px;">
+<div class="card inv-section-card inv-filter-bar">
+  <div class="card-body inv-filter-body">
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="jeSearch" placeholder="Search by entry no. or description...">
+      </div>
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="je-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
+      </div>
     </div>
-    <div>
-      <label class="pm-label">To Date</label>
-      <input type="date" class="form-control pm-input" id="jeTo" style="min-width:150px;">
-    </div>
-    <div>
-      <label class="pm-label">Type</label>
-      <select class="form-select pm-input" id="jeType" style="min-width:140px;">
-        <option value="">All Types</option>
-        <option value="sale">Sale</option>
-        <option value="sale_return">Sale Return</option>
-        <option value="purchase">Purchase</option>
-        <option value="purchase_return">Purchase Return</option>
-        <option value="payment">Payment</option>
-        <option value="manual">Manual</option>
-      </select>
-    </div>
-    <div>
-      <label class="pm-label">Status</label>
-      <select class="form-select pm-input" id="jeStatus" style="min-width:120px;">
-        <option value="">All</option>
-        <option value="posted">Posted</option>
-        <option value="draft">Draft</option>
-      </select>
-    </div>
-    <div>
-      <button class="btn btn-light shadow-sm" onclick="loadJournals()" style="height:38px;"><i class="ti ti-search me-1"></i>Search</button>
+    <div id="je-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="jeFrom" title="From Date">
+        </div>
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="jeTo" title="To Date">
+        </div>
+        <div class="col-6 col-md-2">
+          <select class="form-select inv-input" id="jeType">
+            <option value="">All Types</option>
+            <option value="sale">Sale</option>
+            <option value="sale_return">Sale Return</option>
+            <option value="purchase">Purchase</option>
+            <option value="purchase_return">Purchase Return</option>
+            <option value="payment">Payment</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <select class="form-select inv-input" id="jeStatus">
+            <option value="">All Status</option>
+            <option value="posted">Posted</option>
+            <option value="draft">Draft</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="je-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -96,6 +136,7 @@
           <th class="inv-th">Date</th>
           <th class="inv-th">Description</th>
           <th class="inv-th">Type</th>
+          <th class="inv-th">Ref No.</th>
           <th class="inv-th">Debit</th>
           <th class="inv-th">Credit</th>
           <th class="inv-th">Status</th>

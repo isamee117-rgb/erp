@@ -230,6 +230,21 @@ function validateRetQty(inp, key){
     }
 }
 
+function showPretConfirm() {
+    return new Promise(function(resolve) {
+        var overlay = document.getElementById('pretConfirmOverlay');
+        overlay.classList.remove('d-none');
+        var okBtn     = document.getElementById('pretConfirmOk');
+        var cancelBtn = document.getElementById('pretConfirmCancel');
+        var resolved  = false;
+        function cleanup() { okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel); }
+        function onOk()     { if (resolved) return; resolved = true; cleanup(); overlay.classList.add('d-none'); resolve(true); }
+        function onCancel() { if (resolved) return; resolved = true; cleanup(); overlay.classList.add('d-none'); resolve(false); }
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
 function showPretError(msg) {
     var box = document.getElementById('pret-save-error');
     document.getElementById('pret-save-error-msg').textContent = msg;
@@ -258,11 +273,20 @@ async function submitReturn(){
     });
     if (!items.length) { showPretError('Please enter at least one return quantity.'); return; }
 
+    if (!await showPretConfirm()) return;
+
     var reason = document.getElementById('returnReason').value;
     try {
         var result = await ERP.api.createPurchaseReturn(poId, items, reason);
         bootstrap.Modal.getInstance(document.getElementById('newPReturnModal')).hide();
-        await ERP.sync(); renderPage();
+        await ERP.sync();
+        renderPage();
+        document.getElementById('pretSuccessOverlay').classList.remove('d-none');
         if (result && result.warning) showJournalWarning(result.warning);
     } catch(e) { showPretError(e.message || 'Failed to create return.'); }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var okBtn = document.getElementById('pretSuccessOk');
+    if (okBtn) okBtn.addEventListener('click', function() { document.getElementById('pretSuccessOverlay').classList.add('d-none'); });
+});

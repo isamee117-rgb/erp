@@ -72,17 +72,49 @@ class JournalPostingService
         $company = Company::find($return->company_id);
         $this->requireAccountingActive($company);
 
-        $return->loadMissing('items.product');
+        $return->loadMissing('items');
 
-        $paymentAccount   = $this->getMappingOrFallback($return->company_id, 'cash_account');
         $revenueAccount   = $this->getMapping($return->company_id, 'sales_revenue');
         $inventoryAccount = $this->getMapping($return->company_id, 'inventory_asset');
         $cogsAccount      = $this->getMapping($return->company_id, 'cost_of_goods_sold');
 
-        $totalAmount = (float) $return->total_amount;
-        $returnedCogs = $return->items->sum(function ($item) {
-            return (float) ($item->unit_price * $item->quantity * 0.6); // fallback ratio if cogs not on return item
-        });
+        // Load original sale to determine payment method and get actual COGS
+        $originalSale = SaleOrder::with('items')
+            ->where('company_id', $return->company_id)
+            ->where(function ($q) use ($return) {
+                $q->where('invoice_no', $return->original_sale_id)
+                  ->orWhere('id', $return->original_sale_id);
+            })
+            ->first();
+
+        $isCash = $originalSale && strtolower($originalSale->payment_method ?? '') === 'cash';
+        $refundAccount = $isCash
+            ? $this->getMapping($return->company_id, 'cash_account')
+            : $this->getMapping($return->company_id, 'accounts_receivable');
+        $refundDescription = $isCash ? 'Cash refunded' : 'Receivable reduced';
+
+        $totalAmount  = (float) $return->total_amount;
+        $returnedCogs = 0.0;
+
+        if ($originalSale) {
+            $origItemsByProduct = $originalSale->items->keyBy('product_id');
+            foreach ($return->items as $item) {
+                $origItem = $origItemsByProduct->get($item->product_id);
+                if ($origItem && $origItem->quantity > 0) {
+                    $returnedCogs += ((float) $origItem->cogs / $origItem->quantity) * $item->quantity;
+                }
+            }
+        }
+
+        $lines = [
+            ['account_id' => $revenueAccount->id, 'debit' => $totalAmount, 'credit' => 0,           'description' => 'Revenue reversed'],
+            ['account_id' => $refundAccount->id,  'debit' => 0,            'credit' => $totalAmount, 'description' => $refundDescription],
+        ];
+
+        if ($returnedCogs > 0) {
+            $lines[] = ['account_id' => $inventoryAccount->id, 'debit' => $returnedCogs, 'credit' => 0,             'description' => 'Stock returned'];
+            $lines[] = ['account_id' => $cogsAccount->id,      'debit' => 0,             'credit' => $returnedCogs, 'description' => 'COGS reversed'];
+        }
 
         $this->createEntry([
             'company_id'     => $return->company_id,
@@ -91,12 +123,7 @@ class JournalPostingService
             'reference_type' => 'sale_return',
             'reference_id'   => $return->id,
             'created_by'     => $userId,
-        ], [
-            ['account_id' => $revenueAccount->id,   'debit' => $totalAmount,  'credit' => 0,            'description' => 'Revenue reversed'],
-            ['account_id' => $paymentAccount->id,   'debit' => 0,             'credit' => $totalAmount,  'description' => 'Cash refunded'],
-            ['account_id' => $inventoryAccount->id, 'debit' => $returnedCogs, 'credit' => 0,             'description' => 'Stock returned'],
-            ['account_id' => $cogsAccount->id,      'debit' => 0,             'credit' => $returnedCogs, 'description' => 'COGS reversed'],
-        ]);
+        ], $lines);
     }
 
     public function postPurchaseReceive(PurchaseReceive $receive, string $userId): void

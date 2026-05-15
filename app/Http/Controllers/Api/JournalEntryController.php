@@ -25,6 +25,13 @@ class JournalEntryController extends Controller
         $query = JournalEntry::where('company_id', $user->company_id)
             ->with('lines.account');
 
+        if ($request->filled('search')) {
+            $q = $request->input('search');
+            $query->where(function ($sq) use ($q) {
+                $sq->where('entry_no', 'like', "%{$q}%")
+                   ->orWhere('description', 'like', "%{$q}%");
+            });
+        }
         if ($request->filled('from')) {
             $query->whereDate('date', '>=', $request->input('from'));
         }
@@ -174,6 +181,7 @@ class JournalEntryController extends Controller
     public function show($id)
     {
         $entry = JournalEntry::with('lines.account')->findOrFail($id);
+        $this->enrichEntries([$entry]);
         return new JournalEntryResource($entry);
     }
 

@@ -346,7 +346,7 @@ function renderPOItems() {
       renderUomCell(idx, item) +
       '<td class="po-td-input"><input type="number" class="form-control pm-input text-center po-input-sm" value="' + item.quantity + '" onchange="updatePOItem(' + idx + ',\'quantity\',this.value)"></td>' +
       '<td class="po-td-input"><input type="number" step="0.01" class="form-control pm-input po-input-sm" value="' + item.unitCost + '" onchange="updatePOItem(' + idx + ',\'unitCost\',this.value)"></td>' +
-      '<td class="po-td-input text-end" style="font-weight:600;color:#1A1D2E;white-space:nowrap;">' + ERP.formatCurrency(item.quantity * item.unitCost) + '</td>' +
+      '<td class="po-td-input text-end" id="po-line-total-' + idx + '" style="font-weight:600;color:#1A1D2E;white-space:nowrap;">' + ERP.formatCurrency(item.quantity * item.unitCost) + '</td>' +
       '<td class="po-td-input text-center"><button type="button" class="po-del-btn" onclick="removePOItem(' + idx + ')"><i class="ti ti-x"></i></button></td></tr>';
   });
   tbody.innerHTML = html;
@@ -384,9 +384,13 @@ function updatePOItem(idx, field, value) {
     renderPOItems();
   } else if (field === 'quantity') {
     poItems[idx].quantity = parseInt(value) || 1;
+    var ltCell = document.getElementById('po-line-total-' + idx);
+    if (ltCell) ltCell.textContent = ERP.formatCurrency(poItems[idx].quantity * poItems[idx].unitCost);
     updatePOTotal();
   } else if (field === 'unitCost') {
     poItems[idx].unitCost = parseFloat(value) || 0;
+    var ltCell = document.getElementById('po-line-total-' + idx);
+    if (ltCell) ltCell.textContent = ERP.formatCurrency(poItems[idx].quantity * poItems[idx].unitCost);
     updatePOTotal();
   }
 }
@@ -426,6 +430,7 @@ async function createPO() {
     bootstrap.Modal.getInstance(document.getElementById('newPOModal')).hide();
     await ERP.sync();
     renderPage();
+    document.getElementById('poCreateSuccess').classList.remove('d-none');
   } catch(e) {
     saveErrMsg.textContent = e.message || 'Failed to create purchase order.';
     saveErrBox.classList.remove('d-none');
@@ -440,6 +445,8 @@ function openReceiveModal(poId) {
 
   document.getElementById('recv-po-id').textContent = 'PO: ' + po.id;
   document.getElementById('recv-notes').value = '';
+  var errBox = document.getElementById('recv-save-error');
+  if (errBox) { errBox.textContent = ''; errBox.classList.add('d-none'); }
   var today = new Date();
   document.getElementById('recv-date').value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
 
@@ -514,6 +521,11 @@ function npoScanFeedback(msg, ok) {
 }
 // Also focus the barcode input when the modal opens
 document.addEventListener('DOMContentLoaded', function() {
+  var poCreateOk = document.getElementById('poCreateSuccessOk');
+  if (poCreateOk) poCreateOk.addEventListener('click', function() { document.getElementById('poCreateSuccess').classList.add('d-none'); });
+  var poReceiveOk = document.getElementById('poReceiveSuccessOk');
+  if (poReceiveOk) poReceiveOk.addEventListener('click', function() { document.getElementById('poReceiveSuccess').classList.add('d-none'); });
+
   var modal = document.getElementById('newPOModal');
   if (modal) {
     modal.addEventListener('shown.bs.modal', function() {
@@ -600,7 +612,12 @@ async function submitReceive() {
       });
     }
   });
-  if (items.length === 0) { alert('Enter at least one quantity to receive'); return; }
+  if (items.length === 0) {
+    var errBox = document.getElementById('recv-save-error');
+    errBox.textContent = 'Enter at least one quantity to receive.';
+    errBox.classList.remove('d-none');
+    return;
+  }
   var notes = document.getElementById('recv-notes').value;
   var receiveDate = document.getElementById('recv-date').value;
 
@@ -613,9 +630,12 @@ async function submitReceive() {
     bootstrap.Modal.getInstance(document.getElementById('receiveModal')).hide();
     await ERP.sync();
     renderPage();
+    document.getElementById('poReceiveSuccess').classList.remove('d-none');
     if (result && result.warning) showJournalWarning(result.warning);
   } catch(e) {
-    alert(e.message || 'Failed to receive goods');
+    var errBox = document.getElementById('recv-save-error');
+    errBox.textContent = e.message || 'Failed to receive goods.';
+    errBox.classList.remove('d-none');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-check me-1"></i>Receive Goods';

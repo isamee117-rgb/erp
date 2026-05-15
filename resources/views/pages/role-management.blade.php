@@ -22,10 +22,10 @@
 
 <div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-center">
-      <div class="col-12 col-md-5">
-        <label class="pm-label">Search Roles</label>
-        <input type="text" class="form-control inv-input" id="searchInput" placeholder="Search by role name...">
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="searchInput" placeholder="Search by role name...">
       </div>
     </div>
   </div>

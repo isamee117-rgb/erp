@@ -46,6 +46,26 @@ document.addEventListener('click',function(e){
     if(!e.target.closest('.sdd-wrap')) document.querySelectorAll('.sdd-wrap.open').forEach(function(w){w.classList.remove('open');});
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+    var filterBtn = document.getElementById('pl-filter-toggle-btn');
+    if (filterBtn) {
+        filterBtn.addEventListener('click', function() {
+            var panel  = document.getElementById('pl-filters-panel');
+            var isOpen = !panel.classList.contains('d-none');
+            panel.classList.toggle('d-none', isOpen);
+            filterBtn.classList.toggle('active', !isOpen);
+        });
+    }
+    var clearBtn = document.getElementById('pl-clear-filters-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value   = '';
+            renderPage();
+        });
+    }
+});
+
 function populateParties(){
     var html='';
     (window.ERP.state.parties||[]).forEach(function(p){

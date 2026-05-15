@@ -265,6 +265,21 @@ function validateSretQty(inp, key) {
     }
 }
 
+function showSretConfirm() {
+    return new Promise(function(resolve) {
+        var overlay = document.getElementById('sretConfirmOverlay');
+        overlay.classList.remove('d-none');
+        var okBtn     = document.getElementById('sretConfirmOk');
+        var cancelBtn = document.getElementById('sretConfirmCancel');
+        var resolved  = false;
+        function cleanup() { okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel); }
+        function onOk()     { if (resolved) return; resolved = true; cleanup(); overlay.classList.add('d-none'); resolve(true); }
+        function onCancel() { if (resolved) return; resolved = true; cleanup(); overlay.classList.add('d-none'); resolve(false); }
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
 function showSretError(msg) {
     document.getElementById('sret-save-error-msg').textContent = msg;
     document.getElementById('sret-save-error').classList.remove('d-none');
@@ -297,14 +312,22 @@ async function submitReturn() {
     });
     if (!items.length) { showSretError('Please enter at least one return quantity.'); return; }
 
+    if (!await showSretConfirm()) return;
+
     var reason = document.getElementById('returnReason').value;
     try {
         var result = await ERP.api.createSaleReturn(saleId, items, reason);
         bootstrap.Modal.getInstance(document.getElementById('newSReturnModal')).hide();
         await ERP.sync();
         renderPage();
+        document.getElementById('sretSuccessOverlay').classList.remove('d-none');
         if (result && result.warning) showJournalWarning(result.warning);
     } catch(e) {
         showSretError(e.message || 'Failed to create return.');
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var okBtn = document.getElementById('sretSuccessOk');
+    if (okBtn) okBtn.addEventListener('click', function() { document.getElementById('sretSuccessOverlay').classList.add('d-none'); });
+});

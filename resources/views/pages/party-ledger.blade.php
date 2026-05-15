@@ -17,9 +17,8 @@
 
 <div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-center">
-      <div class="col-12 col-md-5">
-        <label class="pm-label">Select Party</label>
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1">
         <div class="sdd-wrap" id="partySelect-sdd">
           <div class="sdd-trigger pl-sdd-trigger" onclick="sddToggle('partySelect-sdd')">
             <span class="sdd-disp" id="partySelect-disp" class="erp-dropdown-placeholder">-- Select a Party --</span>
@@ -35,16 +34,23 @@
           <input type="hidden" id="partySelect">
         </div>
       </div>
-      <div class="col-6 col-md-3">
-        <label class="pm-label">From</label>
-        <input type="date" class="form-control inv-input" id="dateFrom" onchange="plPage=1;plRefetchIfNeeded(renderPage)">
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="pl-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
       </div>
-      <div class="col-6 col-md-3">
-        <label class="pm-label">To</label>
-        <input type="date" class="form-control inv-input" id="dateTo" onchange="plPage=1;plRefetchIfNeeded(renderPage)">
-      </div>
-      <div class="col-auto" class="erp-pt-btn">
-        <button class="btn btn-light inv-input px-3" onclick="document.getElementById('dateFrom').value='';document.getElementById('dateTo').value='';renderPage()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="pl-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateFrom" title="From Date" onchange="plPage=1;plRefetchIfNeeded(renderPage)">
+        </div>
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateTo" title="To Date" onchange="plPage=1;plRefetchIfNeeded(renderPage)">
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="pl-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
       </div>
     </div>
   </div>

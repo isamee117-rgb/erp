@@ -161,7 +161,7 @@
           <tbody id="npo-items"></tbody>
         </table>
         <div class="text-danger small mt-1 d-none" id="npo-items-error">Add at least one product.</div>
-        <div class="text-end mt-3"><span class="erp-text-82 text-muted">Estimated Total: </span><span class="fs-5 fw-bold text-erp-primary" id="npo-total">0.00</span></div>
+        <div class="text-end mt-3"><span class="erp-text-82 text-muted">Purchase Order Total: </span><span class="fs-5 fw-bold text-erp-primary" id="npo-total">0.00</span></div>
       </div>
       <div class="px-3 pb-2 d-none" id="npo-save-error">
         <div class="alert alert-danger py-2 mb-0 small" id="npo-save-error-msg"></div>
@@ -206,6 +206,7 @@
           <label class="pm-label">Notes (optional)</label>
           <textarea class="form-control pm-input pm-textarea" id="recv-notes" rows="2" placeholder="Add any notes..."></textarea>
         </div>
+        <div id="recv-save-error" class="alert alert-danger d-none mt-3 mb-0 py-2" style="font-size:0.82rem;"></div>
       </div>
       <div class="modal-footer pm-modal-footer">
         <button class="pm-btn-cancel" data-bs-dismiss="modal">Cancel</button>
@@ -226,6 +227,34 @@
         <button onclick="closeReceiptsPanel()" style="background:none;border:none;font-size:1.3rem;color:#6B7280;cursor:pointer;line-height:1;">&times;</button>
       </div>
       <div style="max-height:420px;overflow-y:auto;padding:0 24px 20px;" id="receipts-list"></div>
+    </div>
+  </div>
+</div>
+
+{{-- PO Created Success --}}
+<div class="ms-overlay d-none" id="poCreateSuccess">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-success"><i class="ti ti-circle-check"></i></div>
+      <div class="ms-title">Purchase Order Created!</div>
+      <p class="ms-sub">Purchase order has been saved successfully.</p>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-ok" id="poCreateSuccessOk"><i class="ti ti-check me-1"></i>OK</button>
+    </div>
+  </div>
+</div>
+
+{{-- Goods Received Success --}}
+<div class="ms-overlay d-none" id="poReceiveSuccess">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-success"><i class="ti ti-circle-check"></i></div>
+      <div class="ms-title">Goods Received!</div>
+      <p class="ms-sub">Inventory has been updated successfully.</p>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-ok" id="poReceiveSuccessOk"><i class="ti ti-check me-1"></i>OK</button>
     </div>
   </div>
 </div>

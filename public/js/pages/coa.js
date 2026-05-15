@@ -20,6 +20,26 @@ var _coaObId       = null;
 
 window.ERP.onReady = function() { renderCoa(); };
 
+document.addEventListener('DOMContentLoaded', function() {
+    var filterBtn = document.getElementById('coa-filter-toggle-btn');
+    if (filterBtn) {
+        filterBtn.addEventListener('click', function() {
+            var panel  = document.getElementById('coa-filters-panel');
+            var isOpen = !panel.classList.contains('d-none');
+            panel.classList.toggle('d-none', isOpen);
+            filterBtn.classList.toggle('active', !isOpen);
+        });
+    }
+    var clearBtn = document.getElementById('coa-clear-filters-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            document.getElementById('coaSearch').value = '';
+            document.getElementById('coaFilterType').value = '';
+            renderCoa();
+        });
+    }
+});
+
 function renderCoa() {
     var accounts = (window.ERP.state.chartOfAccounts || []).slice();
     var filterType = document.getElementById('coaFilterType').value;

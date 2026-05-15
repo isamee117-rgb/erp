@@ -1,11 +1,46 @@
 var _jeMeta = { currentPage: 1, lastPage: 1, total: 0 };
 var _jeDeleteId = null;
 var _jeCurrentId = null;
-var _jeSort = { by: 'date', dir: 'desc' };
+var _jeSort = { by: 'entry_no', dir: 'desc' };
 
 window.ERP.onReady = function() {
     setDefaultDates();
     loadJournals();
+
+    var jeSearch = document.getElementById('jeSearch');
+    if (jeSearch) {
+        var _jeSearchTimer;
+        jeSearch.addEventListener('input', function() {
+            clearTimeout(_jeSearchTimer);
+            _jeSearchTimer = setTimeout(function() { loadJournals(1); }, 350);
+        });
+    }
+
+    ['jeFrom', 'jeTo', 'jeType', 'jeStatus'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function() { loadJournals(1); });
+    });
+
+    var filterBtn = document.getElementById('je-filter-toggle-btn');
+    if (filterBtn) {
+        filterBtn.addEventListener('click', function() {
+            var panel  = document.getElementById('je-filters-panel');
+            var isOpen = !panel.classList.contains('d-none');
+            panel.classList.toggle('d-none', isOpen);
+            filterBtn.classList.toggle('active', !isOpen);
+        });
+    }
+
+    var clearBtn = document.getElementById('je-clear-filters-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            document.getElementById('jeSearch').value = '';
+            setDefaultDates();
+            document.getElementById('jeType').value   = '';
+            document.getElementById('jeStatus').value = '';
+            loadJournals(1);
+        });
+    }
 };
 
 function setDefaultDates() {
@@ -23,11 +58,13 @@ function formatDate(d) {
 
 async function loadJournals(page) {
     page = page || 1;
-    var params = { page: page, sort_by: _jeSort.by, sort_dir: _jeSort.dir };
+    var params = { page: page, per_page: 10, sort_by: _jeSort.by, sort_dir: _jeSort.dir };
+    var search = document.getElementById('jeSearch') ? document.getElementById('jeSearch').value : '';
     var from   = document.getElementById('jeFrom').value;
     var to     = document.getElementById('jeTo').value;
     var type   = document.getElementById('jeType').value;
     var status = document.getElementById('jeStatus').value;
+    if (search) params.search = search;
     if (from)   params.from   = from;
     if (to)     params.to     = to;
     if (type)   params.type   = type;
@@ -59,6 +96,7 @@ function renderJournals(journals) {
             '<td>' + (je.date || '—') + '</td>' +
             '<td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (je.description || '—') + '</td>' +
             '<td>' + typeBadge + '</td>' +
+            '<td style="font-size:0.82rem;color:#374151;">' + (je.documentNo || '—') + '</td>' +
             '<td class="text-end fw-bold">' + ERP.formatCurrency(je.totalDebit || 0) + '</td>' +
             '<td class="text-end fw-bold">' + ERP.formatCurrency(je.totalCredit || 0) + '</td>' +
             '<td>' + statusBadge + '</td>' +
@@ -68,7 +106,7 @@ function renderJournals(journals) {
             '</td>' +
             '</tr>';
     });
-    if (!html) html = '<tr><td colspan="8" class="text-center text-muted py-4">No journal entries found for selected filters.</td></tr>';
+    if (!html) html = '<tr><td colspan="9" class="text-center text-muted py-4">No journal entries found for selected filters.</td></tr>';
     document.getElementById('jeBody').innerHTML = html;
 }
 
@@ -96,7 +134,7 @@ function renderPagination() {
     var cur   = _jeMeta.currentPage;
     var last  = _jeMeta.lastPage;
     var total = _jeMeta.total;
-    var perPage = 20;
+    var perPage = 10;
     var start = (cur - 1) * perPage;
 
     document.getElementById('jePaginationInfo').textContent =
@@ -155,7 +193,7 @@ function renderJeView(je) {
             '<div><span class="text-muted">Date:</span> <strong>' + (je.date || '—') + '</strong></div>' +
             '<div><span class="text-muted">Type:</span> <strong>' + (je.referenceType || 'manual') + '</strong></div>' +
             '<div><span class="text-muted">Status:</span> ' + statusBadge + '</div>' +
-            '<div><span class="text-muted">Ref:</span> <strong>' + (je.referenceId || '—') + '</strong></div>' +
+            '<div><span class="text-muted">Ref:</span> <strong>' + (je.documentNo || je.referenceId || '—') + '</strong></div>' +
         '</div>' +
         (je.description ? '<p style="font-size:0.85rem;color:#64748b;margin-bottom:12px;">' + je.description + '</p>' : '') +
         '<table class="je-lines-table">' +
@@ -169,12 +207,33 @@ function renderJeView(je) {
         '</table>';
 }
 
-async function postCurrentJe() {
+function postCurrentJe() {
+    if (!_jeCurrentId) return;
+    var el = document.getElementById('jeViewModal');
+    var modal = bootstrap.Modal.getInstance(el);
+    if (modal) {
+        el.addEventListener('hidden.bs.modal', function onHidden() {
+            el.removeEventListener('hidden.bs.modal', onHidden);
+            document.getElementById('jePostConfirm').classList.remove('d-none');
+        });
+        modal.hide();
+    } else {
+        document.getElementById('jePostConfirm').classList.remove('d-none');
+    }
+}
+
+function cancelJePost() {
+    document.getElementById('jePostConfirm').classList.add('d-none');
+    viewJe(_jeCurrentId);
+}
+
+async function doPostCurrentJe() {
+    document.getElementById('jePostConfirm').classList.add('d-none');
     if (!_jeCurrentId) return;
     try {
         await ERP.api.postJournal(_jeCurrentId);
-        bootstrap.Modal.getInstance(document.getElementById('jeViewModal')).hide();
         loadJournals(_jeMeta.currentPage);
+        document.getElementById('jePostSuccess').classList.remove('d-none');
     } catch(e) {
         alert('Error: ' + e.message);
     }

@@ -17,13 +17,36 @@ function osRefetchIfNeeded(callback) {
     }
 }
 
-window.ERP.onReady = function(){ renderPage(); };
+window.ERP.onReady = function(){
+    renderPage();
+    document.getElementById('osSearchInput').addEventListener('input', function(){ recPage=1; payPage=1; renderPage(); });
+    var filterBtn = document.getElementById('os-filter-toggle-btn');
+    if (filterBtn) {
+        filterBtn.addEventListener('click', function() {
+            var panel  = document.getElementById('os-filters-panel');
+            var isOpen = !panel.classList.contains('d-none');
+            panel.classList.toggle('d-none', isOpen);
+            filterBtn.classList.toggle('active', !isOpen);
+        });
+    }
+    var clearBtn = document.getElementById('os-clear-filters-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            document.getElementById('osSearchInput').value = '';
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value   = '';
+            recPage = 1; payPage = 1; renderPage();
+        });
+    }
+};
+
 function renderPage(){
     var state=window.ERP.state;
+    var search = (document.getElementById('osSearchInput') ? document.getElementById('osSearchInput').value : '').toLowerCase();
     var df=document.getElementById('dateFrom').value, dt=document.getElementById('dateTo').value;
     var fromTs=df?new Date(df).setHours(0,0,0,0):null, toTs=dt?new Date(dt).setHours(23,59,59,999):null;
-    var customers=(state.parties||[]).filter(function(p){return p.type==='Customer';});
-    var vendors=(state.parties||[]).filter(function(p){return p.type==='Vendor';});
+    var customers=(state.parties||[]).filter(function(p){return p.type==='Customer' && (!search||p.name.toLowerCase().indexOf(search)!==-1);});
+    var vendors=(state.parties||[]).filter(function(p){return p.type==='Vendor' && (!search||p.name.toLowerCase().indexOf(search)!==-1);});
     renderTab(customers,'Customer','receivableBody','receivableFoot','recPagInfo','recPag',recPage,'recPage',fromTs,toTs);
     renderTab(vendors,'Vendor','payableBody','payableFoot','payPagInfo','payPag',payPage,'payPage',fromTs,toTs);
 }

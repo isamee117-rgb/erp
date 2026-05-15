@@ -120,6 +120,35 @@
   </div>
 </div>
 
+{{-- Sale Return Confirm --}}
+<div class="ms-overlay d-none" id="sretConfirmOverlay">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-confirm"><i class="ti ti-arrow-back-up"></i></div>
+      <div class="ms-title">Confirm Sale Return</div>
+      <p class="ms-sub">Are you sure you want to process this sale return? Stock will be restored.</p>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-cancel" id="sretConfirmCancel">Cancel</button>
+      <button class="ms-btn-confirm" id="sretConfirmOk"><i class="ti ti-arrow-back-up me-1"></i>Yes, Return</button>
+    </div>
+  </div>
+</div>
+
+{{-- Sale Return Success --}}
+<div class="ms-overlay d-none" id="sretSuccessOverlay">
+  <div class="ms-box">
+    <div class="ms-body">
+      <div class="ms-icon ms-icon-success"><i class="ti ti-circle-check"></i></div>
+      <div class="ms-title">Return Processed!</div>
+      <p class="ms-sub">Sale return has been recorded and stock restored successfully.</p>
+    </div>
+    <div class="ms-footer">
+      <button class="ms-btn-ok" id="sretSuccessOk"><i class="ti ti-check me-1"></i>OK</button>
+    </div>
+  </div>
+</div>
+
 @endsection
 @push('scripts')
 <script src="{{ asset('js/pages/sale-returns.js') }}?v={{ filemtime(public_path('js/pages/sale-returns.js')) }}"></script>

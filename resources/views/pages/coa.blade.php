@@ -142,22 +142,35 @@
 </div>
 
 {{-- Filters --}}
-<div class="card inv-section-card">
-  <div class="set-card-body d-flex gap-3 flex-wrap align-items-center">
-    <div>
-      <label class="pm-label">Filter by Type</label>
-      <select class="form-select pm-input" id="coaFilterType" onchange="renderCoa()" style="min-width:150px;">
-        <option value="">All Types</option>
-        <option value="Asset">Asset</option>
-        <option value="Liability">Liability</option>
-        <option value="Equity">Equity</option>
-        <option value="Revenue">Revenue</option>
-        <option value="Expense">Expense</option>
-      </select>
+<div class="card inv-section-card inv-filter-bar">
+  <div class="card-body inv-filter-body">
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="coaSearch" placeholder="Search by code or name..." oninput="renderCoa()">
+      </div>
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="coa-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
+      </div>
     </div>
-    <div>
-      <label class="pm-label">Search</label>
-      <input type="text" class="form-control pm-input" id="coaSearch" placeholder="Code or name..." oninput="renderCoa()" style="min-width:200px;">
+    <div id="coa-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <select class="form-select inv-input" id="coaFilterType" onchange="renderCoa()">
+            <option value="">All Types</option>
+            <option value="Asset">Asset</option>
+            <option value="Liability">Liability</option>
+            <option value="Equity">Equity</option>
+            <option value="Revenue">Revenue</option>
+            <option value="Expense">Expense</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="coa-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

@@ -1,5 +1,21 @@
 var currentPage=1, perPage=15;
 
+function showPmConfirm(message) {
+    return new Promise(function(resolve) {
+        document.getElementById('pmConfirmMessage').textContent = message;
+        var overlay   = document.getElementById('pmConfirmOverlay');
+        overlay.classList.remove('d-none');
+        var okBtn     = document.getElementById('pmConfirmOk');
+        var cancelBtn = document.getElementById('pmConfirmCancel');
+        var resolved  = false;
+        function cleanup() { okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel); }
+        function onOk()     { if (resolved) return; resolved = true; cleanup(); overlay.classList.add('d-none'); resolve(true); }
+        function onCancel() { if (resolved) return; resolved = true; cleanup(); overlay.classList.add('d-none'); resolve(false); }
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
 function payRefetchIfNeeded(callback) {
     var loadedFrom = window.ERP.state.transactionLoadedFrom;
     var requestedFrom = (document.getElementById('dateFrom').value || '');
@@ -23,6 +39,22 @@ document.addEventListener('DOMContentLoaded', function(){
     ['searchInput','typeFilter','dateFrom','dateTo'].forEach(function(id){
         document.getElementById(id).addEventListener(id==='searchInput'?'input':'change', function(){ currentPage=1; if(id==='dateFrom'||id==='dateTo'){ payRefetchIfNeeded(renderPage); }else{ renderPage(); } });
     });
+
+    var filterToggle = document.getElementById('pm-filter-toggle-btn');
+    if (filterToggle) {
+        filterToggle.addEventListener('click', function() {
+            var panel  = document.getElementById('pm-filters-panel');
+            var isOpen = !panel.classList.contains('d-none');
+            panel.classList.toggle('d-none', isOpen);
+            filterToggle.classList.toggle('active', !isOpen);
+        });
+    }
+
+    var clearBtn = document.getElementById('pm-clear-filters-btn');
+    if (clearBtn) clearBtn.addEventListener('click', clearFilters);
+
+    var pmSuccessOk = document.getElementById('pmSuccessOk');
+    if (pmSuccessOk) pmSuccessOk.addEventListener('click', function() { document.getElementById('pmSuccessOverlay').classList.add('d-none'); });
 });
 function getFiltered(){
     var state=window.ERP.state, search=(document.getElementById('searchInput').value||'').toLowerCase(),
@@ -181,6 +213,8 @@ function updateRefDropdown(){
     document.getElementById('pmRef-opts').innerHTML=html;
 }
 function openAddPayment(){
+    var errBox = document.getElementById('pm-save-error');
+    if (errBox) errBox.classList.add('d-none');
     ['pmAmount','pmNotes'].forEach(function(id){document.getElementById(id).value='';});
     // Reset Party SDD
     document.getElementById('pmParty').value='';
@@ -197,10 +231,9 @@ function openAddPayment(){
 }
 async function savePayment(){
     var partyId=document.getElementById('pmParty').value;
-    if(!partyId){alert('Please select a party');return;}
-    var glAcct = document.getElementById('pmAcct').value;
+    if(!partyId){ showPmFieldError('Please select a party.'); return; }
+    var glAcct  = document.getElementById('pmAcct').value;
     var rawType = document.getElementById('pmType').value;
-    // Map display values to backend enum values
     var typeMap = { 'Payment Received': 'Receipt', 'Payment Made': 'Payment' };
     var data={
         partyId:partyId, type: typeMap[rawType] || rawType,
@@ -210,13 +243,23 @@ async function savePayment(){
         glAccountId: glAcct || null,
         paymentMethod: 'Cash'
     };
-    if(data.amount<=0){alert('Amount must be positive');return;}
+    if(data.amount<=0){ showPmFieldError('Amount must be greater than zero.'); return; }
+
+    var confirmMsg = rawType + ' of ' + ERP.formatCurrency(data.amount) + '. Confirm?';
+    if (!await showPmConfirm(confirmMsg)) return;
+
     try{
         var result = await ERP.api.addPayment(data);
         bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
         await ERP.sync(); renderPage();
+        document.getElementById('pmSuccessOverlay').classList.remove('d-none');
         if (result && result.warning) showJournalWarning(result.warning);
-    }catch(e){alert('Error: '+e.message);}
+    }catch(e){ showPmFieldError(e.message || 'Failed to save payment.'); }
+}
+
+function showPmFieldError(msg) {
+    var box = document.getElementById('pm-save-error');
+    if (box) { box.textContent = msg; box.classList.remove('d-none'); }
 }
 
 /* ── Cash Reconciliation ─────────────────────────────── */

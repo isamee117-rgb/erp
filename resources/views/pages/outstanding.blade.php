@@ -15,12 +15,31 @@
   </div>
 </div>
 
-<div class="card inv-section-card inv-filter-card">
+<div class="card inv-section-card inv-filter-bar">
   <div class="card-body inv-filter-body">
-    <div class="row g-2 align-items-end">
-      <div class="col-auto"><label class="pm-label">From</label><input type="date" class="form-control inv-input" id="dateFrom" onchange="osRefetchIfNeeded(renderPage)"></div>
-      <div class="col-auto"><label class="pm-label">To</label><input type="date" class="form-control inv-input" id="dateTo" onchange="osRefetchIfNeeded(renderPage)"></div>
-      <div class="col-auto" class="erp-pt-btn"><button class="btn btn-light inv-input px-3" onclick="document.getElementById('dateFrom').value='';document.getElementById('dateTo').value='';renderPage()"><i class="ti ti-x"></i></button></div>
+    <div class="d-flex align-items-center gap-2">
+      <div class="flex-grow-1 position-relative">
+        <span class="position-absolute top-50 translate-middle-y ms-3 text-muted"><i class="ti ti-search"></i></span>
+        <input type="text" class="form-control inv-input ps-5" id="osSearchInput" placeholder="Search by party name...">
+      </div>
+      <div class="inv-toolbar-group">
+        <button class="inv-icon-btn" id="os-filter-toggle-btn" title="Toggle Filters">
+          <i class="ti ti-filter"></i>
+        </button>
+      </div>
+    </div>
+    <div id="os-filters-panel" class="d-none mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateFrom" title="From Date" onchange="osRefetchIfNeeded(renderPage)">
+        </div>
+        <div class="col-6 col-md-3">
+          <input type="date" class="form-control inv-input" id="dateTo" title="To Date" onchange="osRefetchIfNeeded(renderPage)">
+        </div>
+        <div class="col-auto">
+          <button class="inv-icon-btn" id="os-clear-filters-btn" title="Clear Filters"><i class="ti ti-x"></i></button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
