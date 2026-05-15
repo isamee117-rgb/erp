@@ -19,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
     {
         if (config('app.env') === 'production') {
             \URL::forceScheme('https');
+            \Illuminate\Support\Facades\URL::forceRootUrl(config('app.url'));
+            $this->app['request']->server->set('HTTPS', true);
         }
 
         JsonResource::withoutWrapping();
