@@ -9,7 +9,6 @@ use App\Http\Resources\CompanyResource;
 use App\Http\Resources\CustomRoleResource;
 use App\Http\Resources\DocumentSequenceResource;
 use App\Http\Resources\EntityTypeResource;
-use App\Http\Resources\InventoryCostLayerResource;
 use App\Http\Resources\InventoryLedgerResource;
 use App\Http\Resources\PartyResource;
 use App\Http\Resources\PaymentResource;
@@ -30,7 +29,6 @@ use App\Models\Company;
 use App\Models\CustomRole;
 use App\Models\DocumentSequence;
 use App\Models\EntityType;
-use App\Models\InventoryCostLayer;
 use App\Models\InventoryLedger;
 use App\Models\Party;
 use App\Models\Payment;
@@ -62,9 +60,10 @@ class SyncService
 
         [$companies, $users, $customRoles] = $this->fetchTenantData($isSuper, $coId);
 
-        $currencySetting      = Setting::where('company_id', $coId)->where('key', 'currency')->first();
-        $invoiceFormatSetting = Setting::where('company_id', $coId)->where('key', 'invoice_format')->first();
-        $jobCardModeSetting   = Setting::where('company_id', $coId)->where('key', 'job_card_mode')->first();
+        // 1 query instead of 3 separate Setting lookups
+        $settings         = Setting::where('company_id', $coId)
+            ->whereIn('key', ['currency', 'invoice_format', 'job_card_mode'])
+            ->get()->keyBy('key');
 
         $costingMethod     = 'moving_average';
         $documentSequences = collect();
@@ -76,21 +75,32 @@ class SyncService
             $company       = Company::find($coId);
             $costingMethod = $company->costing_method ?? 'moving_average';
 
-            $this->sequenceService->ensureSequencesExist($coId);
+            // Only run ensureSequencesExist when sequences are missing — 1 COUNT query
+            // instead of 10 firstOrCreate calls on every sync
+            $expectedCount = count(DocumentSequenceService::TYPES);
+            if (DocumentSequence::where('company_id', $coId)->count() < $expectedCount) {
+                $this->sequenceService->ensureSequencesExist($coId);
+            }
             $documentSequences = DocumentSequence::where('company_id', $coId)->get();
-            $chartOfAccounts   = ChartOfAccount::where('company_id', $coId)
-                ->selectRaw('chart_of_accounts.*, (
-                    COALESCE(opening_balance, 0) + (
-                        SELECT COALESCE(SUM(jel.debit), 0) - COALESCE(SUM(jel.credit), 0)
-                        FROM journal_entry_lines jel
-                        JOIN journal_entries je ON je.id = jel.journal_entry_id
-                        WHERE je.is_posted = 1
-                        AND jel.account_id = chart_of_accounts.id
-                    )
-                ) as balance')
-                ->orderBy('code')
+
+            // Subquery join instead of correlated subquery — single query, ONLY_FULL_GROUP_BY safe.
+            // Company scope is on the outer query; the balance sub only needs account_id grouping.
+            $balanceSub = \DB::table('journal_entry_lines as jel')
+                ->join('journal_entries as je', function ($join) {
+                    $join->on('je.id', '=', 'jel.journal_entry_id')->where('je.is_posted', 1);
+                })
+                ->select('jel.account_id')
+                ->selectRaw('COALESCE(SUM(jel.debit), 0) - COALESCE(SUM(jel.credit), 0) as journal_balance')
+                ->groupBy('jel.account_id');
+
+            $chartOfAccounts = ChartOfAccount::where('chart_of_accounts.company_id', $coId)
+                ->leftJoinSub($balanceSub, 'bal', 'bal.account_id', '=', 'chart_of_accounts.id')
+                ->select('chart_of_accounts.*')
+                ->selectRaw('COALESCE(chart_of_accounts.opening_balance, 0) + COALESCE(bal.journal_balance, 0) as balance')
+                ->orderBy('chart_of_accounts.code')
                 ->get();
-            $accountMappings   = AccountMapping::where('company_id', $coId)->with('account')->get();
+
+            $accountMappings = AccountMapping::where('company_id', $coId)->with('account')->get();
         }
 
         return [
@@ -98,10 +108,10 @@ class SyncService
             'users'              => UserResource::collection($users),
             'customRoles'        => CustomRoleResource::collection($customRoles),
             'documentSequences'  => DocumentSequenceResource::collection($documentSequences),
-            'currency'           => $currencySetting?->value  ?? 'Rs.',
-            'invoiceFormat'      => $invoiceFormatSetting?->value ?? 'A4',
+            'currency'           => $settings->get('currency')?->value ?? 'Rs.',
+            'invoiceFormat'      => $settings->get('invoice_format')?->value ?? 'A4',
             'costingMethod'      => $costingMethod,
-            'jobCardMode'        => (bool) ($jobCardModeSetting?->value ?? false),
+            'jobCardMode'        => (bool) ($settings->get('job_card_mode')?->value ?? false),
             'chartOfAccounts'    => ChartOfAccountResource::collection($chartOfAccounts),
             'accountMappings'    => $accountMappings->keyBy('mapping_key')->map(fn($m) => [
                 'accountId' => $m->account_id,
@@ -156,10 +166,10 @@ class SyncService
     }
 
     // ── Transactions: sales, purchases, payments, ledger ─────────────────────
-    // Default: last 6 months. Pass $from/$to to override.
+    // Default: last 3 months. Pass $from/$to to override.
     public function getTransactionData(User $user, ?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null): array
     {
-        $from ??= now()->subMonths(6)->startOfDay();
+        $from ??= now()->subMonths(3)->startOfDay();
 
         $isSuper = $user->system_role === 'Super Admin';
         $coId    = $user->company_id;
@@ -171,8 +181,9 @@ class SyncService
         $salesReturns    = $this->scopedQueryWithDates(SaleReturn::with('items'),                        $isSuper, $coId, $from, $to);
         $purchaseReturns = $this->scopedQueryWithDates(PurchaseReturn::with('items'),                    $isSuper, $coId, $from, $to);
 
-        // costLayers exempt — full history needed for FIFO costing accuracy
-        $costLayers = $this->scopedQuery(InventoryCostLayer::query(), $isSuper, $coId);
+        // Only open cost layers needed — consumed layers (remaining_quantity=0) are historical
+        // and already reflected in stored cogs on sale_items; frontend never reads costLayers
+        $costLayers = collect();
 
         $openJobCards = $isSuper ? collect() : JobCard::with('items')
             ->where('company_id', $coId)
