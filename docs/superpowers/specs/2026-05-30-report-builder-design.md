@@ -169,7 +169,35 @@ When the report API returns `unmappedAccounts` (non-empty array), render a warni
 
 ---
 
-## 8. UX Details
+## 8. Date Filter Requirements (Must Work)
+
+The P&L and Balance Sheet reports must have working date presets so the user can instantly see today's profit, this month's profit, etc.
+
+### Profit & Loss — Period Presets
+
+The existing `rptPlSetPeriod()` function covers Month / Quarter / Year but **is missing "Today"**. A "Today" button must be added:
+
+| Button | Sets `from` | Sets `to` |
+|---|---|---|
+| **Today** | today's date | today's date |
+| This Month | 1st of current month | last day of current month |
+| This Quarter | 1st of current quarter | last day of current quarter |
+| This Year | Jan 1 of current year | Dec 31 of current year |
+| _(custom)_ | user picks dates manually | user picks dates manually |
+
+Every button immediately fires `runProfitLoss()` which calls `GET /api/reports/profit-loss?from=&to=` — the API always drives the numbers, never local state.
+
+### Balance Sheet — As-Of Presets
+
+The existing `rptBsSetDate()` covers Today / End of Month / End of Year — these are correct and must be preserved. Every preset immediately fires `runBalanceSheet()`.
+
+### Report Rendering after Mapping
+
+When the `ReportController` uses saved mappings, the API response shape changes from sub_type-grouped (`data.revenue.sales`, `data.cogs.cost_of_goods_sold`) to line-key-grouped (`data.lines.sales_revenue`, `data.lines.cogs`). The frontend `rptRenderPL()` and `rptRenderBS()` functions in `reports.js` must detect which format is returned (presence of `data.lines` key) and render accordingly — the new format shows one row per line_key, the old format (fallback) shows sub_type rows as now.
+
+---
+
+## 9. UX Details
 
 - **Tom Select config:** `maxItems: null` (unlimited), `placeholder: 'Select accounts…'`, search by code or name
 - **Account display in dropdown:** `{code} - {name}` (e.g. `4100 - Sales Revenue`)
@@ -179,7 +207,7 @@ When the report API returns `unmappedAccounts` (non-empty array), render a warni
 
 ---
 
-## 9. Files Changed
+## 10. Files Changed
 
 | File | Change |
 |---|---|
@@ -188,15 +216,17 @@ When the report API returns `unmappedAccounts` (non-empty array), render a warni
 | `app/Http/Controllers/Api/ReportBuilderController.php` | New |
 | `resources/views/pages/report-builder.blade.php` | New |
 | `public/js/pages/report-builder.js` | New |
-| `app/Http/Controllers/Api/ReportController.php` | Modified |
+| `app/Http/Controllers/Api/ReportController.php` | Modified — mapped mode + unmapped list |
+| `public/js/pages/reports.js` | Modified — add "Today" preset, update rptRenderPL/rptRenderBS for mapped format |
 | `public/js/api.js` | Modified — 2 new API methods |
 | `routes/api.php` | Modified — 2 new routes |
 | `routes/web.php` | Modified — 1 new route |
 | `resources/views/layouts/app.blade.php` | Modified — sidebar link |
+| `resources/views/pages/reports.blade.php` | Modified — add "Today" button to P&L filter bar |
 
 ---
 
-## 10. Out of Scope
+## 11. Out of Scope
 
 - Adding or renaming report lines (fixed predefined lines only)
 - Report Builder for other report types (Sales, Purchase, etc.)
