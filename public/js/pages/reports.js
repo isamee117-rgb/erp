@@ -2008,7 +2008,9 @@ function rptPlFmtDate(d) {
 function rptPlSetPeriod(period) {
   var now = new Date(), y = now.getFullYear(), m = now.getMonth();
   var from, to;
-  if (period === 'month') {
+  if (period === 'today') {
+    from = now; to = now;
+  } else if (period === 'month') {
     from = new Date(y, m, 1); to = new Date(y, m+1, 0);
   } else if (period === 'quarter') {
     var q = Math.floor(m/3);
@@ -2018,6 +2020,7 @@ function rptPlSetPeriod(period) {
   }
   document.getElementById('rptPlFrom').value = rptPlFmtDate(from);
   document.getElementById('rptPlTo').value   = rptPlFmtDate(to);
+  runProfitLoss();
 }
 async function runProfitLoss() {
   var from = document.getElementById('rptPlFrom').value;
@@ -2037,20 +2040,67 @@ async function runProfitLoss() {
 }
 function rptRenderPL(data, from, to) {
   document.getElementById('rptPlPeriodLabel').textContent = 'Period: ' + from + ' to ' + to;
-  var grossProfit = (data.totalRevenue||0) - (data.totalCogs||0);
-  var netProfit   = grossProfit - (data.totalExpenses||0);
   var html = '';
-  html += '<tr class="pl-section-row"><td colspan="2">Revenue</td></tr>';
-  html += rptRenderSubTypeRows(data.revenue||{});
-  html += '<tr class="pl-subtotal-row"><td>Total Revenue</td><td class="text-end">' + ERP.formatCurrency(data.totalRevenue||0) + '</td></tr>';
-  html += '<tr class="pl-section-row"><td colspan="2">Cost of Goods Sold</td></tr>';
-  html += rptRenderSubTypeRows(data.cogs||{});
-  html += '<tr class="pl-subtotal-row"><td>Total COGS</td><td class="text-end">' + ERP.formatCurrency(data.totalCogs||0) + '</td></tr>';
-  html += '<tr class="pl-total-row ' + (grossProfit>=0?'profit':'loss') + '"><td>Gross Profit</td><td class="text-end">' + ERP.formatCurrency(grossProfit) + '</td></tr>';
-  html += '<tr class="pl-section-row"><td colspan="2">Operating Expenses</td></tr>';
-  html += rptRenderSubTypeRows(data.expenses||{});
-  html += '<tr class="pl-subtotal-row"><td>Total Expenses</td><td class="text-end">' + ERP.formatCurrency(data.totalExpenses||0) + '</td></tr>';
-  html += '<tr class="pl-total-row ' + (netProfit>=0?'profit':'loss') + '"><td>' + (netProfit>=0?'Net Profit':'Net Loss') + '</td><td class="text-end">' + ERP.formatCurrency(Math.abs(netProfit)) + '</td></tr>';
+
+  if (data.useMappings && data.lines) {
+    var lines = data.lines;
+    // Revenue section
+    html += '<tr class="pl-section-row"><td colspan="2">Revenue</td></tr>';
+    var revAccounts = (lines.sales_revenue && lines.sales_revenue.accounts) || [];
+    if (revAccounts.length) {
+      revAccounts.forEach(function(acc) {
+        html += '<tr><td style="padding-left:28px!important;"><code style="font-size:0.78rem;color:#3B4FE4;">' + (acc.code||'') + '</code> ' + (acc.name||'') + '</td><td class="text-end">' + ERP.formatCurrency(acc.balance||0) + '</td></tr>';
+      });
+    } else {
+      html += '<tr><td colspan="2" class="text-center text-muted py-2" style="font-size:0.8rem;">No accounts mapped to Sales Revenue.</td></tr>';
+    }
+    html += '<tr class="pl-subtotal-row"><td>Sales Revenue</td><td class="text-end">' + ERP.formatCurrency((lines.sales_revenue||{}).total||0) + '</td></tr>';
+    if ((data.salesReturns||0) > 0) {
+      html += '<tr><td style="padding-left:28px!important;color:#dc2626;">Less: Sales Returns</td><td class="text-end" style="color:#dc2626;">(' + ERP.formatCurrency(data.salesReturns) + ')</td></tr>';
+    }
+    var netRevenue = data.netRevenue || 0;
+    html += '<tr class="pl-total-row ' + (netRevenue>=0?'profit':'loss') + '"><td>Net Revenue</td><td class="text-end">' + ERP.formatCurrency(netRevenue) + '</td></tr>';
+
+    // COGS section
+    html += '<tr class="pl-section-row"><td colspan="2">Cost of Goods Sold</td></tr>';
+    ((lines.cogs && lines.cogs.accounts) || []).forEach(function(acc) {
+      html += '<tr><td style="padding-left:28px!important;"><code style="font-size:0.78rem;color:#3B4FE4;">' + (acc.code||'') + '</code> ' + (acc.name||'') + '</td><td class="text-end">' + ERP.formatCurrency(acc.balance||0) + '</td></tr>';
+    });
+    html += '<tr class="pl-subtotal-row"><td>Total COGS</td><td class="text-end">' + ERP.formatCurrency((lines.cogs||{}).total||0) + '</td></tr>';
+    var grossProfit = data.grossProfit || 0;
+    html += '<tr class="pl-total-row ' + (grossProfit>=0?'profit':'loss') + '"><td>Gross Profit</td><td class="text-end">' + ERP.formatCurrency(grossProfit) + '</td></tr>';
+
+    // Operating Expenses section
+    html += '<tr class="pl-section-row"><td colspan="2">Operating Expenses</td></tr>';
+    ((lines.operating_expenses && lines.operating_expenses.accounts) || []).forEach(function(acc) {
+      html += '<tr><td style="padding-left:28px!important;"><code style="font-size:0.78rem;color:#3B4FE4;">' + (acc.code||'') + '</code> ' + (acc.name||'') + '</td><td class="text-end">' + ERP.formatCurrency(acc.balance||0) + '</td></tr>';
+    });
+    html += '<tr class="pl-subtotal-row"><td>Total Expenses</td><td class="text-end">' + ERP.formatCurrency((lines.operating_expenses||{}).total||0) + '</td></tr>';
+    var netProfit = data.netProfit || 0;
+    html += '<tr class="pl-total-row ' + (netProfit>=0?'profit':'loss') + '"><td>' + (netProfit>=0?'Net Profit':'Net Loss') + '</td><td class="text-end">' + ERP.formatCurrency(Math.abs(netProfit)) + '</td></tr>';
+
+    // Unmapped warning
+    if (data.unmappedAccounts && data.unmappedAccounts.length) {
+      var names = data.unmappedAccounts.map(function(a){ return a.code + ' - ' + a.name; }).join(', ');
+      html += '<tr style="background:#fff7ed;"><td colspan="2" style="font-size:0.8rem;color:#c2410c;padding:8px 12px;"><i class="ti ti-alert-triangle me-1"></i><strong>Unmapped accounts (excluded from above):</strong> ' + names + '</td></tr>';
+    }
+  } else {
+    // Fallback mode — sub_type grouping (existing behaviour)
+    var grossProfit = (data.totalRevenue||0) - (data.totalCogs||0);
+    var netProfit   = grossProfit - (data.totalExpenses||0);
+    html += '<tr class="pl-section-row"><td colspan="2">Revenue</td></tr>';
+    html += rptRenderSubTypeRows(data.revenue||{});
+    html += '<tr class="pl-subtotal-row"><td>Total Revenue</td><td class="text-end">' + ERP.formatCurrency(data.totalRevenue||0) + '</td></tr>';
+    html += '<tr class="pl-section-row"><td colspan="2">Cost of Goods Sold</td></tr>';
+    html += rptRenderSubTypeRows(data.cogs||{});
+    html += '<tr class="pl-subtotal-row"><td>Total COGS</td><td class="text-end">' + ERP.formatCurrency(data.totalCogs||0) + '</td></tr>';
+    html += '<tr class="pl-total-row ' + (grossProfit>=0?'profit':'loss') + '"><td>Gross Profit</td><td class="text-end">' + ERP.formatCurrency(grossProfit) + '</td></tr>';
+    html += '<tr class="pl-section-row"><td colspan="2">Operating Expenses</td></tr>';
+    html += rptRenderSubTypeRows(data.expenses||{});
+    html += '<tr class="pl-subtotal-row"><td>Total Expenses</td><td class="text-end">' + ERP.formatCurrency(data.totalExpenses||0) + '</td></tr>';
+    html += '<tr class="pl-total-row ' + (netProfit>=0?'profit':'loss') + '"><td>' + (netProfit>=0?'Net Profit':'Net Loss') + '</td><td class="text-end">' + ERP.formatCurrency(Math.abs(netProfit)) + '</td></tr>';
+  }
+
   document.getElementById('rptPlBody').innerHTML = html;
 }
 function rptRenderSubTypeRows(subTypeMap) {
@@ -2096,21 +2146,68 @@ async function runBalanceSheet() {
   }
 }
 function rptRenderBS(data, asOf) {
-  var assetsHtml = rptRenderBsGrouped(data.assets||{});
-  document.getElementById('rptBsAssetsBody').innerHTML = assetsHtml || '<tr><td colspan="2" class="text-center text-muted py-3">No data.</td></tr>';
-  document.getElementById('rptBsTotalAssets').textContent = ERP.formatCurrency(data.totalAssets||0);
+  if (data.useMappings && data.lines) {
+    // Mapped mode — line-key structure from Report Builder
+    var lines = data.lines;
+    var assetKeys = ['current_assets', 'fixed_assets', 'other_assets'];
+    var assetsHtml = '';
+    assetKeys.forEach(function(key) {
+      var line = lines[key];
+      if (!line) return;
+      assetsHtml += '<tr class="bs-section-row"><td colspan="2">' + line.label + '</td></tr>';
+      (line.accounts || []).forEach(function(acc) {
+        assetsHtml += '<tr><td style="padding-left:20px!important;"><code style="font-size:0.78rem;color:#3B4FE4;">' + (acc.code||'') + '</code> ' + (acc.name||'') + '</td><td class="text-end">' + ERP.formatCurrency(acc.balance||0) + '</td></tr>';
+      });
+    });
+    document.getElementById('rptBsAssetsBody').innerHTML = assetsHtml || '<tr><td colspan="2" class="text-center text-muted py-3">No accounts mapped to Assets.</td></tr>';
+    document.getElementById('rptBsTotalAssets').textContent = ERP.formatCurrency(data.totalAssets||0);
 
-  var liabHtml = rptRenderBsGrouped(data.liabilities||{});
-  liabHtml += rptRenderBsGrouped(data.equity||{});
-  if (data.openingBalanceEquity && Math.abs(data.openingBalanceEquity) > 0.009) {
-    liabHtml += '<tr class="bs-section-row"><td colspan="2">Opening Balances</td></tr>';
-    liabHtml += '<tr><td style="padding-left:20px!important;font-size:0.85rem;">Opening Balance Equity</td><td class="text-end">' + ERP.formatCurrency(data.openingBalanceEquity||0) + '</td></tr>';
-  }
-  if (data.retainedEarnings !== undefined) {
+    var liabKeys = ['current_liabilities', 'long_term_liabilities'];
+    var liabHtml = '';
+    liabKeys.forEach(function(key) {
+      var line = lines[key];
+      if (!line) return;
+      liabHtml += '<tr class="bs-section-row"><td colspan="2">' + line.label + '</td></tr>';
+      (line.accounts || []).forEach(function(acc) {
+        liabHtml += '<tr><td style="padding-left:20px!important;"><code style="font-size:0.78rem;color:#3B4FE4;">' + (acc.code||'') + '</code> ' + (acc.name||'') + '</td><td class="text-end">' + ERP.formatCurrency(acc.balance||0) + '</td></tr>';
+      });
+    });
+
+    var oeq = lines.owners_equity || {};
+    liabHtml += '<tr class="bs-section-row"><td colspan="2">' + (oeq.label || "Owner's Equity") + '</td></tr>';
+    (oeq.accounts || []).forEach(function(acc) {
+      liabHtml += '<tr><td style="padding-left:20px!important;"><code style="font-size:0.78rem;color:#3B4FE4;">' + (acc.code||'') + '</code> ' + (acc.name||'') + '</td><td class="text-end">' + ERP.formatCurrency(acc.balance||0) + '</td></tr>';
+    });
+    if (data.openingBalanceEquity && Math.abs(data.openingBalanceEquity) > 0.009) {
+      liabHtml += '<tr><td style="padding-left:20px!important;font-size:0.85rem;">Opening Balance Equity</td><td class="text-end">' + ERP.formatCurrency(data.openingBalanceEquity||0) + '</td></tr>';
+    }
     liabHtml += '<tr><td style="padding-left:20px!important;font-size:0.85rem;font-style:italic;">Retained Earnings</td><td class="text-end">' + ERP.formatCurrency(data.retainedEarnings||0) + '</td></tr>';
+
+    if (data.unmappedAccounts && data.unmappedAccounts.length) {
+      var names = data.unmappedAccounts.map(function(a){ return a.code + ' - ' + a.name; }).join(', ');
+      liabHtml += '<tr style="background:#fff7ed;"><td colspan="2" style="font-size:0.8rem;color:#c2410c;padding:8px 12px;"><i class="ti ti-alert-triangle me-1"></i><strong>Unmapped:</strong> ' + names + '</td></tr>';
+    }
+
+    document.getElementById('rptBsLiabEquityBody').innerHTML = liabHtml || '<tr><td colspan="2" class="text-center text-muted py-3">No data.</td></tr>';
+    document.getElementById('rptBsTotalLiabEquity').textContent = ERP.formatCurrency(data.totalLiabEquity||0);
+  } else {
+    // Fallback mode — sub_type grouping (existing behaviour)
+    var assetsHtml = rptRenderBsGrouped(data.assets||{});
+    document.getElementById('rptBsAssetsBody').innerHTML = assetsHtml || '<tr><td colspan="2" class="text-center text-muted py-3">No data.</td></tr>';
+    document.getElementById('rptBsTotalAssets').textContent = ERP.formatCurrency(data.totalAssets||0);
+
+    var liabHtml = rptRenderBsGrouped(data.liabilities||{});
+    liabHtml += rptRenderBsGrouped(data.equity||{});
+    if (data.openingBalanceEquity && Math.abs(data.openingBalanceEquity) > 0.009) {
+      liabHtml += '<tr class="bs-section-row"><td colspan="2">Opening Balances</td></tr>';
+      liabHtml += '<tr><td style="padding-left:20px!important;font-size:0.85rem;">Opening Balance Equity</td><td class="text-end">' + ERP.formatCurrency(data.openingBalanceEquity||0) + '</td></tr>';
+    }
+    if (data.retainedEarnings !== undefined) {
+      liabHtml += '<tr><td style="padding-left:20px!important;font-size:0.85rem;font-style:italic;">Retained Earnings</td><td class="text-end">' + ERP.formatCurrency(data.retainedEarnings||0) + '</td></tr>';
+    }
+    document.getElementById('rptBsLiabEquityBody').innerHTML = liabHtml || '<tr><td colspan="2" class="text-center text-muted py-3">No data.</td></tr>';
+    document.getElementById('rptBsTotalLiabEquity').textContent = ERP.formatCurrency(data.totalLiabEquity||0);
   }
-  document.getElementById('rptBsLiabEquityBody').innerHTML = liabHtml || '<tr><td colspan="2" class="text-center text-muted py-3">No data.</td></tr>';
-  document.getElementById('rptBsTotalLiabEquity').textContent = ERP.formatCurrency(data.totalLiabEquity||0);
 
   var diff = Math.abs((data.totalAssets||0) - (data.totalLiabEquity||0));
   var checkEl = document.getElementById('rptBsBalanceCheck');

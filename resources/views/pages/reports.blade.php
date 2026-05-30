@@ -802,6 +802,7 @@
             </div>
             <button class="btn btn-primary rpt-btn" onclick="runProfitLoss()"><i class="ti ti-search me-1"></i>Generate</button>
             <div class="vr mx-1 align-self-center" style="height:28px;"></div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="rptPlSetPeriod('today')">Today</button>
             <button class="btn btn-sm btn-outline-secondary" onclick="rptPlSetPeriod('month')">This Month</button>
             <button class="btn btn-sm btn-outline-secondary" onclick="rptPlSetPeriod('quarter')">This Quarter</button>
             <button class="btn btn-sm btn-outline-secondary" onclick="rptPlSetPeriod('year')">This Year</button>
