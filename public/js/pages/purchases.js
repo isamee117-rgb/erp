@@ -1,4 +1,5 @@
-var poSortKey = 'createdAt', poSortDir = 'desc', poCurrentPage = 1, poPerPage = 10;
+var poPOs = [], poMeta = { currentPage: 1, lastPage: 1, total: 0 };
+var poSearchTimer = null, poLoading = false;
 
 function showConfirm(title, message, okLabel, iconClass) {
   return new Promise(function(resolve) {
@@ -26,34 +27,45 @@ var poExpandedId = null;
 var poItems = [];
 var receivePOId = null;
 
-function poRefetchIfNeeded(callback) {
-    var loadedFrom = window.ERP.state.transactionLoadedFrom;
-    var requestedFrom = (document.getElementById('po-date-from').value || '');
-    var requestedTo   = (document.getElementById('po-date-to').value   || '');
+function poGetFilters() {
+    return {
+        page:   poMeta.currentPage,
+        search: (document.getElementById('po-search').value || '').trim(),
+        status: document.getElementById('po-status').value || 'all',
+        vendor: document.getElementById('po-vendor').value || 'all',
+        from:   document.getElementById('po-date-from').value || '',
+        to:     document.getElementById('po-date-to').value || '',
+    };
+}
 
-    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
-        var tbody = document.getElementById('poTableBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+function loadPOs(page) {
+    if (poLoading) return;
+    poLoading = true;
+    poMeta.currentPage = page || 1;
 
-        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
-            .then(function(txData) {
-                ERP.mergeState(txData);
-                if (txData.loadedFrom) {
-                    window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                }
-                if (typeof callback === 'function') callback();
-            })
-            .catch(function(e) {
-                alert('Error loading data: ' + e.message);
-            });
-    } else {
-        if (typeof callback === 'function') callback();
-    }
+    var tbody = document.getElementById('po-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+
+    ERP.api.getPurchases(poGetFilters())
+        .then(function(res) {
+            poPOs = res.data || [];
+            var m = res.meta || {};
+            poMeta = {
+                currentPage: m.current_page || 1,
+                lastPage:    m.last_page    || 1,
+                total:       m.total        || 0,
+            };
+            renderPage();
+        })
+        .catch(function(e) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Error loading purchases: ' + e.message + '</td></tr>';
+        })
+        .finally(function() { poLoading = false; });
 }
 
 window.ERP.onReady = function() {
-  populateVendorFilter();
-  renderPage();
+    populateVendorFilter();
+    loadPOs(1);
 };
 
 function getVendors() {
@@ -68,57 +80,15 @@ function populateVendorFilter() {
   });
 }
 
-function getFilteredPOs() {
-  var search = (document.getElementById('po-search').value || '').toLowerCase();
-  var statusF = document.getElementById('po-status').value;
-  var vendorF = document.getElementById('po-vendor').value;
-  var dateFrom = document.getElementById('po-date-from').value;
-  var dateTo   = document.getElementById('po-date-to').value;
-  var vendors = getVendors();
-  var fromTs = dateFrom ? new Date(dateFrom).setHours(0,0,0,0) : null;
-  var toTs   = dateTo   ? new Date(dateTo).setHours(23,59,59,999) : null;
-
-  var list = (window.ERP.state.purchaseOrders || []).filter(function(po) {
-    var vendor = vendors.find(function(v) { return v.id === po.vendorId; });
-    var ms = (po.id || '').toLowerCase().indexOf(search) !== -1 || (vendor && vendor.name.toLowerCase().indexOf(search) !== -1);
-    var mst = statusF === 'all' || po.status === statusF;
-    var mv = vendorF === 'all' || po.vendorId === vendorF;
-    var md = (!fromTs || po.createdAt >= fromTs) && (!toTs || po.createdAt <= toTs);
-    return ms && mst && mv && md;
-  });
-
-  list.sort(function(a, b) {
-    var va = a[poSortKey] || '', vb = b[poSortKey] || '';
-    if (va < vb) return poSortDir === 'asc' ? -1 : 1;
-    if (va > vb) return poSortDir === 'asc' ? 1 : -1;
-    return 0;
-  });
-  return list;
-}
-
-function poSortToggle(key) {
-  if (poSortKey === key) poSortDir = poSortDir === 'asc' ? 'desc' : 'asc';
-  else { poSortKey = key; poSortDir = 'asc'; }
-  renderPage();
-}
-
 function renderPage() {
-  var filtered = getFilteredPOs();
-  var vendors = getVendors();
   var products = window.ERP.state.products || [];
-  var totalPages = Math.max(1, Math.ceil(filtered.length / poPerPage));
-  if (poCurrentPage > totalPages) poCurrentPage = totalPages;
-  var start = (poCurrentPage - 1) * poPerPage;
-  var page = filtered.slice(start, start + poPerPage);
-
   var tbody = document.getElementById('po-tbody');
   var html = '';
-  if (page.length === 0) {
+  if (poPOs.length === 0) {
     html = '<tr><td colspan="8" class="text-center text-muted py-4">No purchase orders found</td></tr>';
   } else {
-    page.forEach(function(po) {
-      var vendor = vendors.find(function(v) { return v.id === po.vendorId; });
-      var vendorName = vendor ? vendor.name : 'Unknown Vendor';
+    poPOs.forEach(function(po) {
+      var vendorName = po.vendorName || 'Unknown Vendor';
       var isExpanded = poExpandedId === po.id;
 
       var statusBadge = 'pg-badge ';
@@ -179,21 +149,23 @@ function renderPage() {
   }
   tbody.innerHTML = html;
 
-  document.getElementById('po-info').textContent = 'Showing ' + (filtered.length ? start + 1 : 0) + ' to ' + Math.min(start + poPerPage, filtered.length) + ' of ' + filtered.length + ' orders';
+  var start = (poMeta.currentPage - 1) * 50;
+  document.getElementById('po-info').textContent = 'Showing ' + (poMeta.total ? start + 1 : 0) + ' to ' + Math.min(start + 50, poMeta.total) + ' of ' + poMeta.total + ' orders';
 
+  var totalPages = poMeta.lastPage || 1, cur = poMeta.currentPage || 1;
   var pagHtml = '';
-  pagHtml += '<li class="page-item ' + (poCurrentPage <= 1 ? 'disabled' : '') + '"><a class="page-link" href="#" onclick="event.preventDefault();poCurrentPage--;renderPage();">\u00AB</a></li>';
+  pagHtml += '<li class="page-item ' + (cur <= 1 ? 'disabled' : '') + '"><a class="page-link" href="#" onclick="event.preventDefault();loadPOs(' + (cur - 1) + ');">\u00AB</a></li>';
   var poShown = {}, poLast = 0;
   for (var p = 1; p <= Math.min(2, totalPages); p++) poShown[p] = true;
-  for (var p = Math.max(1, poCurrentPage - 2); p <= Math.min(totalPages, poCurrentPage + 2); p++) poShown[p] = true;
+  for (var p = Math.max(1, cur - 2); p <= Math.min(totalPages, cur + 2); p++) poShown[p] = true;
   for (var p = Math.max(1, totalPages - 1); p <= totalPages; p++) poShown[p] = true;
   for (var pg = 1; pg <= totalPages; pg++) {
     if (!poShown[pg]) continue;
     if (poLast > 0 && pg - poLast > 1) pagHtml += '<li class="page-item disabled"><a class="page-link">\u2026</a></li>';
-    pagHtml += '<li class="page-item ' + (pg === poCurrentPage ? 'active' : '') + '"><a class="page-link" href="#" onclick="event.preventDefault();poCurrentPage=' + pg + ';renderPage();">' + pg + '</a></li>';
+    pagHtml += '<li class="page-item ' + (pg === cur ? 'active' : '') + '"><a class="page-link" href="#" onclick="event.preventDefault();loadPOs(' + pg + ');">' + pg + '</a></li>';
     poLast = pg;
   }
-  pagHtml += '<li class="page-item ' + (poCurrentPage >= totalPages ? 'disabled' : '') + '"><a class="page-link" href="#" onclick="event.preventDefault();poCurrentPage++;renderPage();">\u00BB</a></li>';
+  pagHtml += '<li class="page-item ' + (cur >= totalPages ? 'disabled' : '') + '"><a class="page-link" href="#" onclick="event.preventDefault();loadPOs(' + (cur + 1) + ');">\u00BB</a></li>';
   document.getElementById('po-pagination').innerHTML = pagHtml;
 }
 
@@ -428,8 +400,7 @@ async function createPO() {
     var orderDate = document.getElementById('npo-date').value;
     await ERP.api.createPurchaseOrder(vendorId, validItems, orderDate);
     bootstrap.Modal.getInstance(document.getElementById('newPOModal')).hide();
-    await ERP.sync();
-    renderPage();
+    await loadPOs(1);
     document.getElementById('poCreateSuccess').classList.remove('d-none');
   } catch(e) {
     saveErrMsg.textContent = e.message || 'Failed to create purchase order.';
@@ -439,7 +410,7 @@ async function createPO() {
 
 function openReceiveModal(poId) {
   receivePOId = poId;
-  var po = (window.ERP.state.purchaseOrders || []).find(function(x) { return x.id === poId; });
+  var po = poPOs.find(function(x) { return x.id === poId; });
   if (!po) return;
   var products = window.ERP.state.products || [];
 
@@ -536,15 +507,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Filter bar wiring
   var poSearch = document.getElementById('po-search');
-  if (poSearch) poSearch.addEventListener('input', function() { poCurrentPage = 1; renderPage(); });
+  if (poSearch) poSearch.addEventListener('input', function() {
+      clearTimeout(poSearchTimer);
+      poSearchTimer = setTimeout(function() { loadPOs(1); }, 400);
+  });
   var poStatus = document.getElementById('po-status');
-  if (poStatus) poStatus.addEventListener('change', function() { poCurrentPage = 1; renderPage(); });
+  if (poStatus) poStatus.addEventListener('change', function() { loadPOs(1); });
   var poVendor = document.getElementById('po-vendor');
-  if (poVendor) poVendor.addEventListener('change', function() { poCurrentPage = 1; renderPage(); });
+  if (poVendor) poVendor.addEventListener('change', function() { loadPOs(1); });
   var poDateFrom = document.getElementById('po-date-from');
-  if (poDateFrom) poDateFrom.addEventListener('change', function() { poCurrentPage = 1; poRefetchIfNeeded(renderPage); });
+  if (poDateFrom) poDateFrom.addEventListener('change', function() { loadPOs(1); });
   var poDateTo = document.getElementById('po-date-to');
-  if (poDateTo) poDateTo.addEventListener('change', function() { poCurrentPage = 1; poRefetchIfNeeded(renderPage); });
+  if (poDateTo) poDateTo.addEventListener('change', function() { loadPOs(1); });
 
   // Filter toggle
   var filterBtn = document.getElementById('po-filter-toggle-btn');
@@ -566,8 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('po-vendor').value = 'all';
       document.getElementById('po-date-from').value = '';
       document.getElementById('po-date-to').value = '';
-      poCurrentPage = 1;
-      renderPage();
+      loadPOs(1);
     });
   }
 });
@@ -628,8 +601,7 @@ async function submitReceive() {
   try {
     var result = await ERP.api.partialReceivePurchaseOrder(receivePOId, items, notes || undefined, receiveDate || undefined);
     bootstrap.Modal.getInstance(document.getElementById('receiveModal')).hide();
-    await ERP.sync();
-    renderPage();
+    await loadPOs(poMeta.currentPage);
     document.getElementById('poReceiveSuccess').classList.remove('d-none');
     if (result && result.warning) showJournalWarning(result.warning);
   } catch(e) {
@@ -643,7 +615,7 @@ async function submitReceive() {
 }
 
 function openReceiptsPanel(poId) {
-  var po = (window.ERP.state.purchaseOrders || []).find(function(x) { return x.id === poId; });
+  var po = poPOs.find(function(x) { return x.id === poId; });
   if (!po) return;
   var products = window.ERP.state.products || [];
   var receives = (po.receives || []).slice().sort(function(a, b) { return new Date(b.receiveDate || b.createdAt) - new Date(a.receiveDate || a.createdAt); });

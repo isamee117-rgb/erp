@@ -13,6 +13,7 @@ class PurchaseOrderResource extends JsonResource
             'id'             => $this->po_no ?? $this->id,
             'companyId'      => $this->company_id,
             'vendorId'       => $this->vendor_id,
+            'vendorName'     => $this->whenLoaded('vendor', fn() => $this->vendor?->name),
             'createdAt'      => strtotime($this->created_at) * 1000,
             'status'         => $this->status,
             'totalAmount'    => (float) $this->total_amount,

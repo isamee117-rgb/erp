@@ -105,6 +105,19 @@
             }
             return withRetry(function() { return request('GET', '/sync/transactions' + qs); }, 3, 2000);
         },
+        getPurchases: function(params) {
+            var parts = [];
+            if (params) {
+                if (params.page)   parts.push('page='   + encodeURIComponent(params.page));
+                if (params.search) parts.push('search=' + encodeURIComponent(params.search));
+                if (params.status && params.status !== 'all') parts.push('status=' + encodeURIComponent(params.status));
+                if (params.vendor && params.vendor !== 'all') parts.push('vendor=' + encodeURIComponent(params.vendor));
+                if (params.from)   parts.push('from='   + encodeURIComponent(params.from));
+                if (params.to)     parts.push('to='     + encodeURIComponent(params.to));
+            }
+            var qs = parts.length ? '?' + parts.join('&') : '';
+            return request('GET', '/purchases' + qs);
+        },
         getSales: function(params) {
             var parts = [];
             if (params) {
