@@ -100,6 +100,9 @@ Route::middleware([WebAuth::class])->group(function () {
     });
 
     // Accounting
+    Route::get('/report-builder', function () {
+        return view('pages.report-builder');
+    });
     Route::get('/accounting/coa', function () {
         return view('pages.coa');
     });

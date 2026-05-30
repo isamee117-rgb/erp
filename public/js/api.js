@@ -307,6 +307,12 @@
         getBalanceSheet: function(asOf) {
             return request('GET', '/reports/balance-sheet?as_of=' + asOf);
         },
+        getReportBuilder: function(type) {
+            return request('GET', '/report-builder/' + type);
+        },
+        updateReportBuilder: function(type, mappings) {
+            return request('PUT', '/report-builder/' + type, { mappings: mappings });
+        },
         getFieldSettings: function() {
             return request('GET', '/field-settings');
         },
