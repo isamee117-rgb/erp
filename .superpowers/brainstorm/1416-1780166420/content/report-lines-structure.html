@@ -1,0 +1,141 @@
+<h2>Proposed Predefined Report Lines</h2>
+<p class="subtitle">These are the fixed sections for each report. You map your Chart of Accounts to each line. Does this structure look right?</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">📊 Profit &amp; Loss — Fixed Lines</div>
+    <div class="mockup-body" style="padding:0;font-size:12px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+            <th style="padding:7px 10px;text-align:left;font-size:11px;color:#64748b">SECTION / LINE</th>
+            <th style="padding:7px 10px;text-align:left;font-size:11px;color:#64748b">MAPS FROM</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#eff6ff;">
+            <td style="padding:6px 10px;font-weight:700;color:#1d4ed8">REVENUE</td>
+            <td></td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f4ff;">
+            <td style="padding:5px 10px 5px 20px;">Sales Revenue</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f4ff;">
+            <td style="padding:5px 10px 5px 20px;color:#dc2626">Less: Sales Returns</td>
+            <td style="color:#64748b;font-size:11px;">↳ auto (sale_returns table)</td>
+          </tr>
+          <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4;">
+            <td style="padding:6px 10px;font-weight:600;color:#15803d">= Net Revenue</td>
+            <td style="color:#64748b;font-size:11px;font-style:italic">calculated</td>
+          </tr>
+          <tr style="background:#fef3c7;">
+            <td style="padding:6px 10px;font-weight:700;color:#92400e">COST OF GOODS SOLD</td>
+            <td></td>
+          </tr>
+          <tr style="border-bottom:1px solid #fef3c7;">
+            <td style="padding:5px 10px 5px 20px;">COGS</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="border-bottom:1px solid #e2e8f0;background:#f0fdf4;">
+            <td style="padding:6px 10px;font-weight:600;color:#15803d">= Gross Profit</td>
+            <td style="color:#64748b;font-size:11px;font-style:italic">calculated</td>
+          </tr>
+          <tr style="background:#fef2f2;">
+            <td style="padding:6px 10px;font-weight:700;color:#991b1b">OPERATING EXPENSES</td>
+            <td></td>
+          </tr>
+          <tr style="border-bottom:1px solid #fef2f2;">
+            <td style="padding:5px 10px 5px 20px;">Operating Expenses</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="background:#f0fdf4;">
+            <td style="padding:8px 10px;font-weight:700;color:#15803d;font-size:13px;">= NET PROFIT / LOSS</td>
+            <td style="color:#64748b;font-size:11px;font-style:italic">calculated</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">🏛 Balance Sheet — Fixed Lines</div>
+    <div class="mockup-body" style="padding:0;font-size:12px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+            <th style="padding:7px 10px;text-align:left;font-size:11px;color:#64748b">SECTION / LINE</th>
+            <th style="padding:7px 10px;text-align:left;font-size:11px;color:#64748b">MAPS FROM</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#eff6ff;">
+            <td style="padding:6px 10px;font-weight:700;color:#1d4ed8">ASSETS</td>
+            <td></td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f4ff;">
+            <td style="padding:5px 10px 5px 20px;">Current Assets</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f4ff;">
+            <td style="padding:5px 10px 5px 20px;">Fixed Assets</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="border-bottom:1px solid #e2e8f0;">
+            <td style="padding:5px 10px 5px 20px;">Other Assets</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="border-bottom:2px solid #e2e8f0;background:#f0fdf4;">
+            <td style="padding:6px 10px;font-weight:600;color:#15803d">= Total Assets</td>
+            <td style="color:#64748b;font-size:11px;font-style:italic">calculated</td>
+          </tr>
+          <tr style="background:#fef3c7;">
+            <td style="padding:6px 10px;font-weight:700;color:#92400e">LIABILITIES</td>
+            <td></td>
+          </tr>
+          <tr style="border-bottom:1px solid #fef3c7;">
+            <td style="padding:5px 10px 5px 20px;">Current Liabilities</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="border-bottom:1px solid #fef3c7;">
+            <td style="padding:5px 10px 5px 20px;">Long-term Liabilities</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="border-bottom:2px solid #e2e8f0;background:#f0fdf4;">
+            <td style="padding:6px 10px;font-weight:600;color:#15803d">= Total Liabilities</td>
+            <td style="color:#64748b;font-size:11px;font-style:italic">calculated</td>
+          </tr>
+          <tr style="background:#f5f3ff;">
+            <td style="padding:6px 10px;font-weight:700;color:#6d28d9">EQUITY</td>
+            <td></td>
+          </tr>
+          <tr style="border-bottom:1px solid #f5f3ff;">
+            <td style="padding:5px 10px 5px 20px;">Owner's Equity</td>
+            <td style="color:#3B4FE4;font-size:11px;">↳ map COA accounts</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f5f3ff;">
+            <td style="padding:5px 10px 5px 20px;color:#64748b;">Retained Earnings</td>
+            <td style="color:#64748b;font-size:11px;">↳ auto (net P&amp;L)</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f5f3ff;">
+            <td style="padding:5px 10px 5px 20px;color:#64748b;">Opening Balance Equity</td>
+            <td style="color:#64748b;font-size:11px;">↳ auto (opening balances)</td>
+          </tr>
+          <tr style="background:#f0fdf4;">
+            <td style="padding:8px 10px;font-weight:700;color:#15803d;font-size:13px;">= Total Liab + Equity</td>
+            <td style="color:#64748b;font-size:11px;font-style:italic">calculated</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:16px;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;">
+  <strong>Key rules:</strong>
+  <ul style="margin:6px 0 0 0;padding-left:18px;">
+    <li>Each COA account can only be mapped to <strong>one line</strong> per report (no double-counting)</li>
+    <li>One line can have <strong>multiple accounts</strong> mapped to it</li>
+    <li>Accounts not mapped to any line are shown in an <strong>"Unmapped Accounts"</strong> section at the bottom of the report as a reminder</li>
+  </ul>
+</div>

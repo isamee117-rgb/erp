@@ -1,0 +1,137 @@
+<h2>Design — Section 2: Frontend UI</h2>
+<p class="subtitle">Settings › Report Builder page — configure mappings, then run reports as usual</p>
+
+<div class="section">
+  <h3>Settings Page — Report Builder</h3>
+  <div class="mockup">
+    <div class="mockup-header">Settings › Report Builder &nbsp;(new page, added to sidebar under Settings)</div>
+    <div class="mockup-body" style="padding:14px;font-size:12px;">
+
+      <!-- Tab bar -->
+      <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:16px;">
+        <div style="padding:7px 18px;background:#3B4FE4;color:white;border-radius:6px 6px 0 0;font-weight:600;font-size:12px;cursor:pointer">📊 Profit &amp; Loss</div>
+        <div style="padding:7px 18px;color:#64748b;border-radius:6px 6px 0 0;font-size:12px;cursor:pointer;border:1px solid #e2e8f0;border-bottom:none;background:#f8fafc">🏛 Balance Sheet</div>
+      </div>
+
+      <!-- Info banner -->
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:9px 14px;margin-bottom:14px;font-size:11px;color:#1d4ed8">
+        ℹ Map your Chart of Accounts to each P&amp;L line. One account can only be assigned to one line. Save when done — reports will use these mappings immediately.
+      </div>
+
+      <!-- Mapping rows -->
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+            <th style="padding:8px 12px;text-align:left;width:28%;color:#374151">Report Line</th>
+            <th style="padding:8px 12px;text-align:left;color:#374151">Mapped Accounts <span style="font-weight:400;color:#94a3b8">(select one or more from Chart of Accounts)</span></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <!-- Section header -->
+          <tr style="background:#eff6ff;">
+            <td colspan="2" style="padding:7px 12px;font-weight:700;color:#1d4ed8;font-size:11px;letter-spacing:0.5px">REVENUE</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f4ff;">
+            <td style="padding:8px 12px;font-weight:500;">Sales Revenue</td>
+            <td style="padding:6px 12px;">
+              <div style="border:1px solid #cbd5e1;border-radius:6px;padding:5px 10px;background:white;display:flex;flex-wrap:wrap;gap:4px;min-height:32px;">
+                <span style="background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:2px 8px;font-size:11px;">4100 - Sales Revenue ×</span>
+                <span style="background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:2px 8px;font-size:11px;">4150 - Service Revenue ×</span>
+                <span style="color:#94a3b8;font-size:11px;align-self:center;">+ add account…</span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Section header -->
+          <tr style="background:#fef3c7;">
+            <td colspan="2" style="padding:7px 12px;font-weight:700;color:#92400e;font-size:11px;letter-spacing:0.5px">COST OF GOODS SOLD</td>
+          </tr>
+          <tr style="border-bottom:1px solid #fef3c7;">
+            <td style="padding:8px 12px;font-weight:500;">COGS</td>
+            <td style="padding:6px 12px;">
+              <div style="border:1px solid #cbd5e1;border-radius:6px;padding:5px 10px;background:white;display:flex;flex-wrap:wrap;gap:4px;min-height:32px;">
+                <span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:2px 8px;font-size:11px;">5000 - Cost of Goods Sold ×</span>
+                <span style="color:#94a3b8;font-size:11px;align-self:center;">+ add account…</span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Section header -->
+          <tr style="background:#fef2f2;">
+            <td colspan="2" style="padding:7px 12px;font-weight:700;color:#991b1b;font-size:11px;letter-spacing:0.5px">OPERATING EXPENSES</td>
+          </tr>
+          <tr style="border-bottom:1px solid #fef2f2;">
+            <td style="padding:8px 12px;font-weight:500;">Operating Expenses</td>
+            <td style="padding:6px 12px;">
+              <div style="border:1px dashed #fca5a5;border-radius:6px;padding:5px 10px;background:#fff;display:flex;align-items:center;min-height:32px;">
+                <span style="color:#94a3b8;font-size:11px;">No accounts mapped yet — click to add…</span>
+              </div>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+
+      <!-- Unmapped warning -->
+      <div style="margin-top:14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:9px 14px;font-size:11px;">
+        <strong style="color:#c2410c;">⚠ 3 Revenue/Expense accounts not mapped:</strong>
+        <span style="color:#7c2d12;margin-left:6px;">6000 - Depreciation, 6100 - Rent, 4200 - Discount Received</span>
+        <span style="color:#94a3b8;margin-left:8px;">— these will appear as "Unmapped" in the report</span>
+      </div>
+
+      <!-- Footer actions -->
+      <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;">
+        <span class="mock-button" style="font-size:12px;padding:6px 16px;background:#f1f5f9;color:#374151;">Reset</span>
+        <span class="mock-button" style="font-size:12px;padding:6px 16px;background:#3B4FE4;color:white;">💾 Save Mapping</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>How the P&amp;L Report changes after mapping</h3>
+  <div class="mockup">
+    <div class="mockup-header">Reports › Profit &amp; Loss — after mapping is configured</div>
+    <div class="mockup-body" style="padding:12px;font-size:12px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr style="border-bottom:2px solid #e2e8f0;"><th style="padding:6px 10px;text-align:left">Line</th><th style="padding:6px 10px;text-align:right">Amount</th></tr>
+        <tr style="background:#eff6ff;"><td colspan="2" style="padding:5px 10px;font-weight:700;color:#1d4ed8;font-size:11px">REVENUE</td></tr>
+        <tr style="border-bottom:1px solid #f0f4ff;"><td style="padding:4px 10px 4px 20px">Sales Revenue</td><td style="text-align:right;padding:4px 10px">1,250,000</td></tr>
+        <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:4px 10px 4px 20px;color:#dc2626">Less: Sales Returns</td><td style="text-align:right;padding:4px 10px;color:#dc2626">(12,500)</td></tr>
+        <tr style="border-bottom:2px solid #e2e8f0;background:#f0fdf4;"><td style="padding:5px 10px;font-weight:600;color:#15803d">Net Revenue</td><td style="text-align:right;font-weight:600;color:#15803d;padding:5px 10px">1,237,500</td></tr>
+        <tr style="background:#fef3c7;"><td colspan="2" style="padding:5px 10px;font-weight:700;color:#92400e;font-size:11px">COST OF GOODS SOLD</td></tr>
+        <tr style="border-bottom:1px solid #fef3c7;"><td style="padding:4px 10px 4px 20px">COGS</td><td style="text-align:right;padding:4px 10px">(780,000)</td></tr>
+        <tr style="border-bottom:2px solid #e2e8f0;background:#f0fdf4;"><td style="padding:5px 10px;font-weight:600;color:#15803d">Gross Profit</td><td style="text-align:right;font-weight:600;color:#15803d;padding:5px 10px">457,500</td></tr>
+        <tr style="background:#fef2f2;"><td colspan="2" style="padding:5px 10px;font-weight:700;color:#991b1b;font-size:11px">OPERATING EXPENSES</td></tr>
+        <tr style="border-bottom:1px solid #fef2f2;"><td style="padding:4px 10px 4px 20px">Operating Expenses</td><td style="text-align:right;padding:4px 10px">(125,000)</td></tr>
+        <tr style="background:#f0fdf4;border-top:2px solid #e2e8f0;"><td style="padding:7px 10px;font-weight:700;color:#15803d;font-size:13px">NET PROFIT</td><td style="text-align:right;font-weight:700;color:#15803d;padding:7px 10px;font-size:13px">332,500</td></tr>
+        <!-- Unmapped warning row -->
+        <tr style="background:#fff7ed;"><td colspan="2" style="padding:6px 10px;font-size:11px;color:#c2410c;">⚠ Unmapped accounts: 6000 - Depreciation (45,000), 6100 - Rent (24,000) — excluded from above totals</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>New Files Summary</h3>
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;font-size:12px;font-family:monospace;line-height:2">
+    <div style="color:#7c3aed">database/migrations/</div>
+    <div style="padding-left:16px;color:#374151">2026_05_30_000001_create_report_line_mappings_table.php</div>
+    <div style="color:#7c3aed;margin-top:6px">app/Models/</div>
+    <div style="padding-left:16px;color:#374151">ReportLineMapping.php</div>
+    <div style="color:#7c3aed;margin-top:6px">app/Http/Controllers/Api/</div>
+    <div style="padding-left:16px;color:#374151">ReportBuilderController.php &nbsp;<span style="color:#94a3b8">(index, update)</span></div>
+    <div style="color:#7c3aed;margin-top:6px">resources/views/pages/</div>
+    <div style="padding-left:16px;color:#374151">report-builder.blade.php</div>
+    <div style="color:#7c3aed;margin-top:6px">public/js/pages/</div>
+    <div style="padding-left:16px;color:#374151">report-builder.js</div>
+    <div style="color:#6b7280;margin-top:6px">— Modified —</div>
+    <div style="padding-left:16px;color:#374151">app/Http/Controllers/Api/ReportController.php</div>
+    <div style="padding-left:16px;color:#374151">routes/api.php &nbsp;<span style="color:#94a3b8">(2 new routes)</span></div>
+    <div style="padding-left:16px;color:#374151">routes/web.php &nbsp;<span style="color:#94a3b8">(1 new page route)</span></div>
+    <div style="padding-left:16px;color:#374151">resources/views/layouts/app.blade.php &nbsp;<span style="color:#94a3b8">(sidebar link)</span></div>
+  </div>
+</div>
+
+<p style="text-align:center;color:#64748b;margin-top:16px;font-size:13px">Does this frontend design look right? Reply in the terminal to confirm and I'll write the full spec doc.</p>

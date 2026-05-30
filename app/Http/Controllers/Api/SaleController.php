@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSaleRequest;
 use App\Http\Resources\SaleOrderResource;
 use App\Http\Resources\SaleReturnResource;
+use App\Models\SaleOrder;
 use App\Services\JournalPostingService;
 use App\Services\SaleService;
 use Illuminate\Http\Request;
@@ -17,6 +18,38 @@ class SaleController extends Controller
         protected SaleService $saleService,
         protected JournalPostingService $journalService,
     ) {}
+
+    public function index(Request $request)
+    {
+        $user = $request->get('auth_user');
+        $coId = $user->company_id;
+
+        $query = SaleOrder::with(['items', 'customer', 'returns'])
+            ->where('company_id', $coId)
+            ->orderBy('created_at', 'desc');
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                  ->orWhere('invoice_no', 'like', "%{$search}%")
+                  ->orWhereHas('customer', fn($cq) => $cq->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if (($payment = $request->query('payment')) && $payment !== 'all') {
+            $query->where('payment_method', $payment);
+        }
+
+        if ($from = $request->query('from')) {
+            $query->where('created_at', '>=', $from . ' 00:00:00');
+        }
+
+        if ($to = $request->query('to')) {
+            $query->where('created_at', '<=', $to . ' 23:59:59');
+        }
+
+        return SaleOrderResource::collection($query->paginate(50));
+    }
 
     public function store(StoreSaleRequest $request)
     {

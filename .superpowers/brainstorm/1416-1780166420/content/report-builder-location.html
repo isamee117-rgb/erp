@@ -1,0 +1,68 @@
+<h2>Where should the Report Builder UI live?</h2>
+<p class="subtitle">Where does the user go to configure P&L and Balance Sheet account mappings?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Inside Reports Page — "Configure" button</h3>
+      <p>On the P&amp;L / Balance Sheet panel, a ⚙ Configure button opens a side-drawer or inline panel to map accounts. User stays in the reports flow.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Reports › Profit &amp; Loss</div>
+        <div class="mockup-body" style="padding:10px;font-size:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <strong>Profit &amp; Loss</strong>
+            <div>
+              <span class="mock-button" style="font-size:11px;padding:3px 8px;margin-right:4px">⚙ Configure</span>
+              <span class="mock-button" style="font-size:11px;padding:3px 8px">▶ Run Report</span>
+            </div>
+          </div>
+          <div style="border:1px dashed #ccc;border-radius:4px;padding:8px;color:#888;font-size:11px">
+            [ Configure drawer slides in → map accounts to P&amp;L lines ]
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Contextual — configure right where you run the report</li><li>No separate navigation</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Clutters the report page</li><li>Drawer/modal adds complexity</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Dedicated Settings Page — "Report Builder"</h3>
+      <p>A new page under Settings (like Chart of Accounts) called "Report Builder". User goes there once to configure, then runs reports normally.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Settings › Report Builder</div>
+        <div class="mockup-body" style="padding:10px;font-size:12px;">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <span class="mock-button" style="font-size:11px;padding:3px 10px;background:#3B4FE4;color:white">Profit &amp; Loss</span>
+            <span class="mock-button" style="font-size:11px;padding:3px 10px">Balance Sheet</span>
+          </div>
+          <div style="border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;font-size:11px">
+            <div style="background:#f8fafc;padding:5px 10px;font-weight:600;border-bottom:1px solid #e2e8f0">P&amp;L Line → Account Mapping</div>
+            <div style="padding:5px 10px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center">
+              <span>Sales Revenue</span>
+              <span style="color:#3B4FE4">4100 - Sales Revenue + 2 more ▾</span>
+            </div>
+            <div style="padding:5px 10px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center">
+              <span>Cost of Goods Sold</span>
+              <span style="color:#3B4FE4">5000 - COGS ▾</span>
+            </div>
+            <div style="padding:5px 10px;display:flex;justify-content:space-between;align-items:center">
+              <span>Operating Expenses</span>
+              <span style="color:#888">Not mapped ▾</span>
+            </div>
+          </div>
+          <div style="margin-top:8px;text-align:right"><span class="mock-button" style="font-size:11px;padding:3px 10px">💾 Save Mapping</span></div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Clean separation — configure once, use always</li><li>More screen space for the mapping UI</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>User must navigate away from Reports to configure</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

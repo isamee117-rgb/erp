@@ -37,6 +37,11 @@ class SaleOrder extends Model
         return $this->belongsTo(Party::class, 'customer_id');
     }
 
+    public function returns()
+    {
+        return $this->hasMany(SaleReturn::class, 'original_sale_id');
+    }
+
     public function scopePending($query)
     {
         return $query->where('is_returned', false)
