@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\ChartOfAccountController;
 use App\Http\Controllers\Api\AccountMappingController;
 use App\Http\Controllers\Api\JournalEntryController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\ReportBuilderController;
 use App\Http\Controllers\Api\JobCardController;
 use App\Http\Middleware\ApiTokenAuth;
 
@@ -135,5 +136,8 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
 
         Route::get('/reports/profit-loss',   [ReportController::class, 'profitLoss']);
         Route::get('/reports/balance-sheet', [ReportController::class, 'balanceSheet']);
+
+        Route::get('/report-builder/{type}', [ReportBuilderController::class, 'index']);
+        Route::put('/report-builder/{type}', [ReportBuilderController::class, 'update']);
     });
 });
