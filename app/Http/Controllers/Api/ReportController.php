@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ChartOfAccount;
 use App\Models\JournalEntryLine;
+use App\Models\ReportLineMapping;
 use App\Models\SaleReturn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,20 +27,36 @@ class ReportController extends Controller
             'to'   => 'required|date|after_or_equal:from',
         ]);
 
+        $salesReturns = (float) SaleReturn::where('sale_returns.company_id', $user->company_id)
+            ->join('sale_orders', 'sale_returns.original_sale_id', '=', 'sale_orders.invoice_no')
+            ->whereDate('sale_orders.created_at', '>=', $from)
+            ->whereDate('sale_orders.created_at', '<=', $to)
+            ->sum('sale_returns.total_amount');
+
+        $mappings = ReportLineMapping::where('company_id', $user->company_id)
+            ->where('report_type', 'profit_loss')
+            ->get()
+            ->groupBy('line_key');
+
+        if ($mappings->isNotEmpty()) {
+            return $this->profitLossMapped($user->company_id, $from, $to, $mappings, $salesReturns);
+        }
+
+        return $this->profitLossFallback($user->company_id, $from, $to, $salesReturns);
+    }
+
+    private function profitLossFallback(string $companyId, string $from, string $to, float $salesReturns): \Illuminate\Http\JsonResponse
+    {
         $lines = JournalEntryLine::query()
             ->join('chart_of_accounts as coa', 'journal_entry_lines.account_id', '=', 'coa.id')
             ->join('journal_entries as je', 'journal_entry_lines.journal_entry_id', '=', 'je.id')
-            ->where('je.company_id', $user->company_id)
+            ->where('je.company_id', $companyId)
             ->where('je.is_posted', true)
             ->whereDate('je.date', '>=', $from)
             ->whereDate('je.date', '<=', $to)
             ->whereIn('coa.type', ['Revenue', 'Expense'])
             ->select(
-                'coa.id',
-                'coa.code',
-                'coa.name',
-                'coa.type',
-                'coa.sub_type',
+                'coa.id', 'coa.code', 'coa.name', 'coa.type', 'coa.sub_type',
                 DB::raw('SUM(journal_entry_lines.debit) as total_debit'),
                 DB::raw('SUM(journal_entry_lines.credit) as total_credit')
             )
@@ -46,39 +64,119 @@ class ReportController extends Controller
             ->orderBy('coa.code')
             ->get();
 
-        $revenue  = $lines->where('type', 'Revenue');
-        $expenses = $lines->where('type', 'Expense');
-
-        // cost_of_goods_sold sub_type separates COGS from operating expenses
+        $revenue      = $lines->where('type', 'Revenue');
+        $expenses     = $lines->where('type', 'Expense');
         $cogsAccounts = $expenses->where('sub_type', 'cost_of_goods_sold');
         $opexAccounts = $expenses->whereNotIn('sub_type', ['cost_of_goods_sold']);
 
         $totalRevenue  = $revenue->sum(fn($a) => $a->total_credit - $a->total_debit);
         $totalCogs     = $cogsAccounts->sum(fn($a) => $a->total_debit - $a->total_credit);
         $totalExpenses = $opexAccounts->sum(fn($a) => $a->total_debit - $a->total_credit);
-
-        $salesReturns = (float) SaleReturn::where('sale_returns.company_id', $user->company_id)
-            ->join('sale_orders', 'sale_returns.original_sale_id', '=', 'sale_orders.invoice_no')
-            ->whereDate('sale_orders.created_at', '>=', $from)
-            ->whereDate('sale_orders.created_at', '<=', $to)
-            ->sum('sale_returns.total_amount');
-
-        $netRevenue  = $totalRevenue - $salesReturns;
-        $grossProfit = $netRevenue - $totalCogs;
-        $netProfit   = $grossProfit - $totalExpenses;
+        $netRevenue    = $totalRevenue - $salesReturns;
+        $grossProfit   = $netRevenue - $totalCogs;
+        $netProfit     = $grossProfit - $totalExpenses;
 
         return response()->json([
-            'period'         => ['from' => $from, 'to' => $to],
-            'revenue'        => $this->formatAccountGroup($revenue->groupBy('sub_type'), 'credit'),
-            'totalRevenue'   => round($totalRevenue, 2),
-            'salesReturns'   => round($salesReturns, 2),
-            'netRevenue'     => round($netRevenue, 2),
-            'cogs'           => $this->formatAccountGroup($cogsAccounts->groupBy('sub_type'), 'debit'),
-            'totalCogs'      => round($totalCogs, 2),
-            'grossProfit'    => round($grossProfit, 2),
-            'expenses'       => $this->formatAccountGroup($opexAccounts->groupBy('sub_type'), 'debit'),
-            'totalExpenses'  => round($totalExpenses, 2),
-            'netProfit'      => round($netProfit, 2),
+            'period'        => ['from' => $from, 'to' => $to],
+            'useMappings'   => false,
+            'revenue'       => $this->formatAccountGroup($revenue->groupBy('sub_type'), 'credit'),
+            'totalRevenue'  => round($totalRevenue, 2),
+            'salesReturns'  => round($salesReturns, 2),
+            'netRevenue'    => round($netRevenue, 2),
+            'cogs'          => $this->formatAccountGroup($cogsAccounts->groupBy('sub_type'), 'debit'),
+            'totalCogs'     => round($totalCogs, 2),
+            'grossProfit'   => round($grossProfit, 2),
+            'expenses'      => $this->formatAccountGroup($opexAccounts->groupBy('sub_type'), 'debit'),
+            'totalExpenses' => round($totalExpenses, 2),
+            'netProfit'     => round($netProfit, 2),
+        ]);
+    }
+
+    private function profitLossMapped(string $companyId, string $from, string $to, $mappings, float $salesReturns): \Illuminate\Http\JsonResponse
+    {
+        $lineConfig = [
+            'sales_revenue'      => ['label' => 'Sales Revenue',      'normalBalance' => 'credit'],
+            'cogs'               => ['label' => 'Cost of Goods Sold',  'normalBalance' => 'debit'],
+            'operating_expenses' => ['label' => 'Operating Expenses',  'normalBalance' => 'debit'],
+        ];
+
+        $allMappedIds = $mappings->flatten()->pluck('account_id')->filter()->toArray();
+
+        $journalTotals = [];
+        if (!empty($allMappedIds)) {
+            JournalEntryLine::query()
+                ->join('journal_entries as je', 'journal_entry_lines.journal_entry_id', '=', 'je.id')
+                ->where('je.company_id', $companyId)
+                ->where('je.is_posted', true)
+                ->whereDate('je.date', '>=', $from)
+                ->whereDate('je.date', '<=', $to)
+                ->whereIn('journal_entry_lines.account_id', $allMappedIds)
+                ->select(
+                    'journal_entry_lines.account_id',
+                    DB::raw('SUM(journal_entry_lines.debit) as total_debit'),
+                    DB::raw('SUM(journal_entry_lines.credit) as total_credit')
+                )
+                ->groupBy('journal_entry_lines.account_id')
+                ->get()
+                ->each(function ($row) use (&$journalTotals) {
+                    $journalTotals[$row->account_id] = $row;
+                });
+        }
+
+        $accountDetails = ChartOfAccount::whereIn('id', $allMappedIds)
+            ->select('id', 'code', 'name')
+            ->get()
+            ->keyBy('id');
+
+        $lines = [];
+        foreach ($lineConfig as $lineKey => $config) {
+            $lineMappings = $mappings[$lineKey] ?? collect();
+            $lineAccounts = [];
+            $lineTotal    = 0;
+
+            foreach ($lineMappings as $mapping) {
+                $acc    = $accountDetails[$mapping->account_id] ?? null;
+                if (!$acc) continue;
+                $jt     = $journalTotals[$acc->id] ?? null;
+                $debit  = $jt ? (float) $jt->total_debit  : 0;
+                $credit = $jt ? (float) $jt->total_credit : 0;
+                $balance = $config['normalBalance'] === 'credit'
+                    ? $credit - $debit
+                    : $debit  - $credit;
+
+                $lineAccounts[] = ['id' => $acc->id, 'code' => $acc->code, 'name' => $acc->name, 'balance' => round($balance, 2)];
+                $lineTotal += $balance;
+            }
+
+            $lines[$lineKey] = ['label' => $config['label'], 'accounts' => $lineAccounts, 'total' => round($lineTotal, 2)];
+        }
+
+        $allRevExpIds = ChartOfAccount::where('company_id', $companyId)
+            ->whereIn('type', ['Revenue', 'Expense'])
+            ->pluck('id')->toArray();
+
+        $unmappedAccounts = ChartOfAccount::whereIn('id', array_diff($allRevExpIds, $allMappedIds))
+            ->select('id', 'code', 'name', 'type')
+            ->get()
+            ->map(fn($a) => ['id' => $a->id, 'code' => $a->code, 'name' => $a->name, 'type' => $a->type])
+            ->values()->toArray();
+
+        $totalRevenue  = $lines['sales_revenue']['total'];
+        $totalCogs     = $lines['cogs']['total'];
+        $totalExpenses = $lines['operating_expenses']['total'];
+        $netRevenue    = $totalRevenue - $salesReturns;
+        $grossProfit   = $netRevenue - $totalCogs;
+        $netProfit     = $grossProfit - $totalExpenses;
+
+        return response()->json([
+            'period'           => ['from' => $from, 'to' => $to],
+            'useMappings'      => true,
+            'lines'            => $lines,
+            'salesReturns'     => round($salesReturns, 2),
+            'netRevenue'       => round($netRevenue, 2),
+            'grossProfit'      => round($grossProfit, 2),
+            'netProfit'        => round($netProfit, 2),
+            'unmappedAccounts' => $unmappedAccounts,
         ]);
     }
 
