@@ -182,36 +182,43 @@ class ReportController extends Controller
 
     public function balanceSheet(Request $request)
     {
-        $user  = $request->get('auth_user');
+        $user = $request->get('auth_user');
         if (!$user->company_id) {
             return response()->json(['error' => 'Reports are not available for Super Admin. Please select a company.'], 403);
         }
 
-        $asOf  = $request->input('as_of');
-
+        $asOf = $request->input('as_of');
         $request->validate(['as_of' => 'required|date']);
 
-        // Fetch all Balance Sheet accounts with their opening balances
-        // and journal entry movements up to as_of date
+        $mappings = ReportLineMapping::where('company_id', $user->company_id)
+            ->where('report_type', 'balance_sheet')
+            ->get()
+            ->groupBy('line_key');
+
+        if ($mappings->isNotEmpty()) {
+            return $this->balanceSheetMapped($user->company_id, $asOf, $mappings);
+        }
+
+        return $this->balanceSheetFallback($user->company_id, $asOf);
+    }
+
+    private function balanceSheetFallback(string $companyId, string $asOf): \Illuminate\Http\JsonResponse
+    {
         $lines = DB::table('chart_of_accounts as coa')
-            ->where('coa.company_id', $user->company_id)
+            ->where('coa.company_id', $companyId)
             ->whereIn('coa.type', ['Asset', 'Liability', 'Equity'])
-            ->leftJoin('journal_entry_lines as jel', function ($join) use ($asOf, $user) {
+            ->leftJoin('journal_entry_lines as jel', function ($join) use ($asOf, $companyId) {
                 $join->on('jel.account_id', '=', 'coa.id')
-                    ->whereExists(function ($q) use ($asOf, $user) {
+                    ->whereExists(function ($q) use ($asOf, $companyId) {
                         $q->from('journal_entries as je')
                             ->whereColumn('je.id', 'jel.journal_entry_id')
-                            ->where('je.company_id', $user->company_id)
+                            ->where('je.company_id', $companyId)
                             ->where('je.is_posted', true)
                             ->whereDate('je.date', '<=', $asOf);
                     });
             })
             ->select(
-                'coa.id',
-                'coa.code',
-                'coa.name',
-                'coa.type',
-                'coa.sub_type',
+                'coa.id', 'coa.code', 'coa.name', 'coa.type', 'coa.sub_type',
                 DB::raw('COALESCE(coa.opening_balance, 0) as opening_balance'),
                 DB::raw('COALESCE(SUM(jel.debit), 0) as total_debit'),
                 DB::raw('COALESCE(SUM(jel.credit), 0) as total_credit')
@@ -220,37 +227,124 @@ class ReportController extends Controller
             ->orderBy('coa.code')
             ->get();
 
-        // Retained earnings = net P&L from inception to as_of
-        $retainedEarnings = $this->calculateRetainedEarnings($user->company_id, $asOf);
+        $retainedEarnings     = $this->calculateRetainedEarnings($companyId, $asOf);
+        $openingBalanceEquity = $this->calculateOpeningBalanceEquity($companyId);
 
         $assets      = $lines->where('type', 'Asset');
         $liabilities = $lines->where('type', 'Liability');
         $equity      = $lines->where('type', 'Equity');
 
-        // opening_balance + journal movements = true account balance
         $totalAssets      = $assets->sum(fn($a) => $a->opening_balance + $a->total_debit - $a->total_credit);
         $totalLiabilities = $liabilities->sum(fn($a) => $a->opening_balance + $a->total_credit - $a->total_debit);
         $totalEquityAccts = $equity->sum(fn($a) => $a->opening_balance + $a->total_credit - $a->total_debit);
-
-        // Opening Balance Equity: net of all opening balances across Asset/Liability/Equity accounts.
-        // Asset opening balances that have no corresponding journal entry must be offset here
-        // so the Balance Sheet equation (Assets = Liabilities + Equity) holds.
-        $openingBalanceEquity = $this->calculateOpeningBalanceEquity($user->company_id);
-
-        $totalEquity     = $totalEquityAccts + $retainedEarnings + $openingBalanceEquity;
-        $totalLiabEquity = $totalLiabilities + $totalEquity;
+        $totalEquity      = $totalEquityAccts + $retainedEarnings + $openingBalanceEquity;
 
         return response()->json([
-            'asOf'                  => $asOf,
-            'assets'                => $this->formatAccountGroupWithOpening($assets->groupBy('sub_type'), 'debit'),
-            'totalAssets'           => round($totalAssets, 2),
-            'liabilities'           => $this->formatAccountGroupWithOpening($liabilities->groupBy('sub_type'), 'credit'),
-            'totalLiabilities'      => round($totalLiabilities, 2),
-            'equity'                => $this->formatAccountGroupWithOpening($equity->groupBy('sub_type'), 'credit'),
-            'openingBalanceEquity'  => round($openingBalanceEquity, 2),
-            'retainedEarnings'      => round($retainedEarnings, 2),
-            'totalEquity'           => round($totalEquity, 2),
-            'totalLiabEquity'       => round($totalLiabEquity, 2),
+            'asOf'                 => $asOf,
+            'useMappings'          => false,
+            'assets'               => $this->formatAccountGroupWithOpening($assets->groupBy('sub_type'), 'debit'),
+            'totalAssets'          => round($totalAssets, 2),
+            'liabilities'          => $this->formatAccountGroupWithOpening($liabilities->groupBy('sub_type'), 'credit'),
+            'totalLiabilities'     => round($totalLiabilities, 2),
+            'equity'               => $this->formatAccountGroupWithOpening($equity->groupBy('sub_type'), 'credit'),
+            'openingBalanceEquity' => round($openingBalanceEquity, 2),
+            'retainedEarnings'     => round($retainedEarnings, 2),
+            'totalEquity'          => round($totalEquity, 2),
+            'totalLiabEquity'      => round($totalLiabilities + $totalEquity, 2),
+        ]);
+    }
+
+    private function balanceSheetMapped(string $companyId, string $asOf, $mappings): \Illuminate\Http\JsonResponse
+    {
+        $lineConfig = [
+            'current_assets'        => ['label' => 'Current Assets',        'isAsset' => true],
+            'fixed_assets'          => ['label' => 'Fixed Assets',           'isAsset' => true],
+            'other_assets'          => ['label' => 'Other Assets',           'isAsset' => true],
+            'current_liabilities'   => ['label' => 'Current Liabilities',    'isAsset' => false],
+            'long_term_liabilities' => ['label' => 'Long-term Liabilities',  'isAsset' => false],
+            'owners_equity'         => ['label' => "Owner's Equity",          'isAsset' => false],
+        ];
+
+        $allMappedIds = $mappings->flatten()->pluck('account_id')->filter()->toArray();
+
+        $journalTotals = [];
+        if (!empty($allMappedIds)) {
+            DB::table('journal_entry_lines as jel')
+                ->join('journal_entries as je', 'je.id', '=', 'jel.journal_entry_id')
+                ->where('je.company_id', $companyId)
+                ->where('je.is_posted', true)
+                ->whereDate('je.date', '<=', $asOf)
+                ->whereIn('jel.account_id', $allMappedIds)
+                ->select('jel.account_id', DB::raw('SUM(jel.debit) as total_debit'), DB::raw('SUM(jel.credit) as total_credit'))
+                ->groupBy('jel.account_id')
+                ->get()
+                ->each(function ($row) use (&$journalTotals) {
+                    $journalTotals[$row->account_id] = $row;
+                });
+        }
+
+        $accountDetails = ChartOfAccount::whereIn('id', $allMappedIds)
+            ->select('id', 'code', 'name', 'opening_balance')
+            ->get()
+            ->keyBy('id');
+
+        $lines = [];
+        foreach ($lineConfig as $lineKey => $config) {
+            $lineMappings = $mappings[$lineKey] ?? collect();
+            $lineAccounts = [];
+            $lineTotal    = 0;
+
+            foreach ($lineMappings as $mapping) {
+                $acc     = $accountDetails[$mapping->account_id] ?? null;
+                if (!$acc) continue;
+                $jt      = $journalTotals[$acc->id] ?? null;
+                $debit   = $jt ? (float) $jt->total_debit  : 0;
+                $credit  = $jt ? (float) $jt->total_credit : 0;
+                $opening = (float) ($acc->opening_balance ?? 0);
+                $balance = $config['isAsset']
+                    ? $opening + $debit - $credit
+                    : $opening + $credit - $debit;
+
+                if (abs($balance) < 0.005) continue;
+
+                $lineAccounts[] = ['id' => $acc->id, 'code' => $acc->code, 'name' => $acc->name, 'balance' => round($balance, 2)];
+                $lineTotal += $balance;
+            }
+
+            $lines[$lineKey] = ['label' => $config['label'], 'accounts' => $lineAccounts, 'total' => round($lineTotal, 2)];
+        }
+
+        $retainedEarnings     = $this->calculateRetainedEarnings($companyId, $asOf);
+        $openingBalanceEquity = $this->calculateOpeningBalanceEquity($companyId);
+
+        $assetKeys     = ['current_assets', 'fixed_assets', 'other_assets'];
+        $liabilityKeys = ['current_liabilities', 'long_term_liabilities'];
+
+        $totalAssets      = array_sum(array_map(fn($k) => $lines[$k]['total'], $assetKeys));
+        $totalLiabilities = array_sum(array_map(fn($k) => $lines[$k]['total'], $liabilityKeys));
+        $totalEquity      = $lines['owners_equity']['total'] + $retainedEarnings + $openingBalanceEquity;
+
+        $allBsIds = ChartOfAccount::where('company_id', $companyId)
+            ->whereIn('type', ['Asset', 'Liability', 'Equity'])
+            ->pluck('id')->toArray();
+
+        $unmappedAccounts = ChartOfAccount::whereIn('id', array_diff($allBsIds, $allMappedIds))
+            ->select('id', 'code', 'name', 'type')
+            ->get()
+            ->map(fn($a) => ['id' => $a->id, 'code' => $a->code, 'name' => $a->name, 'type' => $a->type])
+            ->values()->toArray();
+
+        return response()->json([
+            'asOf'                 => $asOf,
+            'useMappings'          => true,
+            'lines'                => $lines,
+            'retainedEarnings'     => round($retainedEarnings, 2),
+            'openingBalanceEquity' => round($openingBalanceEquity, 2),
+            'totalAssets'          => round($totalAssets, 2),
+            'totalLiabilities'     => round($totalLiabilities, 2),
+            'totalEquity'          => round($totalEquity, 2),
+            'totalLiabEquity'      => round($totalLiabilities + $totalEquity, 2),
+            'unmappedAccounts'     => $unmappedAccounts,
         ]);
     }
 
