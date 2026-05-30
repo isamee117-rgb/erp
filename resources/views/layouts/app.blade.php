@@ -145,6 +145,12 @@
                             </a>
                         </li>
                         <li class="nav-item" data-module="Accounting">
+                            <a class="nav-link" href="{{ $base }}/report-builder" data-nav-path="/report-builder">
+                                <span class="nav-link-icon"><i class="ti ti-layout-list"></i></span>
+                                <span class="nav-link-title">Report Builder</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-module="Accounting">
                             <a class="nav-link" href="{{ $base }}/accounting/journals" data-nav-path="/accounting/journals">
                                 <span class="nav-link-icon"><i class="ti ti-notebook"></i></span>
                                 <span class="nav-link-title">Journal Entries</span>
