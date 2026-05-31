@@ -117,6 +117,12 @@
             var qs = parts.length ? '?' + parts.join('&') : '';
             return request('GET', '/payments' + qs);
         },
+        getPartyLedger: function(partyId, from, to) {
+            var parts = ['partyId=' + encodeURIComponent(partyId)];
+            if (from) parts.push('from=' + encodeURIComponent(from));
+            if (to)   parts.push('to='   + encodeURIComponent(to));
+            return request('GET', '/parties/' + encodeURIComponent(partyId) + '/ledger?' + parts.slice(1).join('&'));
+        },
         getPartyReferences: function(partyId) {
             return request('GET', '/parties/' + encodeURIComponent(partyId) + '/references');
         },

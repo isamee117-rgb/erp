@@ -1,23 +1,7 @@
 var plPage=1, plPerPage=20;
+var plEntries=[], plOpeningBalance=0, plIsCustomer=true, plLoading=false;
 
-function plRefetchIfNeeded(callback) {
-    var loadedFrom = window.ERP.state.transactionLoadedFrom;
-    var requestedFrom = (document.getElementById('dateFrom') ? document.getElementById('dateFrom').value : '') || '';
-    var requestedTo   = (document.getElementById('dateTo')   ? document.getElementById('dateTo').value   : '') || '';
-    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
-        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
-            .then(function(txData) {
-                ERP.mergeState(txData);
-                if (txData.loadedFrom) window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                if (typeof callback === 'function') callback();
-            })
-            .catch(function(e) { alert('Error loading data: ' + e.message); });
-    } else {
-        if (typeof callback === 'function') callback();
-    }
-}
-
-window.ERP.onReady = function(){ populateParties(); renderPage(); };
+window.ERP.onReady = function(){ populateParties(); };
 
 /* ── SDD helpers ── */
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -40,7 +24,7 @@ function sddSelectParty(partyId, label){
     document.getElementById('partySelect-disp').textContent = label;
     document.getElementById('partySelect-disp').style.color = '#1A1D2E';
     document.querySelectorAll('.sdd-wrap.open').forEach(function(w){w.classList.remove('open');});
-    plPage=1; renderPage();
+    plLoad();
 }
 document.addEventListener('click',function(e){
     if(!e.target.closest('.sdd-wrap')) document.querySelectorAll('.sdd-wrap.open').forEach(function(w){w.classList.remove('open');});
@@ -61,10 +45,39 @@ document.addEventListener('DOMContentLoaded', function() {
         clearBtn.addEventListener('click', function() {
             document.getElementById('dateFrom').value = '';
             document.getElementById('dateTo').value   = '';
-            renderPage();
+            plLoad();
         });
     }
+    ['dateFrom','dateTo'].forEach(function(id){
+        var el=document.getElementById(id);
+        if(el) el.addEventListener('change', function(){ plLoad(); });
+    });
 });
+
+function plLoad(){
+    var partyId=document.getElementById('partySelect').value;
+    if(!partyId){ renderPage(); return; }
+    if(plLoading) return;
+    plLoading=true; plPage=1;
+
+    var tbody=document.getElementById('ledgerBody');
+    if(tbody) tbody.innerHTML='<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+
+    var from=document.getElementById('dateFrom').value||'';
+    var to=document.getElementById('dateTo').value||'';
+
+    ERP.api.getPartyLedger(partyId, from, to)
+        .then(function(res){
+            plEntries=res.entries||[];
+            plOpeningBalance=res.openingBalance||0;
+            plIsCustomer=res.isCustomer!==false;
+            renderPage();
+        })
+        .catch(function(e){
+            if(tbody) tbody.innerHTML='<tr><td colspan="6" class="text-center text-danger py-4">Error: '+e.message+'</td></tr>';
+        })
+        .finally(function(){ plLoading=false; });
+}
 
 function populateParties(){
     var html='';
@@ -77,48 +90,14 @@ function populateParties(){
 }
 function renderPage(){
     var partyId=document.getElementById('partySelect').value;
-    if(!partyId){ document.getElementById('ledgerBody').innerHTML='<tr><td colspan="6" class="text-center text-muted py-5"><i class="ti ti-file-text fs-1 d-block mb-2 text-muted"></i>Select a party to view ledger</td></tr>'; return; }
-    var state=window.ERP.state, df=document.getElementById('dateFrom').value, dt=document.getElementById('dateTo').value;
-    var party=(state.parties||[]).find(function(p){return p.id===partyId;});
-    var isCustomer=party&&(party.type||'').toLowerCase().indexOf('customer')!==-1;
-    var entries=[];
-    // Sales → Credit for customer (they owe us)
-    (state.sales||[]).filter(function(s){return s.customerId===partyId;}).forEach(function(s){
-        entries.push({date:s.createdAt,type:'Sale',ref:s.id,debit:0,credit:s.totalAmount||0});
-    });
-    // Purchases → Debit for vendor (we owe them)
-    (state.purchaseOrders||[]).filter(function(po){return po.vendorId===partyId;}).forEach(function(po){
-        entries.push({date:po.createdAt,type:'Purchase',ref:po.id,debit:po.totalAmount||0,credit:0});
-    });
-    // Payments
-    (state.payments||[]).filter(function(p){return p.partyId===partyId;}).forEach(function(p){
-        var isReceived=(p.type==='Payment Received'||p.type==='Receipt');
-        if(isReceived)
-            // Customer paid us → Debit (reduces their outstanding credit)
-            entries.push({date:p.date,type:'Payment Received',ref:p.referenceNo||'—',debit:p.amount||0,credit:0});
-        else
-            // We paid vendor → Credit (reduces our outstanding debit)
-            entries.push({date:p.date,type:'Payment Made',ref:p.referenceNo||'—',debit:0,credit:p.amount||0});
-    });
-    // Sale Returns → Debit for customer (reduces what they owe us)
-    (state.salesReturns||[]).filter(function(r){return r.customerId===partyId;}).forEach(function(r){
-        entries.push({date:r.createdAt,type:'Sale Return',ref:r.id,debit:r.totalAmount||0,credit:0});
-    });
-    // Purchase Returns → Credit for vendor (reduces what we owe them)
-    (state.purchaseReturns||[]).filter(function(r){return r.vendorId===partyId;}).forEach(function(r){
-        entries.push({date:r.createdAt,type:'Purchase Return',ref:r.id,debit:0,credit:r.totalAmount||0});
-    });
-    entries.sort(function(a,b){return a.date-b.date;});
-    if(df){var fromTs=new Date(df).setHours(0,0,0,0);entries=entries.filter(function(e){return e.date>=fromTs;});}
-    if(dt){var toTs=new Date(dt).setHours(23,59,59,999);entries=entries.filter(function(e){return e.date<=toTs;});}
-    var balance=party?(party.openingBalance||0):0;
-    // Pre-compute all rows with running balances
+    if(!partyId){ document.getElementById('ledgerBody').innerHTML='<tr><td colspan="6" class="text-center text-muted py-5"><i class="ti ti-file-text fs-1 d-block mb-2 text-muted"></i>Select a party to view ledger</td></tr>'; document.getElementById('plPagInfo').textContent=''; document.getElementById('plPag').innerHTML=''; return; }
+
+    var balance=plOpeningBalance;
     var allRows=[];
-    if(balance!==0){
-        allRows.push({isOpening:true, bal:balance});
-    }
-    entries.forEach(function(e){
-        if(isCustomer) balance+=e.credit-e.debit;
+    if(balance!==0) allRows.push({isOpening:true, bal:balance});
+
+    plEntries.forEach(function(e){
+        if(plIsCustomer) balance+=e.credit-e.debit;
         else balance+=e.debit-e.credit;
         var badgeColor='badge-blue';
         if(e.type==='Sale') badgeColor='badge-red';
@@ -150,9 +129,10 @@ function renderPage(){
     document.getElementById('plPagInfo').textContent='Showing '+(total?start+1:0)+' to '+Math.min(start+plPerPage,total)+' of '+total+' entries';
     buildPlPag(totalPages, plPage);
 }
+function plGoTo(p){ plPage=p; renderPage(); }
 function buildPlPag(totalPages, currentPage){
     var ph='';
-    ph+='<li class="page-item '+(currentPage<=1?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage>1?' onclick="plPage='+(currentPage-1)+';renderPage()"':'')+'>&#171;</a></li>';
+    ph+='<li class="page-item '+(currentPage<=1?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage>1?' onclick="plGoTo('+(currentPage-1)+')"':'')+'>&#171;</a></li>';
     var _s={},_l=0;
     for(var p=1;p<=Math.min(2,totalPages);p++) _s[p]=true;
     for(var p=Math.max(1,currentPage-2);p<=Math.min(totalPages,currentPage+2);p++) _s[p]=true;
@@ -160,9 +140,9 @@ function buildPlPag(totalPages, currentPage){
     for(var i=1;i<=totalPages;i++){
         if(!_s[i]) continue;
         if(_l>0&&i-_l>1) ph+='<li class="page-item disabled"><a class="page-link">&hellip;</a></li>';
-        ph+='<li class="page-item '+(i===currentPage?'active':'')+'"><a class="page-link" href="javascript:void(0)" onclick="plPage='+i+';renderPage()">'+i+'</a></li>';
+        ph+='<li class="page-item '+(i===currentPage?'active':'')+'"><a class="page-link" href="javascript:void(0)" onclick="plGoTo('+i+')">'+i+'</a></li>';
         _l=i;
     }
-    ph+='<li class="page-item '+(currentPage>=totalPages?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage<totalPages?' onclick="plPage='+(currentPage+1)+';renderPage()"':'')+'>&#187;</a></li>';
+    ph+='<li class="page-item '+(currentPage>=totalPages?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage<totalPages?' onclick="plGoTo('+(currentPage+1)+')"':'')+'>&#187;</a></li>';
     document.getElementById('plPag').innerHTML=ph;
 }

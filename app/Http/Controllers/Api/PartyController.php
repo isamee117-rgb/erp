@@ -120,6 +120,78 @@ class PartyController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function ledger(Request $request, $id)
+    {
+        $user  = $request->get('auth_user');
+        $coId  = $user->company_id;
+        $party = Party::where('id', $id)->where('company_id', $coId)->firstOrFail();
+
+        $from = $request->query('from');
+        $to   = $request->query('to');
+        $fromTs = $from ? strtotime($from . ' 00:00:00') * 1000 : null;
+        $toTs   = $to   ? strtotime($to   . ' 23:59:59') * 1000 : null;
+
+        $isCustomer = stripos($party->type, 'customer') !== false;
+        $entries = [];
+
+        // Sales
+        $salesQ = SaleOrder::where('company_id', $coId)->where('customer_id', $id)->get(['id', 'invoice_no', 'total_amount', 'created_at']);
+        foreach ($salesQ as $s) {
+            $ts = strtotime($s->created_at) * 1000;
+            $entries[] = ['date' => $ts, 'type' => 'Sale', 'ref' => $s->invoice_no ?? $s->id, 'debit' => 0, 'credit' => (float)$s->total_amount];
+        }
+
+        // Purchase Orders
+        $posQ = PurchaseOrder::where('company_id', $coId)->where('vendor_id', $id)->get(['id', 'po_no', 'total_amount', 'created_at']);
+        foreach ($posQ as $po) {
+            $ts = strtotime($po->created_at) * 1000;
+            $entries[] = ['date' => $ts, 'type' => 'Purchase', 'ref' => $po->po_no ?? $po->id, 'debit' => (float)$po->total_amount, 'credit' => 0];
+        }
+
+        // Payments
+        $paysQ = Payment::where('company_id', $coId)->where('party_id', $id)->get(['type', 'amount', 'reference_no', 'date', 'created_at']);
+        foreach ($paysQ as $p) {
+            $ts = is_numeric($p->date) ? (int)$p->date : strtotime($p->date) * 1000;
+            $isReceived = in_array($p->type, ['Payment Received', 'Receipt']);
+            $entries[] = [
+                'date'   => $ts,
+                'type'   => $isReceived ? 'Payment Received' : 'Payment Made',
+                'ref'    => $p->reference_no ?: '—',
+                'debit'  => $isReceived ? (float)$p->amount : 0,
+                'credit' => $isReceived ? 0 : (float)$p->amount,
+            ];
+        }
+
+        // Sale Returns
+        $srQ = SaleReturn::where('company_id', $coId)->where('customer_id', $id)->get(['id', 'return_no', 'total_amount', 'created_at']);
+        foreach ($srQ as $r) {
+            $ts = strtotime($r->created_at) * 1000;
+            $entries[] = ['date' => $ts, 'type' => 'Sale Return', 'ref' => $r->return_no ?? $r->id, 'debit' => (float)$r->total_amount, 'credit' => 0];
+        }
+
+        // Purchase Returns
+        $prQ = PurchaseReturn::where('company_id', $coId)->where('vendor_id', $id)->get(['id', 'return_no', 'total_amount', 'created_at']);
+        foreach ($prQ as $r) {
+            $ts = strtotime($r->created_at) * 1000;
+            $entries[] = ['date' => $ts, 'type' => 'Purchase Return', 'ref' => $r->return_no ?? $r->id, 'debit' => 0, 'credit' => (float)$r->total_amount];
+        }
+
+        usort($entries, fn($a, $b) => $a['date'] <=> $b['date']);
+
+        // Apply date filter
+        if ($fromTs || $toTs) {
+            $entries = array_values(array_filter($entries, function ($e) use ($fromTs, $toTs) {
+                return (!$fromTs || $e['date'] >= $fromTs) && (!$toTs || $e['date'] <= $toTs);
+            }));
+        }
+
+        return response()->json([
+            'openingBalance' => (float)($party->opening_balance ?? 0),
+            'isCustomer'     => $isCustomer,
+            'entries'        => $entries,
+        ]);
+    }
+
     public function references(Request $request, $id)
     {
         $user  = $request->get('auth_user');
