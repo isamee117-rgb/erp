@@ -52,6 +52,20 @@ class SaleController extends Controller
         return SaleOrderResource::collection($query->paginate(50));
     }
 
+    public function returnable(Request $request)
+    {
+        $user = $request->get('auth_user');
+        $coId = $user->company_id;
+
+        $sales = SaleOrder::with(['items', 'customer'])
+            ->where('company_id', $coId)
+            ->where('is_returned', false)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return SaleOrderResource::collection($sales);
+    }
+
     public function indexReturns(Request $request)
     {
         $user = $request->get('auth_user');

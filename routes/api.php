@@ -119,9 +119,12 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
 
     // ── Reads: 120 req/min per user ───────────────────────────────────────────
     Route::middleware('throttle:api-reads')->group(function () {
-        Route::get('/sales',             [SaleController::class,    'index']);
-        Route::get('/sale-returns',      [SaleController::class,    'indexReturns']);
-        Route::get('/purchases',         [PurchaseController::class, 'index']);
+        Route::get('/sales',                [SaleController::class,    'index']);
+        Route::get('/sales/returnable',     [SaleController::class,    'returnable']);
+        Route::get('/sale-returns',         [SaleController::class,    'indexReturns']);
+        Route::get('/purchases',            [PurchaseController::class, 'index']);
+        Route::get('/purchases/returnable', [PurchaseController::class, 'returnable']);
+        Route::get('/purchase-returns',     [PurchaseController::class, 'indexReturns']);
         Route::get('/payments',          [PaymentController::class,  'index']);
         Route::get('/inventory-ledger',       [ProductController::class,  'getLedger']);
         Route::get('/parties/{id}/references',  [PartyController::class, 'references']);

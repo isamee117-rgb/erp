@@ -117,6 +117,23 @@
             var qs = parts.length ? '?' + parts.join('&') : '';
             return request('GET', '/payments' + qs);
         },
+        getReturnableSales: function() {
+            return request('GET', '/sales/returnable');
+        },
+        getReturnablePurchases: function() {
+            return request('GET', '/purchases/returnable');
+        },
+        getPurchaseReturns: function(params) {
+            var parts = [];
+            if (params) {
+                if (params.page)   parts.push('page='   + encodeURIComponent(params.page));
+                if (params.search) parts.push('search=' + encodeURIComponent(params.search));
+                if (params.from)   parts.push('from='   + encodeURIComponent(params.from));
+                if (params.to)     parts.push('to='     + encodeURIComponent(params.to));
+            }
+            var qs = parts.length ? '?' + parts.join('&') : '';
+            return request('GET', '/purchase-returns' + qs);
+        },
         getPartyLedger: function(partyId, from, to) {
             var parts = ['partyId=' + encodeURIComponent(partyId)];
             if (from) parts.push('from=' + encodeURIComponent(from));

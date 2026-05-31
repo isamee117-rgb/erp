@@ -8,6 +8,7 @@ use App\Http\Requests\ReceivePurchaseOrderRequest;
 use App\Http\Resources\PurchaseOrderResource;
 use App\Http\Resources\PurchaseReturnResource;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseReturn;
 use App\Services\JournalPostingService;
 use App\Services\PurchaseService;
 use Illuminate\Http\Request;
@@ -93,6 +94,49 @@ class PurchaseController extends Controller
         }
 
         return (new PurchaseOrderResource($po))->additional(array_filter(['warning' => $journalWarning]));
+    }
+
+    public function returnable(Request $request)
+    {
+        $user = $request->get('auth_user');
+        $coId = $user->company_id;
+
+        $pos = PurchaseOrder::with(['items', 'receives.items', 'vendor'])
+            ->where('company_id', $coId)
+            ->whereIn('status', ['Received', 'Partially Received'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return PurchaseOrderResource::collection($pos);
+    }
+
+    public function indexReturns(Request $request)
+    {
+        $user = $request->get('auth_user');
+        $coId = $user->company_id;
+
+        $query = PurchaseReturn::with(['items', 'vendor', 'originalPurchase'])
+            ->where('company_id', $coId)
+            ->orderBy('created_at', 'desc');
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                  ->orWhere('return_no', 'like', "%{$search}%")
+                  ->orWhere('original_purchase_id', 'like', "%{$search}%")
+                  ->orWhereHas('vendor', fn($cq) => $cq->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($from = $request->query('from')) {
+            $query->where('created_at', '>=', $from . ' 00:00:00');
+        }
+
+        if ($to = $request->query('to')) {
+            $query->where('created_at', '<=', $to . ' 23:59:59');
+        }
+
+        return PurchaseReturnResource::collection($query->paginate(50));
     }
 
     public function createReturn(Request $request)

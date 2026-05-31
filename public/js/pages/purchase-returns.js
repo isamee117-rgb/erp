@@ -1,26 +1,42 @@
-var currentPage=1, perPage=10;
+var prReturns=[], prMeta={currentPage:1,lastPage:1,total:0};
+var prSearchTimer=null, prLoading=false;
+var prReturnablePOs=[];
 
-function prRefetchIfNeeded(callback) {
-    var loadedFrom = window.ERP.state.transactionLoadedFrom;
-    var requestedFrom = (document.getElementById('dateFrom').value || '');
-    var requestedTo   = (document.getElementById('dateTo').value   || '');
-    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
-        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
-            .then(function(txData) {
-                ERP.mergeState(txData);
-                if (txData.loadedFrom) window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                if (typeof callback === 'function') callback();
-            })
-            .catch(function(e) { alert('Error loading data: ' + e.message); });
-    } else {
-        if (typeof callback === 'function') callback();
-    }
+function prGetFilters(){
+    return {
+        page:   prMeta.currentPage,
+        search: (document.getElementById('searchInput').value||'').trim(),
+        from:   document.getElementById('dateFrom').value||'',
+        to:     document.getElementById('dateTo').value||'',
+    };
 }
 
-window.ERP.onReady = function(){ renderPage(); };
-function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; currentPage=1; renderPage(); }
+function loadPurchaseReturns(page){
+    if(prLoading) return;
+    prLoading=true; prMeta.currentPage=page||1;
+    var tbody=document.getElementById('returnsBody');
+    if(tbody) tbody.innerHTML='<tr><td colspan="8" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+    ERP.api.getPurchaseReturns(prGetFilters())
+        .then(function(res){
+            prReturns=res.data||[];
+            var m=res.meta||{};
+            prMeta={currentPage:m.current_page||1,lastPage:m.last_page||1,total:m.total||0};
+            renderPage();
+        })
+        .catch(function(e){
+            if(tbody) tbody.innerHTML='<tr><td colspan="8" class="text-center text-danger py-4">Error: '+e.message+'</td></tr>';
+        })
+        .finally(function(){ prLoading=false; });
+}
+
+window.ERP.onReady = function(){ loadPurchaseReturns(1); };
+function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; loadPurchaseReturns(1); }
 document.addEventListener('DOMContentLoaded', function(){
-    ['searchInput','dateFrom','dateTo'].forEach(function(id){ document.getElementById(id).addEventListener(id==='searchInput'?'input':'change', function(){ currentPage=1; if(id==='searchInput'){ renderPage(); }else{ prRefetchIfNeeded(renderPage); } }); });
+    document.getElementById('searchInput').addEventListener('input', function(){
+        clearTimeout(prSearchTimer);
+        prSearchTimer=setTimeout(function(){ loadPurchaseReturns(1); }, 400);
+    });
+    ['dateFrom','dateTo'].forEach(function(id){ document.getElementById(id).addEventListener('change', function(){ loadPurchaseReturns(1); }); });
     document.getElementById('pret-filter-toggle-btn').addEventListener('click', function(){
         var panel = document.getElementById('pret-filters-panel');
         var isOpen = !panel.classList.contains('d-none');
@@ -29,34 +45,17 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     document.getElementById('pret-clear-filters-btn').addEventListener('click', function(){ clearFilters(); });
 });
-function getFiltered(){
-    var state=window.ERP.state, search=(document.getElementById('searchInput').value||'').toLowerCase(),
-        df=document.getElementById('dateFrom').value, dt=document.getElementById('dateTo').value;
-    return (state.purchaseReturns||[]).slice().reverse().filter(function(r){
-        var po=(state.purchaseOrders||[]).find(function(p){return p.id===r.originalPurchaseId;});
-        var party=po?(state.parties||[]).find(function(p){return p.id===po.vendorId;}):null;
-        var str=(r.id+' '+(po?po.id:'')+' '+(party?party.name:'')+' '+(r.reason||'')).toLowerCase();
-        if(search && str.indexOf(search)===-1) return false;
-        var rd=new Date(r.createdAt).toISOString().split('T')[0];
-        if(df && rd<df) return false;
-        if(dt && rd>dt) return false;
-        return true;
-    });
-}
 function renderPage(){
-    var state=window.ERP.state, filtered=getFiltered(), total=filtered.length,
-        totalPages=Math.max(1,Math.ceil(total/perPage)), start=(currentPage-1)*perPage, page=filtered.slice(start,start+perPage);
+    var products=window.ERP.state.products||[];
     var html='';
-    page.forEach(function(r){
-        var po=(state.purchaseOrders||[]).find(function(p){return p.id===r.originalPurchaseId;});
-        var party=po?(state.parties||[]).find(function(p){return p.id===po.vendorId;}):null;
+    prReturns.forEach(function(r){
         var items=r.items||[];
         html+='<tr class="cursor-pointer" onclick="toggleExpand(\''+r.id+'\')">';
         html+='<td><i class="ti ti-chevron-right" id="chev-'+r.id+'"></i></td>';
         html+='<td><span class="badge-pill badge-orange">'+r.id+'</span></td>';
         html+='<td>'+new Date(r.createdAt).toLocaleDateString()+'</td>';
-        html+='<td>'+(po?po.id:'—')+'</td>';
-        html+='<td>'+(party?party.name:'—')+'</td>';
+        html+='<td>'+(r.originalPurchaseNo||r.originalPurchaseId||'—')+'</td>';
+        html+='<td>'+(r.vendorName||'—')+'</td>';
         html+='<td>'+items.length+'</td>';
         html+='<td>'+ERP.formatCurrency(r.totalAmount||0)+'</td>';
         html+='<td><span class="text-muted">'+(r.reason||'—')+'</span></td></tr>';
@@ -64,7 +63,7 @@ function renderPage(){
         html+='<div class="col-md-7"><h4 class="mb-3 erp-table-section-header">Return Items</h4>';
         html+='<table class="table table-sm mb-0"><thead><tr><th class="po-th-col" style="width:36px;">#</th><th class="po-th-col">Product</th><th class="po-th-col text-center">Qty</th><th class="po-th-col text-end">Unit Cost</th><th class="po-th-col text-end">Line Total</th></tr></thead><tbody>';
         items.forEach(function(it, idx){
-            var prod=(state.products||[]).find(function(p){return p.id===it.productId;});
+            var prod=products.find(function(p){return p.id===it.productId;});
             var cost=it.unitCost||0;
             html+='<tr>'+
                 '<td class="text-center" style="color:#9CA3AF;font-size:0.78rem;">'+(idx+1)+'</td>'+
@@ -80,27 +79,26 @@ function renderPage(){
         html+='<div class="d-flex justify-content-between erp-text-sm"><span class="text-muted">Total Value</span><span class="fw-semibold">'+ERP.formatCurrency(r.totalAmount||0)+'</span></div>';
         html+='</div></div></div></div></td></tr>';
     });
-    if(!page.length) html='<tr><td colspan="8" class="text-center text-muted py-5"><i class="ti ti-repeat fs-1 d-block mb-2 text-muted"></i>No purchase returns found</td></tr>';
+    if(!prReturns.length) html='<tr><td colspan="8" class="text-center text-muted py-5"><i class="ti ti-repeat fs-1 d-block mb-2 text-muted"></i>No purchase returns found</td></tr>';
     document.getElementById('returnsBody').innerHTML=html;
-    document.getElementById('paginationInfo').textContent='Showing '+(total?start+1:0)+' to '+Math.min(start+perPage,total)+' of '+total;
-    var ph='';
-    ph+='<li class="page-item '+(currentPage<=1?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage>1?' onclick="goToPage('+(currentPage-1)+')"':'')+'>&#171;</a></li>';
-    var _pgS={},_pgL=0;
+    var start=(prMeta.currentPage-1)*50;
+    document.getElementById('paginationInfo').textContent='Showing '+(prMeta.total?start+1:0)+' to '+Math.min(start+50,prMeta.total)+' of '+prMeta.total;
+    var totalPages=prMeta.lastPage||1, cur=prMeta.currentPage||1, ph='',_pgS={},_pgL=0;
+    ph+='<li class="page-item '+(cur<=1?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(cur>1?' onclick="loadPurchaseReturns('+(cur-1)+')"':'')+'>&#171;</a></li>';
     for(var p=1;p<=Math.min(2,totalPages);p++) _pgS[p]=true;
-    for(var p=Math.max(1,currentPage-2);p<=Math.min(totalPages,currentPage+2);p++) _pgS[p]=true;
+    for(var p=Math.max(1,cur-2);p<=Math.min(totalPages,cur+2);p++) _pgS[p]=true;
     for(var p=Math.max(1,totalPages-1);p<=totalPages;p++) _pgS[p]=true;
     for(var i=1;i<=totalPages;i++){
       if(!_pgS[i]) continue;
       if(_pgL>0&&i-_pgL>1) ph+='<li class="page-item disabled"><a class="page-link">&hellip;</a></li>';
-      ph+='<li class="page-item '+(i===currentPage?'active':'')+'"><a class="page-link" href="javascript:void(0)" onclick="goToPage('+i+')">'+i+'</a></li>';
+      ph+='<li class="page-item '+(i===cur?'active':'')+'"><a class="page-link" href="javascript:void(0)" onclick="loadPurchaseReturns('+i+')">'+i+'</a></li>';
       _pgL=i;
     }
-    ph+='<li class="page-item '+(currentPage>=totalPages?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage<totalPages?' onclick="goToPage('+(currentPage+1)+')"':'')+'>&#187;</a></li>';
+    ph+='<li class="page-item '+(cur>=totalPages?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(cur<totalPages?' onclick="loadPurchaseReturns('+(cur+1)+')"':'')+'>&#187;</a></li>';
     document.getElementById('pagination').innerHTML=ph;
     populatePOSelect();
 }
 function toggleExpand(id){ var r=document.getElementById('exp-'+id),c=document.getElementById('chev-'+id); if(r.classList.contains('d-none')){r.classList.remove('d-none');c.className='ti ti-chevron-down';}else{r.classList.add('d-none');c.className='ti ti-chevron-right';} }
-function goToPage(p){currentPage=p;renderPage();}
 /* ── SDD helpers ── */
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function sddToggle(wrapId){
@@ -141,14 +139,21 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 function populatePOSelect(){
-    var state=window.ERP.state, html='';
-    (state.purchaseOrders||[]).filter(function(po){return po.status==='Received'||po.status==='Partially Received';}).forEach(function(po){
-        var party=(state.parties||[]).find(function(p){return p.id===po.vendorId;});
-        var label=escHtml(po.id)+' — '+escHtml(party?party.name:'—')+' — '+escHtml(ERP.formatCurrency(po.totalAmount));
-        html+='<div class="sdd-opt" onclick="sddSelectPO(\''+escHtml(po.id)+'\',\''+escHtml(po.id+' — '+(party?party.name:'—'))+'\')">'+label+'</div>';
+    var optsEl=document.getElementById('poSelect-opts');
+    optsEl.innerHTML='<div class="sdd-no-res">Loading...</div>';
+    ERP.api.getReturnablePurchases().then(function(res){
+        prReturnablePOs=res||[];
+        var html='';
+        prReturnablePOs.forEach(function(po){
+            var vendorName=po.vendorName||'—';
+            var label=escHtml(po.id)+' — '+escHtml(vendorName)+' — '+escHtml(ERP.formatCurrency(po.totalAmount));
+            html+='<div class="sdd-opt" onclick="sddSelectPO(\''+escHtml(po.id)+'\',\''+escHtml(po.id+' — '+vendorName)+'\')">'+label+'</div>';
+        });
+        html+='<div class="sdd-no-res"'+(prReturnablePOs.length?' style="display:none;"':'')+'>No purchase orders found</div>';
+        optsEl.innerHTML=html;
+    }).catch(function(){
+        optsEl.innerHTML='<div class="sdd-no-res">Error loading purchase orders</div>';
     });
-    html+='<div class="sdd-no-res" class="d-none">No purchase orders found</div>';
-    document.getElementById('poSelect-opts').innerHTML=html;
 }
 function onPOSelected(){
     var poId = document.getElementById('poSelect').value;
@@ -156,7 +161,7 @@ function onPOSelected(){
     document.getElementById('poReceiptsGrouped').innerHTML = '';
     if (!poId) return;
 
-    var po = (window.ERP.state.purchaseOrders || []).find(function(p){ return p.id === poId; });
+    var po = prReturnablePOs.find(function(p){ return p.id === poId; });
     if (!po) return;
 
     var receives = (po.receives || []).slice().sort(function(a, b){
@@ -279,8 +284,7 @@ async function submitReturn(){
     try {
         var result = await ERP.api.createPurchaseReturn(poId, items, reason);
         bootstrap.Modal.getInstance(document.getElementById('newPReturnModal')).hide();
-        await ERP.sync();
-        renderPage();
+        await loadPurchaseReturns(1);
         document.getElementById('pretSuccessOverlay').classList.remove('d-none');
         if (result && result.warning) showJournalWarning(result.warning);
     } catch(e) { showPretError(e.message || 'Failed to create return.'); }

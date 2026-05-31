@@ -1,5 +1,6 @@
 var srReturns = [], srMeta = { currentPage: 1, lastPage: 1, total: 0 };
 var srSearchTimer = null, srLoading = false;
+var srReturnableSales = [];
 
 function srGetFilters() {
     return {
@@ -184,15 +185,22 @@ function sddSelectInvoice(saleId, label) {
 }
 
 function populateSaleSelect() {
-    var state = window.ERP.state, html = '';
-    (state.sales || []).filter(function(s) { return !s.isReturned; }).forEach(function(s) {
-        var party = (state.parties || []).find(function(p) { return p.id === s.customerId; });
-        var dateStr = new Date(s.createdAt).toLocaleDateString('en-GB');
-        var label = escHtml(s.id) + ' — ' + escHtml(party ? party.name : '—') + ' — ' + escHtml(ERP.formatCurrency(s.totalAmount)) + ' — ' + dateStr;
-        html += '<div class="sdd-opt" onclick="sddSelectInvoice(\'' + escHtml(s.id) + '\',\'' + escHtml(s.id + ' — ' + (party ? party.name : '—')) + '\')">' + label + '</div>';
+    var optsEl = document.getElementById('saleSelect-opts');
+    optsEl.innerHTML = '<div class="sdd-no-res">Loading...</div>';
+    ERP.api.getReturnableSales().then(function(res) {
+        srReturnableSales = res || [];
+        var html = '';
+        srReturnableSales.forEach(function(s) {
+            var dateStr = new Date(s.createdAt).toLocaleDateString('en-GB');
+            var custName = s.customerName || '—';
+            var label = escHtml(s.id) + ' — ' + escHtml(custName) + ' — ' + escHtml(ERP.formatCurrency(s.totalAmount)) + ' — ' + dateStr;
+            html += '<div class="sdd-opt" onclick="sddSelectInvoice(\'' + escHtml(s.id) + '\',\'' + escHtml(s.id + ' — ' + custName) + '\')">' + label + '</div>';
+        });
+        html += '<div class="sdd-no-res"' + (srReturnableSales.length ? ' style="display:none;"' : '') + '>No invoices found</div>';
+        optsEl.innerHTML = html;
+    }).catch(function() {
+        optsEl.innerHTML = '<div class="sdd-no-res">Error loading invoices</div>';
     });
-    html += '<div class="sdd-no-res">No invoices found</div>';
-    document.getElementById('saleSelect-opts').innerHTML = html;
 }
 
 function onSaleSelected() {
@@ -203,17 +211,17 @@ function onSaleSelected() {
     container.classList.add('d-none');
     if (!saleId) return;
 
-    var sale = (window.ERP.state.sales || []).find(function(s) { return s.id === saleId; });
+    var sale = srReturnableSales.find(function(s) { return s.id === saleId; });
     if (!sale) return;
 
-    var party = (window.ERP.state.parties || []).find(function(p) { return p.id === sale.customerId; });
+    var custName = sale.customerName || '—';
     var products = window.ERP.state.products || [];
     var dateStr = new Date(sale.createdAt).toLocaleDateString('en-GB');
 
     var html = '<div class="pr-rcv-group mb-3">' +
         '<div class="pr-rcv-group-header">' +
             '<span class="sr-inv-id">' + escHtml(sale.id) + '</span>' +
-            '<span class="pr-rcv-date">' + escHtml(party ? party.name : '—') + ' &nbsp;·&nbsp; ' + dateStr + '</span>' +
+            '<span class="pr-rcv-date">' + escHtml(custName) + ' &nbsp;·&nbsp; ' + dateStr + '</span>' +
         '</div>' +
         '<table class="table table-sm mb-0" style="table-layout:fixed;">' +
         '<thead><tr>' +
