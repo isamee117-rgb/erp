@@ -184,23 +184,35 @@ function sddSelectInvoice(saleId, label) {
     onSaleSelected();
 }
 
+var srReturnableTimer = null;
 function populateSaleSelect() {
     var optsEl = document.getElementById('saleSelect-opts');
-    optsEl.innerHTML = '<div class="sdd-no-res">Loading...</div>';
-    ERP.api.getReturnableSales().then(function(res) {
-        srReturnableSales = res || [];
-        var html = '';
-        srReturnableSales.forEach(function(s) {
-            var dateStr = new Date(s.createdAt).toLocaleDateString('en-GB');
-            var custName = s.customerName || '—';
-            var label = escHtml(s.id) + ' — ' + escHtml(custName) + ' — ' + escHtml(ERP.formatCurrency(s.totalAmount)) + ' — ' + dateStr;
-            html += '<div class="sdd-opt" onclick="sddSelectInvoice(\'' + escHtml(s.id) + '\',\'' + escHtml(s.id + ' — ' + custName) + '\')">' + label + '</div>';
+    optsEl.innerHTML = '<div class="sdd-no-res" style="color:#9CA3AF;">Type invoice no. or customer name to search...</div>';
+}
+function sddSearchSales(query) {
+    var optsEl = document.getElementById('saleSelect-opts');
+    if (!query || query.length < 2) {
+        optsEl.innerHTML = '<div class="sdd-no-res" style="color:#9CA3AF;">Type invoice no. or customer name to search...</div>';
+        return;
+    }
+    clearTimeout(srReturnableTimer);
+    srReturnableTimer = setTimeout(function() {
+        optsEl.innerHTML = '<div class="sdd-no-res">Searching...</div>';
+        ERP.api.getReturnableSales(query).then(function(res) {
+            srReturnableSales = res || [];
+            var html = '';
+            srReturnableSales.forEach(function(s) {
+                var dateStr = new Date(s.createdAt).toLocaleDateString('en-GB');
+                var custName = s.customerName || '—';
+                var label = escHtml(s.id) + ' — ' + escHtml(custName) + ' — ' + escHtml(ERP.formatCurrency(s.totalAmount)) + ' — ' + dateStr;
+                html += '<div class="sdd-opt" onclick="sddSelectInvoice(\'' + escHtml(s.id) + '\',\'' + escHtml(s.id + ' — ' + custName) + '\')">' + label + '</div>';
+            });
+            html += '<div class="sdd-no-res"' + (srReturnableSales.length ? ' style="display:none;"' : '') + '>No invoices found</div>';
+            optsEl.innerHTML = html;
+        }).catch(function() {
+            optsEl.innerHTML = '<div class="sdd-no-res">Error searching</div>';
         });
-        html += '<div class="sdd-no-res"' + (srReturnableSales.length ? ' style="display:none;"' : '') + '>No invoices found</div>';
-        optsEl.innerHTML = html;
-    }).catch(function() {
-        optsEl.innerHTML = '<div class="sdd-no-res">Error loading invoices</div>';
-    });
+    }, 350);
 }
 
 function onSaleSelected() {

@@ -54,16 +54,24 @@ class SaleController extends Controller
 
     public function returnable(Request $request)
     {
-        $user = $request->get('auth_user');
-        $coId = $user->company_id;
+        $user   = $request->get('auth_user');
+        $coId   = $user->company_id;
+        $search = $request->query('search', '');
 
-        $sales = SaleOrder::with(['items', 'customer'])
+        $query = SaleOrder::with(['items', 'customer'])
             ->where('company_id', $coId)
             ->where('is_returned', false)
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->orderBy('created_at', 'desc');
 
-        return SaleOrderResource::collection($sales);
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                  ->orWhere('invoice_no', 'like', "%{$search}%")
+                  ->orWhereHas('customer', fn($cq) => $cq->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        return SaleOrderResource::collection($query->limit(25)->get());
     }
 
     public function indexReturns(Request $request)

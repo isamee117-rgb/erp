@@ -117,11 +117,13 @@
             var qs = parts.length ? '?' + parts.join('&') : '';
             return request('GET', '/payments' + qs);
         },
-        getReturnableSales: function() {
-            return request('GET', '/sales/returnable');
+        getReturnableSales: function(search) {
+            var qs = search ? '?search=' + encodeURIComponent(search) : '';
+            return request('GET', '/sales/returnable' + qs);
         },
-        getReturnablePurchases: function() {
-            return request('GET', '/purchases/returnable');
+        getReturnablePurchases: function(search) {
+            var qs = search ? '?search=' + encodeURIComponent(search) : '';
+            return request('GET', '/purchases/returnable' + qs);
         },
         getPurchaseReturns: function(params) {
             var parts = [];

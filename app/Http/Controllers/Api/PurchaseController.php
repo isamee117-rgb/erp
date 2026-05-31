@@ -98,16 +98,24 @@ class PurchaseController extends Controller
 
     public function returnable(Request $request)
     {
-        $user = $request->get('auth_user');
-        $coId = $user->company_id;
+        $user   = $request->get('auth_user');
+        $coId   = $user->company_id;
+        $search = $request->query('search', '');
 
-        $pos = PurchaseOrder::with(['items', 'receives.items', 'vendor'])
+        $query = PurchaseOrder::with(['items', 'receives.items', 'vendor'])
             ->where('company_id', $coId)
             ->whereIn('status', ['Received', 'Partially Received'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->orderBy('created_at', 'desc');
 
-        return PurchaseOrderResource::collection($pos);
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                  ->orWhere('po_no', 'like', "%{$search}%")
+                  ->orWhereHas('vendor', fn($cq) => $cq->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        return PurchaseOrderResource::collection($query->limit(25)->get());
     }
 
     public function indexReturns(Request $request)

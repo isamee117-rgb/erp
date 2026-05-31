@@ -138,22 +138,34 @@ document.addEventListener('DOMContentLoaded',function(){
     });
 });
 
+var prReturnableTimer=null;
 function populatePOSelect(){
     var optsEl=document.getElementById('poSelect-opts');
-    optsEl.innerHTML='<div class="sdd-no-res">Loading...</div>';
-    ERP.api.getReturnablePurchases().then(function(res){
-        prReturnablePOs=res||[];
-        var html='';
-        prReturnablePOs.forEach(function(po){
-            var vendorName=po.vendorName||'—';
-            var label=escHtml(po.id)+' — '+escHtml(vendorName)+' — '+escHtml(ERP.formatCurrency(po.totalAmount));
-            html+='<div class="sdd-opt" onclick="sddSelectPO(\''+escHtml(po.id)+'\',\''+escHtml(po.id+' — '+vendorName)+'\')">'+label+'</div>';
+    optsEl.innerHTML='<div class="sdd-no-res" style="color:#9CA3AF;">Type PO no. or vendor name to search...</div>';
+}
+function sddSearchPOs(query){
+    var optsEl=document.getElementById('poSelect-opts');
+    if(!query||query.length<2){
+        optsEl.innerHTML='<div class="sdd-no-res" style="color:#9CA3AF;">Type PO no. or vendor name to search...</div>';
+        return;
+    }
+    clearTimeout(prReturnableTimer);
+    prReturnableTimer=setTimeout(function(){
+        optsEl.innerHTML='<div class="sdd-no-res">Searching...</div>';
+        ERP.api.getReturnablePurchases(query).then(function(res){
+            prReturnablePOs=res||[];
+            var html='';
+            prReturnablePOs.forEach(function(po){
+                var vendorName=po.vendorName||'—';
+                var label=escHtml(po.id)+' — '+escHtml(vendorName)+' — '+escHtml(ERP.formatCurrency(po.totalAmount));
+                html+='<div class="sdd-opt" onclick="sddSelectPO(\''+escHtml(po.id)+'\',\''+escHtml(po.id+' — '+vendorName)+'\')">'+label+'</div>';
+            });
+            html+='<div class="sdd-no-res"'+(prReturnablePOs.length?' style="display:none;"':'')+'>No purchase orders found</div>';
+            optsEl.innerHTML=html;
+        }).catch(function(){
+            optsEl.innerHTML='<div class="sdd-no-res">Error searching</div>';
         });
-        html+='<div class="sdd-no-res"'+(prReturnablePOs.length?' style="display:none;"':'')+'>No purchase orders found</div>';
-        optsEl.innerHTML=html;
-    }).catch(function(){
-        optsEl.innerHTML='<div class="sdd-no-res">Error loading purchase orders</div>';
-    });
+    },350);
 }
 function onPOSelected(){
     var poId = document.getElementById('poSelect').value;

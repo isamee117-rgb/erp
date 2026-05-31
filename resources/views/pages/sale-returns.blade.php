@@ -93,7 +93,7 @@
             <div class="sdd-panel">
               <div class="sdd-search-row">
                 <i class="ti ti-search"></i>
-                <input type="text" class="sdd-search-inp" placeholder="Search by invoice no. or customer..." oninput="sddFilterOpts('saleSelect-sdd',this.value)" onclick="event.stopPropagation()">
+                <input type="text" class="sdd-search-inp" placeholder="Type invoice no. or customer name..." oninput="sddSearchSales(this.value)" onclick="event.stopPropagation()">
               </div>
               <div class="sdd-opts-wrap" id="saleSelect-opts"></div>
             </div>

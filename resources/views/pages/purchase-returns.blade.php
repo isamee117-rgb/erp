@@ -91,7 +91,7 @@
             <div class="sdd-panel">
               <div class="sdd-search-row">
                 <i class="ti ti-search"></i>
-                <input type="text" class="sdd-search-inp" placeholder="Search by PO no. or vendor..." oninput="sddFilterOpts('poSelect-sdd',this.value)" onclick="event.stopPropagation()">
+                <input type="text" class="sdd-search-inp" placeholder="Type PO no. or vendor name to search..." oninput="sddSearchPOs(this.value)" onclick="event.stopPropagation()">
               </div>
               <div class="sdd-opts-wrap" id="poSelect-opts"></div>
             </div>
