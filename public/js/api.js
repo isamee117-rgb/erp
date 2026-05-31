@@ -134,6 +134,13 @@
             var qs = parts.length ? '?' + parts.join('&') : '';
             return request('GET', '/purchase-returns' + qs);
         },
+        getOutstanding: function(type, search, from, to) {
+            var parts = ['type=' + encodeURIComponent(type)];
+            if (search) parts.push('search=' + encodeURIComponent(search));
+            if (from)   parts.push('from='   + encodeURIComponent(from));
+            if (to)     parts.push('to='     + encodeURIComponent(to));
+            return request('GET', '/outstanding?' + parts.join('&'));
+        },
         getPartyLedger: function(partyId, from, to) {
             var parts = ['partyId=' + encodeURIComponent(partyId)];
             if (from) parts.push('from=' + encodeURIComponent(from));

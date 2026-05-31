@@ -1,25 +1,51 @@
 var recPage=1, payPage=1, outPerPage=20;
+var osCustomers=[], osVendors=[], osCustTotals={}, osVendTotals={};
+var osLoading=false, osSearchTimer=null;
 
-function osRefetchIfNeeded(callback) {
-    var loadedFrom = window.ERP.state.transactionLoadedFrom;
-    var requestedFrom = (document.getElementById('dateFrom') ? document.getElementById('dateFrom').value : '') || '';
-    var requestedTo   = (document.getElementById('dateTo')   ? document.getElementById('dateTo').value   : '') || '';
-    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
-        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
-            .then(function(txData) {
-                ERP.mergeState(txData);
-                if (txData.loadedFrom) window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                if (typeof callback === 'function') callback();
-            })
-            .catch(function(e) { alert('Error loading data: ' + e.message); });
-    } else {
-        if (typeof callback === 'function') callback();
-    }
+function osGetFilters() {
+    return {
+        search: (document.getElementById('osSearchInput').value || '').trim(),
+        from:   document.getElementById('dateFrom').value || '',
+        to:     document.getElementById('dateTo').value   || '',
+    };
+}
+
+function loadOutstanding() {
+    if (osLoading) return;
+    osLoading = true;
+    recPage = 1; payPage = 1;
+
+    var f = osGetFilters();
+
+    // Show loading in both tabs
+    ['receivableBody','payableBody'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+    });
+
+    Promise.all([
+        ERP.api.getOutstanding('customer', f.search, f.from, f.to),
+        ERP.api.getOutstanding('vendor',   f.search, f.from, f.to),
+    ]).then(function(results) {
+        osCustomers  = results[0].data   || [];
+        osCustTotals = results[0].totals || {};
+        osVendors    = results[1].data   || [];
+        osVendTotals = results[1].totals || {};
+        renderPage();
+    }).catch(function(e) {
+        ['receivableBody','payableBody'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4">Error: ' + e.message + '</td></tr>';
+        });
+    }).finally(function() { osLoading = false; });
 }
 
 window.ERP.onReady = function(){
-    renderPage();
-    document.getElementById('osSearchInput').addEventListener('input', function(){ recPage=1; payPage=1; renderPage(); });
+    loadOutstanding();
+    document.getElementById('osSearchInput').addEventListener('input', function(){
+        clearTimeout(osSearchTimer);
+        osSearchTimer = setTimeout(function(){ loadOutstanding(); }, 400);
+    });
     var filterBtn = document.getElementById('os-filter-toggle-btn');
     if (filterBtn) {
         filterBtn.addEventListener('click', function() {
@@ -35,60 +61,38 @@ window.ERP.onReady = function(){
             document.getElementById('osSearchInput').value = '';
             document.getElementById('dateFrom').value = '';
             document.getElementById('dateTo').value   = '';
-            recPage = 1; payPage = 1; renderPage();
+            loadOutstanding();
         });
     }
+    ['dateFrom','dateTo'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function(){ loadOutstanding(); });
+    });
 };
 
 function renderPage(){
-    var state=window.ERP.state;
-    var search = (document.getElementById('osSearchInput') ? document.getElementById('osSearchInput').value : '').toLowerCase();
-    var df=document.getElementById('dateFrom').value, dt=document.getElementById('dateTo').value;
-    var fromTs=df?new Date(df).setHours(0,0,0,0):null, toTs=dt?new Date(dt).setHours(23,59,59,999):null;
-    var customers=(state.parties||[]).filter(function(p){return p.type==='Customer' && (!search||p.name.toLowerCase().indexOf(search)!==-1);});
-    var vendors=(state.parties||[]).filter(function(p){return p.type==='Vendor' && (!search||p.name.toLowerCase().indexOf(search)!==-1);});
-    renderTab(customers,'Customer','receivableBody','receivableFoot','recPagInfo','recPag',recPage,'recPage',fromTs,toTs);
-    renderTab(vendors,'Vendor','payableBody','payableFoot','payPagInfo','payPag',payPage,'payPage',fromTs,toTs);
+    renderTab(osCustomers, osCustTotals, 'receivableBody', 'receivableFoot', 'recPagInfo', 'recPag', recPage, 'recPage');
+    renderTab(osVendors,   osVendTotals, 'payableBody',    'payableFoot',    'payPagInfo', 'payPag', payPage, 'payPage');
 }
-function inRange(ts,fromTs,toTs){ return (!fromTs||ts>=fromTs)&&(!toTs||ts<=toTs); }
-function renderTab(parties,type,bodyId,footId,pagInfoId,pagId,currentPage,pageVar,fromTs,toTs){
-    var state=window.ERP.state;
-    var rows=[], totalSales=0, totalPayments=0, totalOutstanding=0;
-    parties.forEach(function(party){
-        var sales=0, payments=0;
-        if(type==='Customer'){
-            (state.sales||[]).filter(function(s){return s.customerId===party.id&&inRange(s.createdAt,fromTs,toTs);}).forEach(function(s){sales+=(s.totalAmount||0);});
-            (state.payments||[]).filter(function(p){return p.partyId===party.id&&(p.type==='Payment Received'||p.type==='Receipt')&&inRange(p.date,fromTs,toTs);}).forEach(function(p){payments+=(p.amount||0);});
-            (state.salesReturns||[]).filter(function(r){return r.customerId===party.id&&inRange(r.createdAt,fromTs,toTs);}).forEach(function(r){sales-=(r.totalAmount||0);});
-        } else {
-            (state.purchaseOrders||[]).filter(function(po){return po.vendorId===party.id&&inRange(po.createdAt,fromTs,toTs);}).forEach(function(po){sales+=(po.totalAmount||0);});
-            (state.payments||[]).filter(function(p){return p.partyId===party.id&&p.type==='Payment Made'&&inRange(p.date,fromTs,toTs);}).forEach(function(p){payments+=(p.amount||0);});
-            (state.purchaseReturns||[]).filter(function(r){return r.vendorId===party.id&&inRange(r.createdAt,fromTs,toTs);}).forEach(function(r){sales-=(r.totalAmount||0);});
-        }
-        var outstanding=sales-payments+(fromTs||toTs?0:(party.openingBalance||0));
-        if(Math.abs(outstanding)>0.01){
-            rows.push({name:party.name,sales:sales,payments:payments,outstanding:outstanding});
-            totalSales+=sales; totalPayments+=payments; totalOutstanding+=outstanding;
-        }
-    });
-    rows.sort(function(a,b){return b.outstanding-a.outstanding;});
+
+function renderTab(rows, totals, bodyId, footId, pagInfoId, pagId, currentPage, pageVar){
     var total=rows.length, totalPages=Math.max(1,Math.ceil(total/outPerPage));
     if(currentPage>totalPages) currentPage=totalPages;
     var start=(currentPage-1)*outPerPage, pageRows=rows.slice(start, start+outPerPage);
     var html='';
     pageRows.forEach(function(r){
         html+='<tr><td class="fw-bold">'+r.name+'</td>';
-        html+='<td class="text-end">'+ERP.formatCurrency(r.sales)+'</td>';
-        html+='<td class="text-end">'+ERP.formatCurrency(r.payments)+'</td>';
+        html+='<td class="text-end">'+ERP.formatCurrency(r.invoiced)+'</td>';
+        html+='<td class="text-end">'+ERP.formatCurrency(r.paid)+'</td>';
         html+='<td class="text-end"><span class="fw-bold '+(r.outstanding>0?'text-danger':'text-success')+'">'+ERP.formatCurrency(r.outstanding)+'</span></td></tr>';
     });
     if(!total) html='<tr><td colspan="4" class="text-center text-muted py-5"><i class="ti ti-building-bank fs-1 d-block mb-2 text-muted"></i>No outstanding balances</td></tr>';
     document.getElementById(bodyId).innerHTML=html;
-    var fhtml='<tr><td class="fw-bold">Total</td><td class="text-end">'+ERP.formatCurrency(totalSales)+'</td><td class="text-end">'+ERP.formatCurrency(totalPayments)+'</td><td class="text-end fw-bold">'+ERP.formatCurrency(totalOutstanding)+'</td></tr>';
+    var fhtml='<tr><td class="fw-bold">Total</td><td class="text-end">'+ERP.formatCurrency(totals.invoiced||0)+'</td><td class="text-end">'+ERP.formatCurrency(totals.paid||0)+'</td><td class="text-end fw-bold">'+ERP.formatCurrency(totals.outstanding||0)+'</td></tr>';
     document.getElementById(footId).innerHTML=total?fhtml:'';
     document.getElementById(pagInfoId).textContent='Showing '+(total?start+1:0)+' to '+Math.min(start+outPerPage,total)+' of '+total;
     var ph='';
-    ph+='<li class="page-item '+(currentPage<=1?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage>1?' onclick="'+pageVar+'='+(currentPage-1)+';renderPage()"':'')+'>&#171;</a></li>';
+    ph+='<li class="page-item '+(currentPage<=1?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage>1?' onclick="osGoTo(\''+pageVar+'\','+(currentPage-1)+')"':'')+'>&#171;</a></li>';
     var _s={},_l=0;
     for(var p=1;p<=Math.min(2,totalPages);p++) _s[p]=true;
     for(var p=Math.max(1,currentPage-2);p<=Math.min(totalPages,currentPage+2);p++) _s[p]=true;
@@ -96,9 +100,15 @@ function renderTab(parties,type,bodyId,footId,pagInfoId,pagId,currentPage,pageVa
     for(var i=1;i<=totalPages;i++){
         if(!_s[i]) continue;
         if(_l>0&&i-_l>1) ph+='<li class="page-item disabled"><a class="page-link">&hellip;</a></li>';
-        ph+='<li class="page-item '+(i===currentPage?'active':'')+'"><a class="page-link" href="javascript:void(0)" onclick="'+pageVar+'='+i+';renderPage()">'+i+'</a></li>';
+        ph+='<li class="page-item '+(i===currentPage?'active':'')+'"><a class="page-link" href="javascript:void(0)" onclick="osGoTo(\''+pageVar+'\','+i+')">'+i+'</a></li>';
         _l=i;
     }
-    ph+='<li class="page-item '+(currentPage>=totalPages?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage<totalPages?' onclick="'+pageVar+'='+(currentPage+1)+';renderPage()"':'')+'>&#187;</a></li>';
+    ph+='<li class="page-item '+(currentPage>=totalPages?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage<totalPages?' onclick="osGoTo(\''+pageVar+'\','+(currentPage+1)+')"':'')+'>&#187;</a></li>';
     document.getElementById(pagId).innerHTML=ph;
+}
+
+function osGoTo(pageVar, page){
+    if(pageVar==='recPage') recPage=page;
+    else payPage=page;
+    renderPage();
 }

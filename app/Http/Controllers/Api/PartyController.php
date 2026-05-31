@@ -120,6 +120,98 @@ class PartyController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function outstanding(Request $request)
+    {
+        $user   = $request->get('auth_user');
+        $coId   = $user->company_id;
+        $type   = $request->query('type', 'customer'); // customer | vendor
+        $search = $request->query('search');
+        $from   = $request->query('from');
+        $to     = $request->query('to');
+
+        $partyType = $type === 'vendor' ? 'Vendor' : 'Customer';
+
+        $parties = Party::where('company_id', $coId)
+            ->where('type', $partyType)
+            ->when($search, fn($q) => $q->where('name', 'like', "%{$search}%"))
+            ->get(['id', 'name', 'opening_balance']);
+
+        if ($parties->isEmpty()) {
+            return response()->json(['data' => [], 'totals' => ['invoiced' => 0, 'paid' => 0, 'outstanding' => 0]]);
+        }
+
+        $ids = $parties->pluck('id');
+
+        if ($type === 'customer') {
+            $invoiced = SaleOrder::where('company_id', $coId)->whereIn('customer_id', $ids)
+                ->when($from, fn($q) => $q->where('created_at', '>=', $from . ' 00:00:00'))
+                ->when($to,   fn($q) => $q->where('created_at', '<=', $to   . ' 23:59:59'))
+                ->selectRaw('customer_id as pid, SUM(total_amount) as t')->groupBy('customer_id')
+                ->pluck('t', 'pid');
+
+            $returned = SaleReturn::where('company_id', $coId)->whereIn('customer_id', $ids)
+                ->when($from, fn($q) => $q->where('created_at', '>=', $from . ' 00:00:00'))
+                ->when($to,   fn($q) => $q->where('created_at', '<=', $to   . ' 23:59:59'))
+                ->selectRaw('customer_id as pid, SUM(total_amount) as t')->groupBy('customer_id')
+                ->pluck('t', 'pid');
+
+            $paid = Payment::where('company_id', $coId)->whereIn('party_id', $ids)
+                ->whereIn('type', ['Receipt', 'Payment Received'])
+                ->when($from, fn($q) => $q->where('created_at', '>=', $from . ' 00:00:00'))
+                ->when($to,   fn($q) => $q->where('created_at', '<=', $to   . ' 23:59:59'))
+                ->selectRaw('party_id as pid, SUM(amount) as t')->groupBy('party_id')
+                ->pluck('t', 'pid');
+        } else {
+            $invoiced = PurchaseOrder::where('company_id', $coId)->whereIn('vendor_id', $ids)
+                ->when($from, fn($q) => $q->where('created_at', '>=', $from . ' 00:00:00'))
+                ->when($to,   fn($q) => $q->where('created_at', '<=', $to   . ' 23:59:59'))
+                ->selectRaw('vendor_id as pid, SUM(total_amount) as t')->groupBy('vendor_id')
+                ->pluck('t', 'pid');
+
+            $returned = PurchaseReturn::where('company_id', $coId)->whereIn('vendor_id', $ids)
+                ->when($from, fn($q) => $q->where('created_at', '>=', $from . ' 00:00:00'))
+                ->when($to,   fn($q) => $q->where('created_at', '<=', $to   . ' 23:59:59'))
+                ->selectRaw('vendor_id as pid, SUM(total_amount) as t')->groupBy('vendor_id')
+                ->pluck('t', 'pid');
+
+            $paid = Payment::where('company_id', $coId)->whereIn('party_id', $ids)
+                ->whereIn('type', ['Payment', 'Payment Made'])
+                ->when($from, fn($q) => $q->where('created_at', '>=', $from . ' 00:00:00'))
+                ->when($to,   fn($q) => $q->where('created_at', '<=', $to   . ' 23:59:59'))
+                ->selectRaw('party_id as pid, SUM(amount) as t')->groupBy('party_id')
+                ->pluck('t', 'pid');
+        }
+
+        $rows = [];
+        foreach ($parties as $party) {
+            $inv     = (float)($invoiced[$party->id] ?? 0);
+            $ret     = (float)($returned[$party->id] ?? 0);
+            $pmnt    = (float)($paid[$party->id] ?? 0);
+            $opening = ($from || $to) ? 0 : (float)($party->opening_balance ?? 0);
+            $outstanding = $inv - $ret - $pmnt + $opening;
+
+            if (abs($outstanding) > 0.01) {
+                $rows[] = [
+                    'name'        => $party->name,
+                    'invoiced'    => round($inv - $ret, 2),
+                    'paid'        => round($pmnt, 2),
+                    'outstanding' => round($outstanding, 2),
+                ];
+            }
+        }
+
+        usort($rows, fn($a, $b) => $b['outstanding'] <=> $a['outstanding']);
+
+        return response()->json([
+            'data'   => $rows,
+            'totals' => [
+                'invoiced'    => round(array_sum(array_column($rows, 'invoiced')), 2),
+                'paid'        => round(array_sum(array_column($rows, 'paid')), 2),
+                'outstanding' => round(array_sum(array_column($rows, 'outstanding')), 2),
+            ],
+        ]);
+    }
+
     public function ledger(Request $request, $id)
     {
         $user  = $request->get('auth_user');

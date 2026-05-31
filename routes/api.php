@@ -127,6 +127,7 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
         Route::get('/purchase-returns',     [PurchaseController::class, 'indexReturns']);
         Route::get('/payments',          [PaymentController::class,  'index']);
         Route::get('/inventory-ledger',       [ProductController::class,  'getLedger']);
+        Route::get('/outstanding',              [PartyController::class, 'outstanding']);
         Route::get('/parties/{id}/references',  [PartyController::class, 'references']);
         Route::get('/parties/{id}/ledger',      [PartyController::class, 'ledger']);
 
