@@ -206,7 +206,7 @@ class SyncService
             'ledger'          => InventoryLedgerResource::collection($ledger),
             'salesReturns'    => SaleReturnResource::collection($salesReturns),
             'purchaseReturns' => PurchaseReturnResource::collection($purchaseReturns),
-            'costLayers'      => InventoryCostLayerResource::collection($costLayers),
+            'costLayers'      => [],
             'jobCards'        => JobCardResource::collection($openJobCards),
             'jobCardHistory'  => JobCardResource::collection($recentJobCards),
         ];
