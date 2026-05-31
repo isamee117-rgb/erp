@@ -105,6 +105,21 @@
             }
             return withRetry(function() { return request('GET', '/sync/transactions' + qs); }, 3, 2000);
         },
+        getPayments: function(params) {
+            var parts = [];
+            if (params) {
+                if (params.page)   parts.push('page='   + encodeURIComponent(params.page));
+                if (params.search) parts.push('search=' + encodeURIComponent(params.search));
+                if (params.type)   parts.push('type='   + encodeURIComponent(params.type));
+                if (params.from)   parts.push('from='   + encodeURIComponent(params.from));
+                if (params.to)     parts.push('to='     + encodeURIComponent(params.to));
+            }
+            var qs = parts.length ? '?' + parts.join('&') : '';
+            return request('GET', '/payments' + qs);
+        },
+        getPartyReferences: function(partyId) {
+            return request('GET', '/parties/' + encodeURIComponent(partyId) + '/references');
+        },
         getInventoryLedger: function(params) {
             var parts = [];
             if (params) {

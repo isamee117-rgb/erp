@@ -119,4 +119,57 @@ class PartyController extends Controller
         $party->delete();
         return response()->json(['success' => true]);
     }
+
+    public function references(Request $request, $id)
+    {
+        $user  = $request->get('auth_user');
+        $coId  = $user->company_id;
+        $party = Party::where('id', $id)->where('company_id', $coId)->firstOrFail();
+
+        $refs = [];
+
+        if (str_contains(strtolower($party->type), 'customer')) {
+            $sales = SaleOrder::where('company_id', $coId)
+                ->where('customer_id', $id)
+                ->orderBy('created_at', 'desc')
+                ->limit(100)
+                ->get(['id', 'invoice_no', 'total_amount', 'created_at']);
+
+            foreach ($sales as $s) {
+                $refs[] = ['id' => $s->invoice_no ?? $s->id, 'amount' => (float) $s->total_amount, 'date' => $s->created_at?->toDateString(), 'type' => 'sale'];
+            }
+
+            $returns = SaleReturn::where('company_id', $coId)
+                ->where('customer_id', $id)
+                ->orderBy('created_at', 'desc')
+                ->limit(50)
+                ->get(['id', 'return_no', 'total_amount', 'created_at']);
+
+            foreach ($returns as $r) {
+                $refs[] = ['id' => $r->return_no ?? $r->id, 'amount' => (float) $r->total_amount, 'date' => $r->created_at?->toDateString(), 'type' => 'sale_return'];
+            }
+        } else {
+            $pos = PurchaseOrder::where('company_id', $coId)
+                ->where('vendor_id', $id)
+                ->orderBy('created_at', 'desc')
+                ->limit(100)
+                ->get(['id', 'po_no', 'total_amount', 'created_at']);
+
+            foreach ($pos as $po) {
+                $refs[] = ['id' => $po->po_no ?? $po->id, 'amount' => (float) $po->total_amount, 'date' => $po->created_at?->toDateString(), 'type' => 'purchase'];
+            }
+
+            $returns = PurchaseReturn::where('company_id', $coId)
+                ->where('vendor_id', $id)
+                ->orderBy('created_at', 'desc')
+                ->limit(50)
+                ->get(['id', 'return_no', 'total_amount', 'created_at']);
+
+            foreach ($returns as $r) {
+                $refs[] = ['id' => $r->return_no ?? $r->id, 'amount' => (float) $r->total_amount, 'date' => $r->created_at?->toDateString(), 'type' => 'purchase_return'];
+            }
+        }
+
+        return response()->json(['references' => $refs]);
+    }
 }

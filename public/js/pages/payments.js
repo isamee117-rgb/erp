@@ -1,4 +1,5 @@
-var currentPage=1, perPage=15;
+var pmPayments=[], pmMeta={currentPage:1,lastPage:1,total:0};
+var pmSearchTimer=null, pmLoading=false;
 
 function showPmConfirm(message) {
     return new Promise(function(resolve) {
@@ -16,28 +17,46 @@ function showPmConfirm(message) {
     });
 }
 
-function payRefetchIfNeeded(callback) {
-    var loadedFrom = window.ERP.state.transactionLoadedFrom;
-    var requestedFrom = (document.getElementById('dateFrom').value || '');
-    var requestedTo   = (document.getElementById('dateTo').value   || '');
-    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
-        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
-            .then(function(txData) {
-                ERP.mergeState(txData);
-                if (txData.loadedFrom) window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                if (typeof callback === 'function') callback();
-            })
-            .catch(function(e) { alert('Error loading data: ' + e.message); });
-    } else {
-        if (typeof callback === 'function') callback();
-    }
+function pmGetFilters() {
+    return {
+        page:   pmMeta.currentPage,
+        search: (document.getElementById('searchInput').value || '').trim(),
+        type:   document.getElementById('typeFilter').value || '',
+        from:   document.getElementById('dateFrom').value || '',
+        to:     document.getElementById('dateTo').value || '',
+    };
 }
 
-window.ERP.onReady = function(){ renderPage(); };
-function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('typeFilter').value=''; document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; currentPage=1; renderPage(); }
+function loadPayments(page) {
+    if (pmLoading) return;
+    pmLoading = true;
+    pmMeta.currentPage = page || 1;
+
+    var tbody = document.getElementById('paymentsBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+
+    ERP.api.getPayments(pmGetFilters())
+        .then(function(res) {
+            pmPayments = res.data || [];
+            var m = res.meta || {};
+            pmMeta = { currentPage: m.current_page||1, lastPage: m.last_page||1, total: m.total||0 };
+            renderPage();
+        })
+        .catch(function(e) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Error: ' + e.message + '</td></tr>';
+        })
+        .finally(function() { pmLoading = false; });
+}
+
+window.ERP.onReady = function(){ loadPayments(1); };
+function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('typeFilter').value=''; document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; loadPayments(1); }
 document.addEventListener('DOMContentLoaded', function(){
-    ['searchInput','typeFilter','dateFrom','dateTo'].forEach(function(id){
-        document.getElementById(id).addEventListener(id==='searchInput'?'input':'change', function(){ currentPage=1; if(id==='dateFrom'||id==='dateTo'){ payRefetchIfNeeded(renderPage); }else{ renderPage(); } });
+    document.getElementById('searchInput').addEventListener('input', function(){
+        clearTimeout(pmSearchTimer);
+        pmSearchTimer = setTimeout(function(){ loadPayments(1); }, 400);
+    });
+    ['typeFilter','dateFrom','dateTo'].forEach(function(id){
+        document.getElementById(id).addEventListener('change', function(){ loadPayments(1); });
     });
 
     var filterToggle = document.getElementById('pm-filter-toggle-btn');
@@ -56,31 +75,13 @@ document.addEventListener('DOMContentLoaded', function(){
     var pmSuccessOk = document.getElementById('pmSuccessOk');
     if (pmSuccessOk) pmSuccessOk.addEventListener('click', function() { document.getElementById('pmSuccessOverlay').classList.add('d-none'); });
 });
-function getFiltered(){
-    var state=window.ERP.state, search=(document.getElementById('searchInput').value||'').toLowerCase(),
-        tf=document.getElementById('typeFilter').value, df=document.getElementById('dateFrom').value, dt=document.getElementById('dateTo').value;
-    return (state.payments||[]).slice().reverse().filter(function(p){
-        var party=(state.parties||[]).find(function(x){return x.id===p.partyId;});
-        var str=((party?party.name:'')+' '+(p.referenceNo||'')+' '+(p.notes||'')+' '+(p.type||'')).toLowerCase();
-        if(search && str.indexOf(search)===-1) return false;
-        var normalType=(p.type==='Receipt')?'Payment Received':p.type;
-        if(tf && normalType!==tf) return false;
-        var pd=new Date(p.createdAt||p.date).toISOString().split('T')[0];
-        if(df && pd<df) return false;
-        if(dt && pd>dt) return false;
-        return true;
-    });
-}
 function renderPage(){
-    var state=window.ERP.state, filtered=getFiltered(), total=filtered.length,
-        totalPages=Math.max(1,Math.ceil(total/perPage)), start=(currentPage-1)*perPage, page=filtered.slice(start,start+perPage);
     var html='';
-    page.forEach(function(p){
-        var party=(state.parties||[]).find(function(x){return x.id===p.partyId;});
+    pmPayments.forEach(function(p){
         var isReceived=(p.type==='Payment Received'||p.type==='Receipt');
         html+='<tr>';
         html+='<td>'+new Date(p.createdAt||p.date).toLocaleDateString()+'</td>';
-        html+='<td class="fw-bold">'+(party?party.name:'—')+'</td>';
+        html+='<td class="fw-bold">'+(p.partyName||'—')+'</td>';
         html+='<td><span class="badge-pill '+(isReceived?'badge-green':'badge-red')+'">'+(isReceived?'Payment Received':(p.type||'—'))+'</span></td>';
         html+='<td class="fw-bold">'+ERP.formatCurrency(p.amount||0)+'</td>';
         var refNo = p.referenceNo || '';
@@ -98,26 +99,27 @@ function renderPage(){
         html+='<td><span class="text-muted">'+(p.notes||'—')+'</span></td>';
         html+='</tr>';
     });
-    if(!page.length) html='<tr><td colspan="7" class="text-center text-muted py-5"><i class="ti ti-wallet fs-1 d-block mb-2 text-muted"></i>No payments found</td></tr>';
+    if(!pmPayments.length) html='<tr><td colspan="6" class="text-center text-muted py-5"><i class="ti ti-wallet fs-1 d-block mb-2 text-muted"></i>No payments found</td></tr>';
     document.getElementById('paymentsBody').innerHTML=html;
-    document.getElementById('paginationInfo').textContent='Showing '+(total?start+1:0)+' to '+Math.min(start+perPage,total)+' of '+total;
-    var ph='';
-    ph+='<li class="page-item '+(currentPage<=1?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage>1?' onclick="goToPage('+(currentPage-1)+')"':'')+'>&#171;</a></li>';
-    var _pgS={},_pgL=0;
+
+    var start=(pmMeta.currentPage-1)*50;
+    document.getElementById('paginationInfo').textContent='Showing '+(pmMeta.total?start+1:0)+' to '+Math.min(start+50,pmMeta.total)+' of '+pmMeta.total;
+
+    var totalPages=pmMeta.lastPage||1, cur=pmMeta.currentPage||1, ph='',_pgS={},_pgL=0;
+    ph+='<li class="page-item '+(cur<=1?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(cur>1?' onclick="loadPayments('+(cur-1)+')"':'')+'>&#171;</a></li>';
     for(var p=1;p<=Math.min(2,totalPages);p++) _pgS[p]=true;
-    for(var p=Math.max(1,currentPage-2);p<=Math.min(totalPages,currentPage+2);p++) _pgS[p]=true;
+    for(var p=Math.max(1,cur-2);p<=Math.min(totalPages,cur+2);p++) _pgS[p]=true;
     for(var p=Math.max(1,totalPages-1);p<=totalPages;p++) _pgS[p]=true;
     for(var i=1;i<=totalPages;i++){
       if(!_pgS[i]) continue;
       if(_pgL>0&&i-_pgL>1) ph+='<li class="page-item disabled"><a class="page-link">&hellip;</a></li>';
-      ph+='<li class="page-item '+(i===currentPage?'active':'')+'"><a class="page-link" href="javascript:void(0)" onclick="goToPage('+i+')">'+i+'</a></li>';
+      ph+='<li class="page-item '+(i===cur?'active':'')+'"><a class="page-link" href="javascript:void(0)" onclick="loadPayments('+i+')">'+i+'</a></li>';
       _pgL=i;
     }
-    ph+='<li class="page-item '+(currentPage>=totalPages?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(currentPage<totalPages?' onclick="goToPage('+(currentPage+1)+')"':'')+'>&#187;</a></li>';
+    ph+='<li class="page-item '+(cur>=totalPages?'disabled':'')+'"><a class="page-link" href="javascript:void(0)"'+(cur<totalPages?' onclick="loadPayments('+(cur+1)+')"':'')+'>&#187;</a></li>';
     document.getElementById('pagination').innerHTML=ph;
     populatePartySelect();
 }
-function goToPage(p){currentPage=p;renderPage();}
 /* ── SDD helpers ── */
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function sddToggle(wrapId){
@@ -179,38 +181,26 @@ function populatePartySelect(){
 }
 function updateRefDropdown(){
     var partyId=document.getElementById('pmParty').value;
-    var state=window.ERP.state;
-    var party=(state.parties||[]).find(function(p){return p.id===partyId;});
     // Reset ref SDD
     document.getElementById('pmRef').value='';
     document.getElementById('pmRef-disp').textContent='-- Select Reference --';
     document.getElementById('pmRef-disp').style.color='#B0B7C9';
-    var html='';
-    if(partyId && party){
-        var isCustomer=(party.type||'').toLowerCase().indexOf('customer')!==-1;
-        if(isCustomer){
-            (state.sales||[]).filter(function(s){return s.customerId===partyId;}).forEach(function(s){
-                var lbl=escHtml(s.id)+' — '+escHtml(ERP.formatCurrency(s.totalAmount))+' ('+escHtml(new Date(s.createdAt).toLocaleDateString())+')';
-                html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(s.id)+'\',\''+escHtml(s.id)+'\')">' +lbl+'</div>';
-            });
-            (state.salesReturns||[]).filter(function(r){return r.customerId===partyId;}).forEach(function(r){
-                var lbl=escHtml(r.id)+' — '+escHtml(ERP.formatCurrency(r.totalAmount))+' ('+escHtml(new Date(r.createdAt).toLocaleDateString())+')';
-                html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(r.id)+'\',\''+escHtml(r.id)+'\')">'+lbl+'</div>';
-            });
-        } else {
-            (state.purchaseOrders||[]).filter(function(po){return po.vendorId===partyId;}).forEach(function(po){
-                var lbl=escHtml(po.id)+' — '+escHtml(ERP.formatCurrency(po.totalAmount))+' ('+escHtml(new Date(po.createdAt).toLocaleDateString())+')';
-                html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(po.id)+'\',\''+escHtml(po.id)+'\')">' +lbl+'</div>';
-            });
-            (state.purchaseReturns||[]).filter(function(r){return r.vendorId===partyId;}).forEach(function(r){
-                var lbl=escHtml(r.id)+' — '+escHtml(ERP.formatCurrency(r.totalAmount))+' ('+escHtml(new Date(r.createdAt).toLocaleDateString())+')';
-                html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(r.id)+'\',\''+escHtml(r.id)+'\')">'+lbl+'</div>';
-            });
-        }
-    }
-    if(!html) html='<div class="sdd-no-res">'+(!partyId?'Select a party first':'No references found')+'</div>';
-    else html+='<div class="sdd-no-res" class="d-none">No references found</div>';
-    document.getElementById('pmRef-opts').innerHTML=html;
+    var optsEl=document.getElementById('pmRef-opts');
+    if(!partyId){ optsEl.innerHTML='<div class="sdd-no-res">Select a party first</div>'; return; }
+
+    optsEl.innerHTML='<div class="sdd-no-res">Loading...</div>';
+    ERP.api.getPartyReferences(partyId).then(function(res){
+        var refs=res.references||[], html='';
+        refs.forEach(function(r){
+            var lbl=escHtml(r.id)+' — '+escHtml(ERP.formatCurrency(r.amount))+' ('+escHtml(r.date||'')+')';
+            html+='<div class="sdd-opt" onclick="sddSelectRef(\''+escHtml(r.id)+'\',\''+escHtml(r.id)+'\')">'+lbl+'</div>';
+        });
+        if(!html) html='<div class="sdd-no-res">No references found</div>';
+        else html+='<div class="sdd-no-res" style="display:none;">No references found</div>';
+        optsEl.innerHTML=html;
+    }).catch(function(){
+        optsEl.innerHTML='<div class="sdd-no-res">Error loading references</div>';
+    });
 }
 function openAddPayment(){
     var errBox = document.getElementById('pm-save-error');
@@ -251,7 +241,7 @@ async function savePayment(){
     try{
         var result = await ERP.api.addPayment(data);
         bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
-        await ERP.sync(); renderPage();
+        await loadPayments(1);
         document.getElementById('pmSuccessOverlay').classList.remove('d-none');
         if (result && result.warning) showJournalWarning(result.warning);
     }catch(e){ showPmFieldError(e.message || 'Failed to save payment.'); }
