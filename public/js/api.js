@@ -136,6 +136,9 @@
             var qs = parts.length ? '?' + parts.join('&') : '';
             return request('GET', '/purchase-returns' + qs);
         },
+        getDashboard: function(filter) {
+            return request('GET', '/dashboard?filter=' + encodeURIComponent(filter || 'month'));
+        },
         getOutstanding: function(type, search, from, to) {
             var parts = ['type=' + encodeURIComponent(type)];
             if (search) parts.push('search=' + encodeURIComponent(search));

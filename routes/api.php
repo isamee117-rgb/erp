@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\JournalEntryController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReportBuilderController;
 use App\Http\Controllers\Api\JobCardController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Middleware\ApiTokenAuth;
 
 // Login: 5 attempts/minute per IP (unchanged)
@@ -127,6 +128,7 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
         Route::get('/purchase-returns',     [PurchaseController::class, 'indexReturns']);
         Route::get('/payments',          [PaymentController::class,  'index']);
         Route::get('/inventory-ledger',       [ProductController::class,  'getLedger']);
+        Route::get('/dashboard',                [DashboardController::class, 'index']);
         Route::get('/outstanding',              [PartyController::class, 'outstanding']);
         Route::get('/parties/{id}/references',  [PartyController::class, 'references']);
         Route::get('/parties/{id}/ledger',      [PartyController::class, 'ledger']);

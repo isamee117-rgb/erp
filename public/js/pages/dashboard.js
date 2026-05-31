@@ -94,15 +94,8 @@ function renderSuperAdminDashboard(state, container) {
 }
 
 function renderUserDashboard(state, container, companyId) {
-  var products  = (state.products      || []).filter(function(p)  { return p.companyId  === companyId; });
-  var allSales  = (state.sales         || []).filter(function(s)  { return s.companyId  === companyId; });
-  var allReturns= (state.salesReturns  || []).filter(function(r)  { return r.companyId  === companyId; });
-  var pos       = (state.purchaseOrders|| []).filter(function(po) { return po.companyId === companyId; });
-
-  // These 3 are NOT date-filtered — always current state
-  var inventoryVal = products.reduce(function(acc, p) { return acc + ((p.currentStock || 0) * (p.costPrice || p.unitCost || 0)); }, 0);
-  var lowStock     = products.filter(function(p) { return (p.currentStock || 0) <= (p.reorderLevel || 0); }).length;
-  var pendingPOs   = pos.filter(function(po) { return po.status === 'Draft'; }).length;
+  // Placeholder values shown while API loads
+  var inventoryVal = 0, lowStock = 0, pendingPOs = 0, productCount = 0;
 
   var html = '<div class="db-page-header">' +
     '<div class="d-flex align-items-center justify-content-between">' +
@@ -122,23 +115,23 @@ function renderUserDashboard(state, container, companyId) {
     '<div class="db-kpi-value" id="kpi-net-sales">--</div>' +
     '<div class="db-kpi-sub" id="kpi-net-sales-sub">&nbsp;</div>' +
     '</div>';
-  // Static KPIs — not date-filtered
+  // Static KPIs — filled after API response
   html += '<div class="db-kpi-card">' +
     '<div class="db-kpi-icon-wrap db-kpi-icon-blue"><i class="ti ti-package"></i></div>' +
     '<div class="db-kpi-label">Inventory Value</div>' +
-    '<div class="db-kpi-value">' + ERP.formatCurrency(inventoryVal) + '</div>' +
-    '<div class="db-kpi-sub">' + products.length + ' products tracked</div>' +
+    '<div class="db-kpi-value" id="kpi-inv-value">--</div>' +
+    '<div class="db-kpi-sub" id="kpi-inv-sub">&nbsp;</div>' +
     '</div>';
   html += '<div class="db-kpi-card">' +
     '<div class="db-kpi-icon-wrap db-kpi-icon-orange"><i class="ti ti-alert-triangle"></i></div>' +
     '<div class="db-kpi-label">Low Stock Alerts</div>' +
-    '<div class="db-kpi-value">' + lowStock + '</div>' +
+    '<div class="db-kpi-value" id="kpi-low-stock">--</div>' +
     '<div class="db-kpi-sub">Products at reorder level</div>' +
     '</div>';
   html += '<div class="db-kpi-card">' +
     '<div class="db-kpi-icon-wrap db-kpi-icon-purple"><i class="ti ti-shopping-bag"></i></div>' +
     '<div class="db-kpi-label">Pending Purchases</div>' +
-    '<div class="db-kpi-value">' + pendingPOs + '</div>' +
+    '<div class="db-kpi-value" id="kpi-pending-po">--</div>' +
     '<div class="db-kpi-sub">Draft purchase orders</div>' +
     '</div>';
   html += '</div>';
@@ -153,24 +146,6 @@ function renderUserDashboard(state, container, companyId) {
 
   container.innerHTML = html;
 
-  // Recent transactions — always latest 10, no date filter
-  var activityEl = document.getElementById('activity-list');
-  var recentSales = allSales.slice(-10).reverse();
-  if (recentSales.length === 0) {
-    activityEl.innerHTML = '<div class="db-empty"><span class="db-empty-icon ti ti-shopping-bag"></span>No transactions yet</div>';
-  } else {
-    var aHtml = '';
-    recentSales.forEach(function(sale) {
-      var saleId = (sale.id || '').slice(-6);
-      var time = new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      var date = new Date(sale.createdAt).toLocaleDateString();
-      aHtml += '<div class="db-activity-item">' +
-        '<div><div class="db-activity-id">#' + saleId + '</div><div class="db-activity-time">' + date + ' &middot; ' + time + '</div></div>' +
-        '<div class="db-activity-amount">' + ERP.formatCurrency(sale.total || sale.totalAmount || 0) + '</div></div>';
-    });
-    activityEl.innerHTML = aHtml;
-  }
-
   // Wire up filter buttons
   var filterBtns = document.querySelectorAll('#db-filter-btns .db-filter-btn');
   filterBtns.forEach(function(btn) {
@@ -178,43 +153,67 @@ function renderUserDashboard(state, container, companyId) {
       currentFilter = this.getAttribute('data-filter');
       filterBtns.forEach(function(b) { b.classList.remove('active'); });
       this.classList.add('active');
-      applyDashboardFilter(allSales, allReturns, currentFilter);
+      loadDashboardData(currentFilter);
     });
   });
 
-  // Initial render with default filter
-  applyDashboardFilter(allSales, allReturns, currentFilter);
+  // Initial API load
+  loadDashboardData(currentFilter);
 }
 
-function applyDashboardFilter(allSales, allReturns, filter) {
-  var sales   = filterByDate(allSales,   filter);
-  var returns = filterByDate(allReturns, filter);
+function loadDashboardData(filter) {
+  var kpiValue   = document.getElementById('kpi-net-sales');
+  var kpiSub     = document.getElementById('kpi-net-sales-sub');
+  if (kpiValue) kpiValue.textContent = '--';
+  if (kpiSub)   kpiSub.textContent   = '…';
 
-  var grossSales   = sales.reduce(  function(acc, s) { return acc + (s.total || s.totalAmount || 0); }, 0);
-  var totalReturns = returns.reduce(function(acc, r) { return acc + (r.totalAmount || 0); }, 0);
-  var netSales     = grossSales - totalReturns;
+  ERP.api.getDashboard(filter).then(function(data) {
+    // Net sales KPI
+    if (kpiValue) kpiValue.textContent = ERP.formatCurrency(data.netSales || 0);
+    if (kpiSub)   kpiSub.textContent   = (data.salesCount || 0) + ' orders · ' + (data.returnsCount || 0) + ' returns';
 
-  var kpiValue = document.getElementById('kpi-net-sales');
-  var kpiSub   = document.getElementById('kpi-net-sales-sub');
-  var chartTitle = document.getElementById('db-chart-title');
+    // Static KPIs
+    var invEl = document.getElementById('kpi-inv-value');
+    var invSub= document.getElementById('kpi-inv-sub');
+    var lowEl = document.getElementById('kpi-low-stock');
+    var poEl  = document.getElementById('kpi-pending-po');
+    if (invEl)  invEl.textContent  = ERP.formatCurrency(data.inventoryValue || 0);
+    if (invSub) invSub.textContent = (data.productCount || 0) + ' products tracked';
+    if (lowEl)  lowEl.textContent  = data.lowStockCount || 0;
+    if (poEl)   poEl.textContent   = data.pendingPOCount || 0;
 
-  if (kpiValue)    kpiValue.textContent = ERP.formatCurrency(netSales);
-  if (kpiSub)      kpiSub.textContent   = sales.length + ' orders · ' + returns.length + ' returns';
+    // Chart title
+    var chartTitle = document.getElementById('db-chart-title');
+    var titleMap = { today: 'Revenue Trend (Today)', month: 'Revenue Trend (This Month)', year: 'Revenue Trend (This Year)' };
+    if (chartTitle) chartTitle.textContent = titleMap[filter] || 'Revenue Trend';
 
-  var titleMap = {
-    today: 'Revenue Trend (Today)',
-    month: 'Revenue Trend (This Month)',
-    year:  'Revenue Trend (This Year)'
-  };
-  if (chartTitle) chartTitle.textContent = titleMap[filter] || 'Revenue Trend';
+    // Chart
+    if (dashboardChart) { dashboardChart.destroy(); dashboardChart = null; }
+    dashboardChart = renderAreaChart('sales-chart', data.trend || []);
 
-  var trendData = buildTrendData(allSales, allReturns, filter);
-
-  if (dashboardChart) {
-    dashboardChart.destroy();
-    dashboardChart = null;
-  }
-  dashboardChart = renderAreaChart('sales-chart', trendData);
+    // Recent transactions
+    var activityEl = document.getElementById('activity-list');
+    if (activityEl) {
+      var recent = data.recentTransactions || [];
+      if (!recent.length) {
+        activityEl.innerHTML = '<div class="db-empty"><span class="db-empty-icon ti ti-shopping-bag"></span>No transactions yet</div>';
+      } else {
+        var aHtml = '';
+        recent.forEach(function(sale) {
+          var saleId = (sale.id || '').slice(-6);
+          var time = new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          var date = new Date(sale.createdAt).toLocaleDateString();
+          aHtml += '<div class="db-activity-item">' +
+            '<div><div class="db-activity-id">#' + saleId + '</div><div class="db-activity-time">' + date + ' &middot; ' + time + '</div></div>' +
+            '<div class="db-activity-amount">' + ERP.formatCurrency(sale.amount || 0) + '</div></div>';
+        });
+        activityEl.innerHTML = aHtml;
+      }
+    }
+  }).catch(function(e) {
+    if (kpiValue) kpiValue.textContent = 'Error';
+    if (kpiSub)   kpiSub.textContent   = e.message;
+  });
 }
 
 function filterByDate(items, filter) {
