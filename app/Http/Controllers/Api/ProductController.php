@@ -151,6 +151,43 @@ class ProductController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function getLedger(Request $request)
+    {
+        $user      = $request->get('auth_user');
+        $coId      = $user->company_id;
+        $productId = $request->query('productId');
+
+        if (empty($productId)) {
+            return response()->json(['error' => 'productId is required'], 400);
+        }
+
+        $from = $request->query('from');
+        $to   = $request->query('to');
+
+        // Balance before the date filter window
+        $openingBalance = 0;
+        if ($from) {
+            $openingBalance = (int) InventoryLedger::where('company_id', $coId)
+                ->where('product_id', $productId)
+                ->where('created_at', '<', $from . ' 00:00:00')
+                ->sum('quantity_change');
+        }
+
+        $query = InventoryLedger::where('company_id', $coId)
+            ->where('product_id', $productId)
+            ->orderBy('created_at', 'asc');
+
+        if ($from) $query->where('created_at', '>=', $from . ' 00:00:00');
+        if ($to)   $query->where('created_at', '<=', $to   . ' 23:59:59');
+
+        $entries = $query->get();
+
+        return response()->json([
+            'openingBalance' => $openingBalance,
+            'entries'        => \App\Http\Resources\InventoryLedgerResource::collection($entries),
+        ]);
+    }
+
     public function findByBarcode(Request $request)
     {
         $user = $request->get('auth_user');

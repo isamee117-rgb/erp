@@ -1,29 +1,29 @@
 var ilPage=1, ilPerPage=10;
-window.ERP.onReady = function(){ populateProducts(); renderPage(); };
+var ilEntries=[], ilOpeningBalance=0, ilLoading=false;
 
-function ilRefetchIfNeeded(callback) {
-    var loadedFrom = window.ERP.state.transactionLoadedFrom;
-    var requestedFrom = (document.getElementById('dateFrom').value || '');
-    var requestedTo   = (document.getElementById('dateTo').value   || '');
+window.ERP.onReady = function(){ populateProducts(); };
 
-    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
-        var tbody = document.getElementById('ledgerBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+function ilLoad() {
+    var productId = document.getElementById('productSelect').value;
+    if (!productId) { renderPage(); return; }
+    if (ilLoading) return;
+    ilLoading = true;
+    ilPage = 1;
 
-        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
-            .then(function(txData) {
-                ERP.mergeState(txData);
-                if (txData.loadedFrom) {
-                    window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                }
-                if (typeof callback === 'function') callback();
-            })
-            .catch(function(e) {
-                alert('Error loading data: ' + e.message);
-            });
-    } else {
-        if (typeof callback === 'function') callback();
-    }
+    var tbody = document.getElementById('ledgerBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+
+    ERP.api.getInventoryLedger({
+        productId: productId,
+        from: document.getElementById('dateFrom').value || '',
+        to:   document.getElementById('dateTo').value   || '',
+    }).then(function(res) {
+        ilEntries = res.entries || [];
+        ilOpeningBalance = res.openingBalance || 0;
+        renderPage();
+    }).catch(function(e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error: ' + e.message + '</td></tr>';
+    }).finally(function() { ilLoading = false; });
 }
 
 document.addEventListener('DOMContentLoaded', function(){
@@ -36,10 +36,10 @@ document.addEventListener('DOMContentLoaded', function(){
     document.getElementById('il-clear-filters-btn').addEventListener('click', function(){
         document.getElementById('dateFrom').value = '';
         document.getElementById('dateTo').value = '';
-        ilPage = 1; renderPage();
+        ilLoad();
     });
     ['dateFrom','dateTo'].forEach(function(id){
-        document.getElementById(id).addEventListener('change', function(){ ilPage=1; ilRefetchIfNeeded(renderPage); });
+        document.getElementById(id).addEventListener('change', function(){ ilLoad(); });
     });
 });
 
@@ -64,22 +64,12 @@ function sddSelectProduct(productId, label){
     document.getElementById('productSelect-disp').textContent=label;
     document.getElementById('productSelect-disp').style.color='#1A1D2E';
     document.querySelectorAll('.sdd-wrap.open').forEach(function(w){w.classList.remove('open');});
-    ilPage=1; renderPage();
+    ilLoad();
 }
 document.addEventListener('click',function(e){
     if(!e.target.closest('.sdd-wrap')) document.querySelectorAll('.sdd-wrap.open').forEach(function(w){w.classList.remove('open');});
 });
 
-function poIdFromReceiptId(receiptId){
-    var pos = window.ERP.state.purchaseOrders || [];
-    for(var i=0; i<pos.length; i++){
-        var rcvs = pos[i].receives || [];
-        for(var j=0; j<rcvs.length; j++){
-            if(rcvs[j].id === receiptId) return pos[i].id;
-        }
-    }
-    return null;
-}
 
 function populateProducts(){
     var html='';
@@ -96,14 +86,9 @@ function renderPage(){
         document.getElementById('ledgerBody').innerHTML='<tr><td colspan="6" class="text-center text-muted py-5"><i class="ti ti-receipt fs-1 d-block mb-2 text-muted"></i>Select a product to view ledger</td></tr>';
         document.getElementById('ilPagInfo').textContent=''; document.getElementById('ilPag').innerHTML=''; return;
     }
-    var state=window.ERP.state, df=document.getElementById('dateFrom').value, dt=document.getElementById('dateTo').value;
-    var entries=(state.ledger||[]).filter(function(e){return e.productId===productId;});
-    entries.sort(function(a,b){return new Date(a.createdAt||a.date)-new Date(b.createdAt||b.date);});
-    if(df) entries=entries.filter(function(e){return new Date(e.createdAt||e.date).toISOString().split('T')[0]>=df;});
-    if(dt) entries=entries.filter(function(e){return new Date(e.createdAt||e.date).toISOString().split('T')[0]<=dt;});
-    // Pre-compute all rows with running balance
-    var allRows=[], bal=0;
-    entries.forEach(function(e){
+    // Pre-compute all rows with running balance from openingBalance
+    var allRows=[], bal=ilOpeningBalance;
+    ilEntries.forEach(function(e){
         bal+=e.quantityChange;
         allRows.push({e:e, bal:bal});
     });
@@ -118,7 +103,6 @@ function renderPage(){
         else if(e.transactionType.indexOf('Purchase')!==-1) badgeColor='badge-green';
         else if(e.transactionType.indexOf('Adjustment')!==-1) badgeColor='badge-gray';
         var refDisplay = e.referenceId;
-        if(e.transactionType === 'Purchase_Receive') refDisplay = poIdFromReceiptId(e.referenceId) || e.referenceId;
         html+='<tr><td>'+new Date(e.createdAt||e.date).toLocaleDateString()+'</td>';
         html+='<td><span class="badge-pill '+badgeColor+'">'+typeLabel+'</span></td>';
         html+='<td>'+refDisplay+'</td>';

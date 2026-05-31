@@ -16,6 +16,39 @@ class PaymentController extends Controller
 {
     public function __construct(protected JournalPostingService $journalService) {}
 
+    public function index(Request $request)
+    {
+        $user = $request->get('auth_user');
+        $coId = $user->company_id;
+
+        $query = Payment::with('party')
+            ->where('company_id', $coId)
+            ->orderBy('created_at', 'desc');
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('reference_no', 'like', "%{$search}%")
+                  ->orWhere('notes', 'like', "%{$search}%")
+                  ->orWhereHas('party', fn($cq) => $cq->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($type = $request->query('type')) {
+            $typeMap = ['Payment Received' => 'Receipt', 'Payment Made' => 'Payment'];
+            $query->where('type', $typeMap[$type] ?? $type);
+        }
+
+        if ($from = $request->query('from')) {
+            $query->where('created_at', '>=', $from . ' 00:00:00');
+        }
+
+        if ($to = $request->query('to')) {
+            $query->where('created_at', '<=', $to . ' 23:59:59');
+        }
+
+        return PaymentResource::collection($query->paginate(50));
+    }
+
     public function store(StorePaymentRequest $request)
     {
         $user    = $request->get('auth_user');

@@ -105,6 +105,16 @@
             }
             return withRetry(function() { return request('GET', '/sync/transactions' + qs); }, 3, 2000);
         },
+        getInventoryLedger: function(params) {
+            var parts = [];
+            if (params) {
+                if (params.productId) parts.push('productId=' + encodeURIComponent(params.productId));
+                if (params.from)      parts.push('from='      + encodeURIComponent(params.from));
+                if (params.to)        parts.push('to='        + encodeURIComponent(params.to));
+            }
+            var qs = parts.length ? '?' + parts.join('&') : '';
+            return request('GET', '/inventory-ledger' + qs);
+        },
         getSaleReturns: function(params) {
             var parts = [];
             if (params) {

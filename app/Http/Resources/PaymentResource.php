@@ -13,6 +13,7 @@ class PaymentResource extends JsonResource
             'id'            => $this->id,
             'companyId'     => $this->company_id,
             'partyId'       => $this->party_id,
+            'partyName'     => $this->whenLoaded('party', fn() => $this->party?->name),
             'date'          => is_numeric($this->date) ? $this->date : strtotime($this->date) * 1000,
             'amount'        => (float) $this->amount,
             'paymentMethod' => $this->payment_method,
