@@ -1,30 +1,49 @@
-var currentPage = 1, perPage = 10;
+var srReturns = [], srMeta = { currentPage: 1, lastPage: 1, total: 0 };
+var srSearchTimer = null, srLoading = false;
 
-function srRefetchIfNeeded(callback) {
-    var loadedFrom = window.ERP.state.transactionLoadedFrom;
-    var requestedFrom = (document.getElementById('dateFrom').value || '');
-    var requestedTo   = (document.getElementById('dateTo').value   || '');
-    if (loadedFrom && requestedFrom && requestedFrom < loadedFrom) {
-        ERP.api.syncTransactions({ from: requestedFrom, to: requestedTo || undefined })
-            .then(function(txData) {
-                ERP.mergeState(txData);
-                if (txData.loadedFrom) window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                if (typeof callback === 'function') callback();
-            })
-            .catch(function(e) { alert('Error loading data: ' + e.message); });
-    } else {
-        if (typeof callback === 'function') callback();
-    }
+function srGetFilters() {
+    return {
+        page:   srMeta.currentPage,
+        search: (document.getElementById('searchInput').value || '').trim(),
+        from:   document.getElementById('dateFrom').value || '',
+        to:     document.getElementById('dateTo').value || '',
+    };
 }
 
-window.ERP.onReady = function() { renderPage(); };
+function loadSaleReturns(page) {
+    if (srLoading) return;
+    srLoading = true;
+    srMeta.currentPage = page || 1;
+
+    var tbody = document.getElementById('returnsBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+
+    ERP.api.getSaleReturns(srGetFilters())
+        .then(function(res) {
+            srReturns = res.data || [];
+            var m = res.meta || {};
+            srMeta = {
+                currentPage: m.current_page || 1,
+                lastPage:    m.last_page    || 1,
+                total:       m.total        || 0,
+            };
+            renderPage();
+        })
+        .catch(function(e) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Error: ' + e.message + '</td></tr>';
+        })
+        .finally(function() { srLoading = false; });
+}
+
+window.ERP.onReady = function() { loadSaleReturns(1); };
 
 document.addEventListener('DOMContentLoaded', function() {
-    ['searchInput', 'dateFrom', 'dateTo'].forEach(function(id) {
-        document.getElementById(id).addEventListener(id === 'searchInput' ? 'input' : 'change', function() {
-            currentPage = 1;
-            if (id === 'searchInput') { renderPage(); } else { srRefetchIfNeeded(renderPage); }
-        });
+    document.getElementById('searchInput').addEventListener('input', function() {
+        clearTimeout(srSearchTimer);
+        srSearchTimer = setTimeout(function() { loadSaleReturns(1); }, 400);
+    });
+    ['dateFrom', 'dateTo'].forEach(function(id) {
+        document.getElementById(id).addEventListener('change', function() { loadSaleReturns(1); });
     });
 
     document.getElementById('sret-filter-toggle-btn').addEventListener('click', function() {
@@ -58,43 +77,20 @@ function clearFilters() {
     document.getElementById('searchInput').value = '';
     document.getElementById('dateFrom').value = '';
     document.getElementById('dateTo').value = '';
-    currentPage = 1; renderPage();
-}
-
-function getFiltered() {
-    var state = window.ERP.state;
-    var search = (document.getElementById('searchInput').value || '').toLowerCase();
-    var df = document.getElementById('dateFrom').value;
-    var dt = document.getElementById('dateTo').value;
-    return (state.salesReturns || []).slice().reverse().filter(function(r) {
-        var sale = (state.sales || []).find(function(s) { return s.id === r.originalSaleId; });
-        var party = sale ? (state.parties || []).find(function(p) { return p.id === sale.customerId; }) : null;
-        var str = (r.id + ' ' + (sale ? sale.id : '') + ' ' + (party ? party.name : '') + ' ' + (r.reason || '')).toLowerCase();
-        if (search && str.indexOf(search) === -1) return false;
-        var rd = new Date(r.createdAt).toISOString().split('T')[0];
-        if (df && rd < df) return false;
-        if (dt && rd > dt) return false;
-        return true;
-    });
+    loadSaleReturns(1);
 }
 
 function renderPage() {
-    var state = window.ERP.state;
-    var filtered = getFiltered(), total = filtered.length;
-    var totalPages = Math.max(1, Math.ceil(total / perPage));
-    var start = (currentPage - 1) * perPage;
-    var page = filtered.slice(start, start + perPage);
+    var products = window.ERP.state.products || [];
     var html = '';
-    page.forEach(function(r) {
-        var sale = (state.sales || []).find(function(s) { return s.id === r.originalSaleId; });
-        var party = sale ? (state.parties || []).find(function(p) { return p.id === sale.customerId; }) : null;
+    srReturns.forEach(function(r) {
         var items = r.items || [];
         html += '<tr class="cursor-pointer" onclick="toggleExpand(\'' + r.id + '\')">';
         html += '<td><i class="ti ti-chevron-right" id="chev-' + r.id + '"></i></td>';
         html += '<td><span class="badge-pill badge-purple">' + r.id + '</span></td>';
         html += '<td>' + new Date(r.createdAt).toLocaleDateString() + '</td>';
-        html += '<td>' + (sale ? sale.id : '—') + '</td>';
-        html += '<td>' + (party ? party.name : '—') + '</td>';
+        html += '<td>' + (r.originalSaleNo || r.originalSaleId || '—') + '</td>';
+        html += '<td>' + (r.customerName || '—') + '</td>';
         html += '<td>' + items.length + '</td>';
         html += '<td class="text-end">' + ERP.formatCurrency(r.totalAmount || 0) + '</td>';
         html += '<td><span class="text-muted">' + (r.reason || '—') + '</span></td></tr>';
@@ -109,7 +105,7 @@ function renderPage() {
             '<th class="po-th-col text-end">Line Total</th>' +
             '</tr></thead><tbody>';
         items.forEach(function(it, idx) {
-            var prod = (state.products || []).find(function(p) { return p.id === it.productId; });
+            var prod = products.find(function(p) { return p.id === it.productId; });
             var price = it.unitPrice || it.price || 0;
             html += '<tr>' +
                 '<td class="text-center" style="color:#9CA3AF;font-size:0.78rem;">' + (idx + 1) + '</td>' +
@@ -125,23 +121,26 @@ function renderPage() {
         html += '<div class="d-flex justify-content-between erp-text-sm"><span class="text-muted">Total Credited</span><span class="fw-semibold">' + ERP.formatCurrency(r.totalAmount || 0) + '</span></div>';
         html += '</div></div></div></div></td></tr>';
     });
-    if (!page.length) html = '<tr><td colspan="8" class="text-center text-muted py-5"><i class="ti ti-receipt-refund fs-1 d-block mb-2 text-muted"></i>No sales returns found</td></tr>';
+    if (!srReturns.length) html = '<tr><td colspan="8" class="text-center text-muted py-5"><i class="ti ti-receipt-refund fs-1 d-block mb-2 text-muted"></i>No sales returns found</td></tr>';
     document.getElementById('returnsBody').innerHTML = html;
-    document.getElementById('paginationInfo').textContent = 'Showing ' + (total ? start + 1 : 0) + ' to ' + Math.min(start + perPage, total) + ' of ' + total;
 
+    var start = (srMeta.currentPage - 1) * 50;
+    document.getElementById('paginationInfo').textContent = 'Showing ' + (srMeta.total ? start + 1 : 0) + ' to ' + Math.min(start + 50, srMeta.total) + ' of ' + srMeta.total;
+
+    var totalPages = srMeta.lastPage || 1, cur = srMeta.currentPage || 1;
     var ph = '';
-    ph += '<li class="page-item ' + (currentPage <= 1 ? 'disabled' : '') + '"><a class="page-link" href="javascript:void(0)"' + (currentPage > 1 ? ' onclick="goToPage(' + (currentPage - 1) + ')"' : '') + '>&#171;</a></li>';
+    ph += '<li class="page-item ' + (cur <= 1 ? 'disabled' : '') + '"><a class="page-link" href="javascript:void(0)"' + (cur > 1 ? ' onclick="loadSaleReturns(' + (cur - 1) + ')"' : '') + '>&#171;</a></li>';
     var _pgS = {}, _pgL = 0;
     for (var p = 1; p <= Math.min(2, totalPages); p++) _pgS[p] = true;
-    for (var p = Math.max(1, currentPage - 2); p <= Math.min(totalPages, currentPage + 2); p++) _pgS[p] = true;
+    for (var p = Math.max(1, cur - 2); p <= Math.min(totalPages, cur + 2); p++) _pgS[p] = true;
     for (var p = Math.max(1, totalPages - 1); p <= totalPages; p++) _pgS[p] = true;
     for (var i = 1; i <= totalPages; i++) {
         if (!_pgS[i]) continue;
         if (_pgL > 0 && i - _pgL > 1) ph += '<li class="page-item disabled"><a class="page-link">&hellip;</a></li>';
-        ph += '<li class="page-item ' + (i === currentPage ? 'active' : '') + '"><a class="page-link" href="javascript:void(0)" onclick="goToPage(' + i + ')">' + i + '</a></li>';
+        ph += '<li class="page-item ' + (i === cur ? 'active' : '') + '"><a class="page-link" href="javascript:void(0)" onclick="loadSaleReturns(' + i + ')">' + i + '</a></li>';
         _pgL = i;
     }
-    ph += '<li class="page-item ' + (currentPage >= totalPages ? 'disabled' : '') + '"><a class="page-link" href="javascript:void(0)"' + (currentPage < totalPages ? ' onclick="goToPage(' + (currentPage + 1) + ')"' : '') + '>&#187;</a></li>';
+    ph += '<li class="page-item ' + (cur >= totalPages ? 'disabled' : '') + '"><a class="page-link" href="javascript:void(0)"' + (cur < totalPages ? ' onclick="loadSaleReturns(' + (cur + 1) + ')"' : '') + '>&#187;</a></li>';
     document.getElementById('pagination').innerHTML = ph;
 
     populateSaleSelect();
@@ -155,8 +154,6 @@ function toggleExpand(id) {
         r.classList.add('d-none'); c.className = 'ti ti-chevron-right';
     }
 }
-
-function goToPage(p) { currentPage = p; renderPage(); }
 
 /* ── SDD helpers ── */
 function escHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -318,8 +315,7 @@ async function submitReturn() {
     try {
         var result = await ERP.api.createSaleReturn(saleId, items, reason);
         bootstrap.Modal.getInstance(document.getElementById('newSReturnModal')).hide();
-        await ERP.sync();
-        renderPage();
+        await loadSaleReturns(1);
         document.getElementById('sretSuccessOverlay').classList.remove('d-none');
         if (result && result.warning) showJournalWarning(result.warning);
     } catch(e) {

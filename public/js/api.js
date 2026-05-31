@@ -105,6 +105,17 @@
             }
             return withRetry(function() { return request('GET', '/sync/transactions' + qs); }, 3, 2000);
         },
+        getSaleReturns: function(params) {
+            var parts = [];
+            if (params) {
+                if (params.page)   parts.push('page='   + encodeURIComponent(params.page));
+                if (params.search) parts.push('search=' + encodeURIComponent(params.search));
+                if (params.from)   parts.push('from='   + encodeURIComponent(params.from));
+                if (params.to)     parts.push('to='     + encodeURIComponent(params.to));
+            }
+            var qs = parts.length ? '?' + parts.join('&') : '';
+            return request('GET', '/sale-returns' + qs);
+        },
         getPurchases: function(params) {
             var parts = [];
             if (params) {

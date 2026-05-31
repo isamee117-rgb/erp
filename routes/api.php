@@ -119,8 +119,9 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
 
     // ── Reads: 120 req/min per user ───────────────────────────────────────────
     Route::middleware('throttle:api-reads')->group(function () {
-        Route::get('/sales',     [SaleController::class,    'index']);
-        Route::get('/purchases', [PurchaseController::class, 'index']);
+        Route::get('/sales',          [SaleController::class,    'index']);
+        Route::get('/sale-returns',   [SaleController::class,    'indexReturns']);
+        Route::get('/purchases',      [PurchaseController::class, 'index']);
 
         Route::get('/products/barcode',              [ProductController::class, 'findByBarcode']);
         Route::get('/products/{id}/uom-conversions', [ProductController::class, 'listUomConversions']);
