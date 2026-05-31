@@ -358,12 +358,19 @@ async function completeSale() {
     var result = await ERP.api.createSale(saleData);
     var saleData2 = result.data || result;
     lastSaleData = saleData2;
+
+    // Update product stock locally — no full sync needed
+    var soldItems = saleData2.items || validCart;
+    soldItems.forEach(function(item) {
+        var prod = (window.ERP.state.products || []).find(function(p) { return p.id === item.productId; });
+        if (prod) prod.currentStock = Math.max(0, (prod.currentStock || 0) - (item.quantity || 0));
+    });
+
     posCart = [];
     // Reset customer SDD for next sale
     document.getElementById('pos-customer').value = '';
     document.getElementById('pos-customer-disp').textContent = '— Select Customer —';
     document.getElementById('pos-customer-disp').style.color = '#B0B7C9';
-    await ERP.sync();
 
     document.getElementById('sale-success-id').textContent = saleData2.id || '';
     document.getElementById('sale-success-amount').textContent = ERP.formatCurrency(saleData2.totalAmount || 0);
