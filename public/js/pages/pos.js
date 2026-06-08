@@ -379,7 +379,11 @@ async function completeSale() {
 
     renderPage();
   } catch(e) {
-    alert(e.message || 'Sale failed');
+    var msg = e.message || 'Sale failed';
+    if (!e.status && (msg === 'Failed to fetch' || msg.indexOf('timed out') !== -1)) {
+      msg = 'Network error — sale was not completed. Please check your connection and try again.';
+    }
+    alert(msg);
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-check me-1"></i>Complete Sale';

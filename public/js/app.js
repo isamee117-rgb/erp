@@ -200,7 +200,6 @@
 
         localStorage.removeItem('leanerp_token');
         localStorage.removeItem('leanerp_user');
-        localStorage.removeItem('leanerp_pos_cart');
         // Clear auth cookie
         document.cookie = 'leanerp_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
         window.location.href = BASE_URL + '/login';
