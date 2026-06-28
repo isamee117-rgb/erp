@@ -35,6 +35,15 @@ class ReportDataTest extends ApiTestCase
         return "from={$from}&to={$to}";
     }
 
+    private function makePurchaseOrder(): array
+    {
+        $vendor = $this->createParty('Vendor', ['name' => 'Supplier Co']);
+        return $this->postJson('/api/purchases', [
+            'vendorId' => $vendor['id'],
+            'items'    => [['productId' => $this->product['id'], 'quantity' => 10, 'unitCost' => 300]],
+        ], $this->auth())->json();
+    }
+
     /** @test */
     public function detailed_sales_requires_from_and_to(): void
     {
@@ -112,5 +121,22 @@ class ReportDataTest extends ApiTestCase
         $res = $this->getJson('/api/reports/detailed-sales?' . $this->range(), $this->auth($otherToken));
         $res->assertStatus(200);
         $this->assertSame(0, $res->json('pagination.total'));
+    }
+
+    /** @test */
+    public function detailed_purchase_requires_dates_and_returns_rows(): void
+    {
+        $this->getJson('/api/reports/detailed-purchase', $this->auth())->assertStatus(422);
+
+        $this->makePurchaseOrder();
+        $res = $this->getJson('/api/reports/detailed-purchase?' . $this->range(), $this->auth());
+
+        $res->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => [['id', 'vendorId', 'status', 'totalAmount', 'items']],
+                'pagination' => ['page', 'perPage', 'total', 'lastPage'],
+                'summary' => ['totalOrders', 'grandTotal'],
+            ]);
+        $this->assertSame(1, $res->json('pagination.total'));
     }
 }

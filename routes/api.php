@@ -155,6 +155,7 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
         Route::get('/report-builder/{type}', [ReportBuilderController::class, 'index']);
         Route::put('/report-builder/{type}', [ReportBuilderController::class, 'update']);
 
-        Route::get('/reports/detailed-sales', [ReportDataController::class, 'detailedSales']);
+        Route::get('/reports/detailed-sales',    [ReportDataController::class, 'detailedSales']);
+        Route::get('/reports/detailed-purchase', [ReportDataController::class, 'detailedPurchase']);
     });
 });

@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Http\Resources\PurchaseOrderResource;
 use App\Http\Resources\SaleOrderResource;
+use App\Models\PurchaseOrder;
 use App\Models\SaleOrder;
 use App\Models\SaleReturn;
 use Carbon\Carbon;
@@ -35,6 +37,47 @@ class ReportQueryService
         $summary = $this->salesSummary($companyId, $from, $to, $filters);
 
         $shape = fn($sale) => (new SaleOrderResource($sale))->resolve();
+
+        return $this->buildEnvelope(
+            $export ? $query->get() : $query->paginate($perPage, ['*'], 'page', $page),
+            $shape,
+            $summary,
+            $export
+        );
+    }
+
+    public function detailedPurchase(
+        string $companyId,
+        Carbon $from,
+        Carbon $to,
+        array $filters,
+        int $page,
+        int $perPage,
+        bool $export
+    ): array {
+        $this->assertExportRange($from, $to, $export);
+
+        $query = PurchaseOrder::with(['items', 'receives.items', 'vendor'])
+            ->where('company_id', $companyId)
+            ->whereBetween('created_at', [$from, $to]);
+
+        if (!empty($filters['vendorId'])) $query->where('vendor_id', $filters['vendorId']);
+        if (!empty($filters['status']))   $query->where('status', $filters['status']);
+        if (!empty($filters['search']))   $query->where('po_no', 'like', '%' . $filters['search'] . '%');
+
+        $query->orderByDesc('created_at');
+
+        $base = PurchaseOrder::where('company_id', $companyId)->whereBetween('created_at', [$from, $to]);
+        if (!empty($filters['vendorId'])) $base->where('vendor_id', $filters['vendorId']);
+        if (!empty($filters['status']))   $base->where('status', $filters['status']);
+        if (!empty($filters['search']))   $base->where('po_no', 'like', '%' . $filters['search'] . '%');
+
+        $summary = [
+            'totalOrders' => (clone $base)->count(),
+            'grandTotal'  => (float) (clone $base)->sum('total_amount'),
+        ];
+
+        $shape = fn($po) => (new PurchaseOrderResource($po))->resolve();
 
         return $this->buildEnvelope(
             $export ? $query->get() : $query->paginate($perPage, ['*'], 'page', $page),
