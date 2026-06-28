@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use App\Http\Resources\PurchaseOrderResource;
+use App\Http\Resources\PurchaseReturnResource;
 use App\Http\Resources\SaleOrderResource;
+use App\Http\Resources\SaleReturnResource;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseReturn;
 use App\Models\SaleOrder;
 use App\Models\SaleReturn;
 use Carbon\Carbon;
@@ -84,6 +87,60 @@ class ReportQueryService
             $shape,
             $summary,
             $export
+        );
+    }
+
+    public function salesReturns(
+        string $companyId, Carbon $from, Carbon $to, array $filters, int $page, int $perPage, bool $export
+    ): array {
+        $this->assertExportRange($from, $to, $export);
+
+        $query = SaleReturn::with(['items', 'customer'])
+            ->where('company_id', $companyId)
+            ->whereBetween('created_at', [$from, $to]);
+        if (!empty($filters['customerId'])) $query->where('customer_id', $filters['customerId']);
+        $query->orderByDesc('created_at');
+
+        $base = SaleReturn::where('company_id', $companyId)->whereBetween('created_at', [$from, $to]);
+        if (!empty($filters['customerId'])) $base->where('customer_id', $filters['customerId']);
+
+        $summary = [
+            'totalReturns' => (clone $base)->count(),
+            'grandTotal'   => (float) (clone $base)->sum('total_amount'),
+        ];
+
+        $shape = fn($r) => (new SaleReturnResource($r))->resolve();
+
+        return $this->buildEnvelope(
+            $export ? $query->get() : $query->paginate($perPage, ['*'], 'page', $page),
+            $shape, $summary, $export
+        );
+    }
+
+    public function purchaseReturns(
+        string $companyId, Carbon $from, Carbon $to, array $filters, int $page, int $perPage, bool $export
+    ): array {
+        $this->assertExportRange($from, $to, $export);
+
+        $query = PurchaseReturn::with(['items', 'vendor'])
+            ->where('company_id', $companyId)
+            ->whereBetween('created_at', [$from, $to]);
+        if (!empty($filters['vendorId'])) $query->where('vendor_id', $filters['vendorId']);
+        $query->orderByDesc('created_at');
+
+        $base = PurchaseReturn::where('company_id', $companyId)->whereBetween('created_at', [$from, $to]);
+        if (!empty($filters['vendorId'])) $base->where('vendor_id', $filters['vendorId']);
+
+        $summary = [
+            'totalReturns' => (clone $base)->count(),
+            'grandTotal'   => (float) (clone $base)->sum('total_amount'),
+        ];
+
+        $shape = fn($r) => (new PurchaseReturnResource($r))->resolve();
+
+        return $this->buildEnvelope(
+            $export ? $query->get() : $query->paginate($perPage, ['*'], 'page', $page),
+            $shape, $summary, $export
         );
     }
 

@@ -139,4 +139,32 @@ class ReportDataTest extends ApiTestCase
             ]);
         $this->assertSame(1, $res->json('pagination.total'));
     }
+
+    /** @test */
+    public function sales_returns_requires_dates(): void
+    {
+        $this->getJson('/api/reports/sales-returns', $this->auth())->assertStatus(422);
+    }
+
+    /** @test */
+    public function sales_returns_returns_envelope(): void
+    {
+        $res = $this->getJson('/api/reports/sales-returns?' . $this->range(), $this->auth());
+        $res->assertStatus(200)
+            ->assertJsonStructure(['data', 'pagination' => ['page', 'perPage', 'total', 'lastPage'], 'summary' => ['totalReturns', 'grandTotal']]);
+    }
+
+    /** @test */
+    public function purchase_returns_requires_dates(): void
+    {
+        $this->getJson('/api/reports/purchase-returns', $this->auth())->assertStatus(422);
+    }
+
+    /** @test */
+    public function purchase_returns_returns_envelope(): void
+    {
+        $res = $this->getJson('/api/reports/purchase-returns?' . $this->range(), $this->auth());
+        $res->assertStatus(200)
+            ->assertJsonStructure(['data', 'pagination' => ['page', 'perPage', 'total', 'lastPage'], 'summary' => ['totalReturns', 'grandTotal']]);
+    }
 }

@@ -25,6 +25,20 @@ class ReportDataController extends Controller
         );
     }
 
+    public function salesReturns(ReportQueryRequest $request)
+    {
+        return $this->run($request, fn($coId, $from, $to, $filters, $page, $perPage, $export) =>
+            $this->service->salesReturns($coId, $from, $to, $filters, $page, $perPage, $export)
+        );
+    }
+
+    public function purchaseReturns(ReportQueryRequest $request)
+    {
+        return $this->run($request, fn($coId, $from, $to, $filters, $page, $perPage, $export) =>
+            $this->service->purchaseReturns($coId, $from, $to, $filters, $page, $perPage, $export)
+        );
+    }
+
     /**
      * Shared request handling: Super-Admin guard, date parsing, paging defaults,
      * filter extraction, and RuntimeException -> 422 mapping.
