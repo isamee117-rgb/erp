@@ -516,25 +516,25 @@
           <div class="row g-2 align-items-end">
             <div class="col-auto">
               <label class="pm-label">From</label>
-              <input type="date" class="form-control inv-input" id="rptSReturnFrom" class="erp-filter-w-150" onchange="runSalesReturnReport()">
+              <input type="date" class="form-control inv-input" id="rptSReturnFrom" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">To</label>
-              <input type="date" class="form-control inv-input" id="rptSReturnTo" class="erp-filter-w-150" onchange="runSalesReturnReport()">
+              <input type="date" class="form-control inv-input" id="rptSReturnTo" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">Customer</label>
-              <select class="form-select inv-input" id="rptSReturnCustomer" class="erp-filter-w-160" onchange="runSalesReturnReport()">
+              <select class="form-select inv-input" id="rptSReturnCustomer" class="erp-filter-w-160">
                 <option value="">All Customers</option>
               </select>
             </div>
             <div class="col-auto">
               <label class="pm-label">Credit Memo No.</label>
-              <input type="text" class="form-control inv-input" id="rptSReturnSearch" placeholder="Search..." class="erp-filter-w-150" oninput="runSalesReturnReport()">
+              <input type="text" class="form-control inv-input" id="rptSReturnSearch" placeholder="Search..." class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <button class="btn btn-light inv-input px-3 me-1" onclick="rptSReturnClear()" title="Clear filters"><i class="ti ti-x"></i></button>
-              <button class="btn btn-primary rpt-btn" onclick="runSalesReturnReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
+              <button id="rptSReturnRunBtn" class="btn btn-primary rpt-btn" onclick="runSalesReturnReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
             </div>
           </div>
         </div>
@@ -565,6 +565,7 @@
             </table>
           </div>
           <div id="rptSReturnSummary"></div>
+          <div id="rptSReturnPagination" class="d-print-none"></div>
         </div>
       </div>
 
@@ -584,25 +585,25 @@
           <div class="row g-2 align-items-end">
             <div class="col-auto">
               <label class="pm-label">From</label>
-              <input type="date" class="form-control inv-input" id="rptPReturnFrom" class="erp-filter-w-150" onchange="runPurchaseReturnReport()">
+              <input type="date" class="form-control inv-input" id="rptPReturnFrom" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">To</label>
-              <input type="date" class="form-control inv-input" id="rptPReturnTo" class="erp-filter-w-150" onchange="runPurchaseReturnReport()">
+              <input type="date" class="form-control inv-input" id="rptPReturnTo" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">Vendor</label>
-              <select class="form-select inv-input" id="rptPReturnVendor" class="erp-filter-w-160" onchange="runPurchaseReturnReport()">
+              <select class="form-select inv-input" id="rptPReturnVendor" class="erp-filter-w-160">
                 <option value="">All Vendors</option>
               </select>
             </div>
             <div class="col-auto">
               <label class="pm-label">Debit Memo No.</label>
-              <input type="text" class="form-control inv-input" id="rptPReturnSearch" placeholder="Search..." class="erp-filter-w-150" oninput="runPurchaseReturnReport()">
+              <input type="text" class="form-control inv-input" id="rptPReturnSearch" placeholder="Search..." class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <button class="btn btn-light inv-input px-3 me-1" onclick="rptPReturnClear()" title="Clear filters"><i class="ti ti-x"></i></button>
-              <button class="btn btn-primary rpt-btn" onclick="runPurchaseReturnReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
+              <button id="rptPReturnRunBtn" class="btn btn-primary rpt-btn" onclick="runPurchaseReturnReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
             </div>
           </div>
         </div>
@@ -633,6 +634,7 @@
             </table>
           </div>
           <div id="rptPReturnSummary"></div>
+          <div id="rptPReturnPagination" class="d-print-none"></div>
         </div>
       </div>
 

@@ -208,7 +208,13 @@ function rptOpen(type) {
     var sel = document.getElementById('rptSReturnCustomer');
     sel.innerHTML = '<option value="">All Customers</option>';
     custs.forEach(function(c){ sel.innerHTML += '<option value="'+c.id+'">'+c.name+'</option>'; });
-    runSalesReturnReport();
+    var rSR = rptCurrentMonthRange();
+    document.getElementById('rptSReturnFrom').value = rSR.from;
+    document.getElementById('rptSReturnTo').value = rSR.to;
+    document.getElementById('rptSReturnBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+    document.getElementById('rptSReturnFoot').innerHTML = '';
+    document.getElementById('rptSReturnSummary').innerHTML = '';
+    var srPag = document.getElementById('rptSReturnPagination'); if (srPag) srPag.innerHTML = '';
   } else if (type === 'purchaseReturn') {
     document.getElementById('rpt-purchaseReturn-panel').classList.remove('d-none');
     var state = window.ERP.state;
@@ -218,7 +224,13 @@ function rptOpen(type) {
     var sel = document.getElementById('rptPReturnVendor');
     sel.innerHTML = '<option value="">All Vendors</option>';
     vends.forEach(function(v){ sel.innerHTML += '<option value="'+v.id+'">'+v.name+'</option>'; });
-    runPurchaseReturnReport();
+    var rPR = rptCurrentMonthRange();
+    document.getElementById('rptPReturnFrom').value = rPR.from;
+    document.getElementById('rptPReturnTo').value = rPR.to;
+    document.getElementById('rptPReturnBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+    document.getElementById('rptPReturnFoot').innerHTML = '';
+    document.getElementById('rptPReturnSummary').innerHTML = '';
+    var prPag = document.getElementById('rptPReturnPagination'); if (prPag) prPag.innerHTML = '';
   } else if (type === 'salesByCustomer') {
     document.getElementById('rpt-salesByCustomer-panel').classList.remove('d-none');
     var state = window.ERP.state;
@@ -305,16 +317,24 @@ function rptPurchClear() {
 function rptSReturnClear() {
   document.getElementById('rptSReturnSearch').value = '';
   document.getElementById('rptSReturnCustomer').value = '';
-  document.getElementById('rptSReturnFrom').value = '';
-  document.getElementById('rptSReturnTo').value = '';
-  runSalesReturnReport();
+  var r = rptCurrentMonthRange();
+  document.getElementById('rptSReturnFrom').value = r.from;
+  document.getElementById('rptSReturnTo').value = r.to;
+  document.getElementById('rptSReturnBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+  document.getElementById('rptSReturnFoot').innerHTML = '';
+  document.getElementById('rptSReturnSummary').innerHTML = '';
+  var srPag = document.getElementById('rptSReturnPagination'); if (srPag) srPag.innerHTML = '';
 }
 function rptPReturnClear() {
   document.getElementById('rptPReturnSearch').value = '';
   document.getElementById('rptPReturnVendor').value = '';
-  document.getElementById('rptPReturnFrom').value = '';
-  document.getElementById('rptPReturnTo').value = '';
-  runPurchaseReturnReport();
+  var r = rptCurrentMonthRange();
+  document.getElementById('rptPReturnFrom').value = r.from;
+  document.getElementById('rptPReturnTo').value = r.to;
+  document.getElementById('rptPReturnBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+  document.getElementById('rptPReturnFoot').innerHTML = '';
+  document.getElementById('rptPReturnSummary').innerHTML = '';
+  var prPag = document.getElementById('rptPReturnPagination'); if (prPag) prPag.innerHTML = '';
 }
 function rptSBCClear() {
   document.getElementById('rptSBCCustomer').value = '';
@@ -1337,39 +1357,46 @@ function renderFinancialReport(){
     finChart.render();
 }
 /* ====== Purchase Return Report ====== */
-function runPurchaseReturnReport() {
-  var fromVal = (document.getElementById('rptPReturnFrom').value || '');
-  var toVal   = (document.getElementById('rptPReturnTo').value   || '');
-  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
-      return rptRefetchIfNeeded(fromVal, toVal, runPurchaseReturnReport);
-  }
+var _rptPReturnPage = 1;
+function runPurchaseReturnReport(page) {
+  if (!rptValidateDateRange('rptPReturnFrom', 'rptPReturnTo')) return;
+  _rptPReturnPage = page || 1;
+
+  var params = {
+    from: document.getElementById('rptPReturnFrom').value,
+    to:   document.getElementById('rptPReturnTo').value,
+    page: _rptPReturnPage, perPage: 50
+  };
+  var vendId = document.getElementById('rptPReturnVendor').value;
+  var search = (document.getElementById('rptPReturnSearch').value || '').trim();
+  if (vendId) params.vendorId = vendId;
+  if (search) params.search = search;
+
+  var btn = document.getElementById('rptPReturnRunBtn');
+  if (btn) btn.disabled = true;
+  document.getElementById('rptPReturnBody').innerHTML = '<tr><td colspan="7" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading…</td></tr>';
+
+  rptFetchReport(ERP.api.getPurchaseReturnReport, params)
+    .then(function(resp){
+      rptRenderPReturnRows(resp.data || []);
+      rptRenderPReturnSummary(resp.summary || {});
+      rptRenderPagination('rptPReturnPagination', resp.pagination, function(p){ runPurchaseReturnReport(p); });
+    })
+    .catch(function(e){ alert('Error loading report: ' + e.message); })
+    .finally(function(){ if (btn) btn.disabled = false; });
+}
+
+function rptRenderPReturnRows(returns) {
   var state = window.ERP.state;
-  var coId = (state.currentUser || {}).companyId;
-  var returns = (state.purchaseReturns || []).filter(function(pr){ return !coId || pr.companyId === coId; });
-
-  var search   = (document.getElementById('rptPReturnSearch').value || '').trim().toLowerCase();
-  var vendId   = document.getElementById('rptPReturnVendor').value;
-  var dateFrom = document.getElementById('rptPReturnFrom').value;
-  var dateTo   = document.getElementById('rptPReturnTo').value;
-
-  if (search)   returns = returns.filter(function(pr){ return (pr.id||'').toLowerCase().indexOf(search) !== -1; });
-  if (vendId)   returns = returns.filter(function(pr){ return pr.vendorId === vendId; });
-  if (dateFrom) returns = returns.filter(function(pr){ return pr.createdAt >= new Date(dateFrom+'T00:00:00').getTime(); });
-  if (dateTo)   returns = returns.filter(function(pr){ return pr.createdAt <= new Date(dateTo+'T23:59:59').getTime(); });
-
-  returns.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
-
   var partyMap = {}, prodMap = {};
   (state.parties||[]).forEach(function(p){ partyMap[p.id] = p.name; });
   (state.products||[]).forEach(function(p){ prodMap[p.id] = p.name; });
 
-  var html = '', grandTotal = 0, totalReturns = returns.length, totalItems = 0;
+  var html = '';
 
   returns.forEach(function(pr) {
     var items = pr.items || [];
-    totalItems += items.length;
-    grandTotal += (pr.totalAmount || 0);
-    var vendName = pr.vendorId ? (partyMap[pr.vendorId] || pr.vendorId) : '—';
+    var vendName = pr.vendorName || (pr.vendorId ? (partyMap[pr.vendorId] || pr.vendorId) : '—');
     var dt = pr.createdAt ? new Date(pr.createdAt) : null;
     var dateStr = dt ? dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
 
@@ -1407,67 +1434,66 @@ function runPurchaseReturnReport() {
   if (!returns.length) {
     html = '<tr><td colspan="7" class="text-center text-muted py-5"><i class="ti ti-truck-return d-block mb-2" class="fs-2"></i>No purchase returns match the selected filters</td></tr>';
   }
-
   document.getElementById('rptPReturnBody').innerHTML = html;
-  document.getElementById('rptPReturnFoot').innerHTML = returns.length
-    ? '<tr><td colspan="5" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalReturns+' returns, '+totalItems+' items)</span></td>'
-      +'<td class="text-end fw-bold text-erp-purple">'+ERP.formatCurrency(grandTotal)+'</td>'
-      +'<td></td></tr>'
-    : '';
-  document.getElementById('rptPReturnSummary').innerHTML = returns.length
-    ? '<div class="rpt-summary-bar d-print-none"><span><b>'+totalReturns+'</b> returns</span>'
-      +'<span>Total Items: <b>'+totalItems+'</b></span>'
-      +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span></div>'
-    : '';
 
   var coId = (state.currentUser || {}).companyId;
   var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
   document.getElementById('rptPReturnPrintCompany').textContent = (company.info && company.info.name) || company.name || '';
   var parts = [];
-  if (search)   parts.push('Memo: '+search);
-  if (vendId)   parts.push('Vendor: '+(partyMap[vendId]||vendId));
-  if (dateFrom) parts.push('From: '+dateFrom);
-  if (dateTo)   parts.push('To: '+dateTo);
-  if (!parts.length) parts.push('All returns');
+  var fSearch = (document.getElementById('rptPReturnSearch').value || '').trim();
+  var fVend   = document.getElementById('rptPReturnVendor');
+  if (fSearch)     parts.push('Memo: '+fSearch);
+  if (fVend.value) parts.push('Vendor: '+fVend.options[fVend.selectedIndex].text);
+  parts.push('From: '+document.getElementById('rptPReturnFrom').value);
+  parts.push('To: '+document.getElementById('rptPReturnTo').value);
   parts.push('Generated: '+new Date().toLocaleString());
   document.getElementById('rptPReturnPrintParams').textContent = parts.join('  |  ');
 }
-function getPurchaseReturnReportData() {
+
+function rptRenderPReturnSummary(summary) {
+  var totalReturns = summary.totalReturns || 0;
+  var grandTotal   = summary.grandTotal || 0;
+  document.getElementById('rptPReturnFoot').innerHTML = totalReturns
+    ? '<tr><td colspan="5" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalReturns+' returns)</span></td>'
+      +'<td class="text-end fw-bold text-erp-purple">'+ERP.formatCurrency(grandTotal)+'</td>'
+      +'<td></td></tr>'
+    : '';
+  document.getElementById('rptPReturnSummary').innerHTML = totalReturns
+    ? '<div class="rpt-summary-bar d-print-none"><span><b>'+totalReturns+'</b> returns</span>'
+      +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span></div>'
+    : '';
+}
+function rptPReturnMaps() {
   var state = window.ERP.state;
-  var coId = (state.currentUser || {}).companyId;
-  var returns = (state.purchaseReturns || []).filter(function(pr){ return !coId || pr.companyId === coId; });
-  var search   = (document.getElementById('rptPReturnSearch').value || '').trim().toLowerCase();
-  var vendId   = document.getElementById('rptPReturnVendor').value;
-  var dateFrom = document.getElementById('rptPReturnFrom').value;
-  var dateTo   = document.getElementById('rptPReturnTo').value;
-  if (search)   returns = returns.filter(function(pr){ return (pr.id||'').toLowerCase().indexOf(search) !== -1; });
-  if (vendId)   returns = returns.filter(function(pr){ return pr.vendorId === vendId; });
-  if (dateFrom) returns = returns.filter(function(pr){ return pr.createdAt >= new Date(dateFrom+'T00:00:00').getTime(); });
-  if (dateTo)   returns = returns.filter(function(pr){ return pr.createdAt <= new Date(dateTo+'T23:59:59').getTime(); });
-  returns.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
   var partyMap = {}, prodMap = {};
   (state.parties||[]).forEach(function(p){ partyMap[p.id] = p.name; });
   (state.products||[]).forEach(function(p){ prodMap[p.id] = p.name; });
-  var grandTotal = 0;
-  returns.forEach(function(pr){ grandTotal += (pr.totalAmount||0); });
   var coId = (state.currentUser || {}).companyId;
   var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
-  return { returns: returns, grandTotal: grandTotal, partyMap: partyMap, prodMap: prodMap,
-           companyName: (company.info && company.info.name) || company.name || '' };
+  return { partyMap: partyMap, prodMap: prodMap, companyName: (company.info && company.info.name) || company.name || '' };
 }
 function exportPurchaseReturnExcel() {
-  var d = getPurchaseReturnReportData();
+  if (!rptValidateDateRange('rptPReturnFrom', 'rptPReturnTo')) return;
+  var params = { from: document.getElementById('rptPReturnFrom').value, to: document.getElementById('rptPReturnTo').value, export: 1 };
+  rptFetchReport(ERP.api.getPurchaseReturnReport, params)
+    .then(function(resp){ rptBuildPReturnExcel(resp.data || []); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildPReturnExcel(returns) {
+  var d = rptPReturnMaps();
+  var grandTotal = 0;
+  returns.forEach(function(pr){ grandTotal += (pr.totalAmount||0); });
   var headers = ['Debit Memo No.','Vendor','Product Name','Qty','Unit Cost','Line Total','Date & Time','Reason'];
   var rows = [];
-  d.returns.forEach(function(pr){
-    var vendName = d.partyMap[pr.vendorId] || pr.vendorId || '—';
+  returns.forEach(function(pr){
+    var vendName = pr.vendorName || d.partyMap[pr.vendorId] || pr.vendorId || '—';
     var dt = pr.createdAt ? new Date(pr.createdAt).toLocaleString() : '—';
     (pr.items||[]).forEach(function(item){
       rows.push([pr.id, vendName, d.prodMap[item.productId]||item.productId, item.quantity, item.unitCost||0, item.totalLineCost||0, dt, pr.reason||'']);
     });
     rows.push([pr.id+' TOTAL', vendName, '', '', '', pr.totalAmount||0, dt, pr.reason||'']);
   });
-  rows.push(['GRAND TOTAL','','','','',d.grandTotal,'','']);
+  rows.push(['GRAND TOTAL','','','','',grandTotal,'','']);
   var wb = XLSX.utils.book_new();
   var ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
   ws['!cols'] = [{wch:18},{wch:20},{wch:24},{wch:6},{wch:14},{wch:14},{wch:20},{wch:24}];
@@ -1475,12 +1501,21 @@ function exportPurchaseReturnExcel() {
   XLSX.writeFile(wb, 'Purchase_Return_Report_'+new Date().toISOString().split('T')[0]+'.xlsx');
 }
 function exportPurchaseReturnPDF() {
-  var d = getPurchaseReturnReportData();
+  if (!rptValidateDateRange('rptPReturnFrom', 'rptPReturnTo')) return;
+  var params = { from: document.getElementById('rptPReturnFrom').value, to: document.getElementById('rptPReturnTo').value, export: 1 };
+  rptFetchReport(ERP.api.getPurchaseReturnReport, params)
+    .then(function(resp){ rptBuildPReturnPDF(resp.data || []); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildPReturnPDF(returns) {
+  var d = rptPReturnMaps();
+  var grandTotal = 0;
+  returns.forEach(function(pr){ grandTotal += (pr.totalAmount||0); });
   var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   var startY = pdfMakeHeader(doc, d.companyName, 'Purchase Return Report');
   var rows = [];
-  d.returns.forEach(function(pr){
-    var vendName = d.partyMap[pr.vendorId] || pr.vendorId || '—';
+  returns.forEach(function(pr){
+    var vendName = pr.vendorName || d.partyMap[pr.vendorId] || pr.vendorId || '—';
     var dt = pr.createdAt ? new Date(pr.createdAt).toLocaleString() : '—';
     (pr.items||[]).forEach(function(item){
       rows.push([pr.id, vendName, d.prodMap[item.productId]||item.productId, item.quantity, ERP.formatCurrency(item.unitCost||0), ERP.formatCurrency(item.totalLineCost||0), dt]);
@@ -1491,7 +1526,7 @@ function exportPurchaseReturnPDF() {
     startY: startY,
     head: [['Debit Memo No.','Vendor','Product Name','Qty','Unit Cost','Total','Date & Time']],
     body: rows,
-    foot: [['Grand Total','','','','',ERP.formatCurrency(d.grandTotal),'']],
+    foot: [['Grand Total','','','','',ERP.formatCurrency(grandTotal),'']],
     headStyles: { fillColor:[0,0,0], textColor:255, fontSize:7, fontStyle:'bold' },
     footStyles: { fillColor:[220,220,220], textColor:[0,0,0], fontSize:7, fontStyle:'bold' },
     bodyStyles: { fontSize:7 },
@@ -1502,40 +1537,46 @@ function exportPurchaseReturnPDF() {
   doc.save('Purchase_Return_Report_'+new Date().toISOString().split('T')[0]+'.pdf');
 }
 /* ====== Sales Return Report ====== */
-function runSalesReturnReport() {
-  var fromVal = (document.getElementById('rptSReturnFrom').value || '');
-  var toVal   = (document.getElementById('rptSReturnTo').value   || '');
-  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
-      return rptRefetchIfNeeded(fromVal, toVal, runSalesReturnReport);
-  }
+var _rptSReturnPage = 1;
+function runSalesReturnReport(page) {
+  if (!rptValidateDateRange('rptSReturnFrom', 'rptSReturnTo')) return;
+  _rptSReturnPage = page || 1;
+
+  var params = {
+    from: document.getElementById('rptSReturnFrom').value,
+    to:   document.getElementById('rptSReturnTo').value,
+    page: _rptSReturnPage, perPage: 50
+  };
+  var custId = document.getElementById('rptSReturnCustomer').value;
+  var search = (document.getElementById('rptSReturnSearch').value || '').trim();
+  if (custId) params.customerId = custId;
+  if (search) params.search = search;
+
+  var btn = document.getElementById('rptSReturnRunBtn');
+  if (btn) btn.disabled = true;
+  document.getElementById('rptSReturnBody').innerHTML = '<tr><td colspan="7" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading…</td></tr>';
+
+  rptFetchReport(ERP.api.getSalesReturnReport, params)
+    .then(function(resp){
+      rptRenderSReturnRows(resp.data || []);
+      rptRenderSReturnSummary(resp.summary || {});
+      rptRenderPagination('rptSReturnPagination', resp.pagination, function(p){ runSalesReturnReport(p); });
+    })
+    .catch(function(e){ alert('Error loading report: ' + e.message); })
+    .finally(function(){ if (btn) btn.disabled = false; });
+}
+
+function rptRenderSReturnRows(returns) {
   var state = window.ERP.state;
-  var coId = (state.currentUser || {}).companyId;
-  var returns = (state.salesReturns || []).filter(function(sr){ return !coId || sr.companyId === coId; });
-
-  var search   = (document.getElementById('rptSReturnSearch').value || '').trim().toLowerCase();
-  var custId   = document.getElementById('rptSReturnCustomer').value;
-  var dateFrom = document.getElementById('rptSReturnFrom').value;
-  var dateTo   = document.getElementById('rptSReturnTo').value;
-
-  if (search)   returns = returns.filter(function(sr){ return (sr.id||'').toLowerCase().indexOf(search) !== -1; });
-  if (custId)   returns = returns.filter(function(sr){ return sr.customerId === custId; });
-  if (dateFrom) returns = returns.filter(function(sr){ return sr.createdAt >= new Date(dateFrom+'T00:00:00').getTime(); });
-  if (dateTo)   returns = returns.filter(function(sr){ return sr.createdAt <= new Date(dateTo+'T23:59:59').getTime(); });
-
-  returns.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
-
-  // Build maps
   var partyMap = {}, prodMap = {};
   (state.parties||[]).forEach(function(p){ partyMap[p.id] = p.name; });
   (state.products||[]).forEach(function(p){ prodMap[p.id] = p.name; });
 
-  var html = '', grandTotal = 0, totalReturns = returns.length, totalItems = 0;
+  var html = '';
 
   returns.forEach(function(sr) {
     var items = sr.items || [];
-    totalItems += items.length;
-    grandTotal += (sr.totalAmount || 0);
-    var custName = sr.customerId ? (partyMap[sr.customerId] || sr.customerId) : '—';
+    var custName = sr.customerName || (sr.customerId ? (partyMap[sr.customerId] || sr.customerId) : '—');
     var dt = sr.createdAt ? new Date(sr.createdAt) : null;
     var dateStr = dt ? dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
 
@@ -1579,68 +1620,67 @@ function runSalesReturnReport() {
   if (!returns.length) {
     html = '<tr><td colspan="7" class="text-center text-muted py-5"><i class="ti ti-receipt-refund d-block mb-2" class="fs-2"></i>No sales returns match the selected filters</td></tr>';
   }
-
   document.getElementById('rptSReturnBody').innerHTML = html;
-  document.getElementById('rptSReturnFoot').innerHTML = returns.length
-    ? '<tr><td colspan="5" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalReturns+' returns, '+totalItems+' items)</span></td>'
-      +'<td class="text-end fw-bold text-erp-rose">'+ERP.formatCurrency(grandTotal)+'</td>'
-      +'<td></td></tr>'
-    : '';
-  document.getElementById('rptSReturnSummary').innerHTML = returns.length
-    ? '<div class="rpt-summary-bar d-print-none"><span><b>'+totalReturns+'</b> returns</span>'
-      +'<span>Total Items: <b>'+totalItems+'</b></span>'
-      +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span></div>'
-    : '';
 
   // Print header
   var coId = (state.currentUser || {}).companyId;
   var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
   document.getElementById('rptSReturnPrintCompany').textContent = (company.info && company.info.name) || company.name || '';
   var parts = [];
-  if (search)   parts.push('Memo: '+search);
-  if (custId)   parts.push('Customer: '+(partyMap[custId]||custId));
-  if (dateFrom) parts.push('From: '+dateFrom);
-  if (dateTo)   parts.push('To: '+dateTo);
-  if (!parts.length) parts.push('All returns');
+  var fSearch = (document.getElementById('rptSReturnSearch').value || '').trim();
+  var fCust   = document.getElementById('rptSReturnCustomer');
+  if (fSearch)     parts.push('Memo: '+fSearch);
+  if (fCust.value) parts.push('Customer: '+fCust.options[fCust.selectedIndex].text);
+  parts.push('From: '+document.getElementById('rptSReturnFrom').value);
+  parts.push('To: '+document.getElementById('rptSReturnTo').value);
   parts.push('Generated: '+new Date().toLocaleString());
   document.getElementById('rptSReturnPrintParams').textContent = parts.join('  |  ');
 }
-function getSalesReturnReportData() {
+
+function rptRenderSReturnSummary(summary) {
+  var totalReturns = summary.totalReturns || 0;
+  var grandTotal   = summary.grandTotal || 0;
+  document.getElementById('rptSReturnFoot').innerHTML = totalReturns
+    ? '<tr><td colspan="5" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalReturns+' returns)</span></td>'
+      +'<td class="text-end fw-bold text-erp-rose">'+ERP.formatCurrency(grandTotal)+'</td>'
+      +'<td></td></tr>'
+    : '';
+  document.getElementById('rptSReturnSummary').innerHTML = totalReturns
+    ? '<div class="rpt-summary-bar d-print-none"><span><b>'+totalReturns+'</b> returns</span>'
+      +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span></div>'
+    : '';
+}
+function rptSReturnMaps() {
   var state = window.ERP.state;
-  var coId = (state.currentUser || {}).companyId;
-  var returns = (state.salesReturns || []).filter(function(sr){ return !coId || sr.companyId === coId; });
-  var search   = (document.getElementById('rptSReturnSearch').value || '').trim().toLowerCase();
-  var custId   = document.getElementById('rptSReturnCustomer').value;
-  var dateFrom = document.getElementById('rptSReturnFrom').value;
-  var dateTo   = document.getElementById('rptSReturnTo').value;
-  if (search)   returns = returns.filter(function(sr){ return (sr.id||'').toLowerCase().indexOf(search) !== -1; });
-  if (custId)   returns = returns.filter(function(sr){ return sr.customerId === custId; });
-  if (dateFrom) returns = returns.filter(function(sr){ return sr.createdAt >= new Date(dateFrom+'T00:00:00').getTime(); });
-  if (dateTo)   returns = returns.filter(function(sr){ return sr.createdAt <= new Date(dateTo+'T23:59:59').getTime(); });
-  returns.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
   var partyMap = {}, prodMap = {};
   (state.parties||[]).forEach(function(p){ partyMap[p.id] = p.name; });
   (state.products||[]).forEach(function(p){ prodMap[p.id] = p.name; });
-  var grandTotal = 0;
-  returns.forEach(function(sr){ grandTotal += (sr.totalAmount||0); });
   var coId = (state.currentUser || {}).companyId;
   var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
-  return { returns: returns, grandTotal: grandTotal, partyMap: partyMap, prodMap: prodMap,
-           companyName: (company.info && company.info.name) || company.name || '' };
+  return { partyMap: partyMap, prodMap: prodMap, companyName: (company.info && company.info.name) || company.name || '' };
 }
 function exportSalesReturnExcel() {
-  var d = getSalesReturnReportData();
+  if (!rptValidateDateRange('rptSReturnFrom', 'rptSReturnTo')) return;
+  var params = { from: document.getElementById('rptSReturnFrom').value, to: document.getElementById('rptSReturnTo').value, export: 1 };
+  rptFetchReport(ERP.api.getSalesReturnReport, params)
+    .then(function(resp){ rptBuildSReturnExcel(resp.data || []); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildSReturnExcel(returns) {
+  var d = rptSReturnMaps();
+  var grandTotal = 0;
+  returns.forEach(function(sr){ grandTotal += (sr.totalAmount||0); });
   var headers = ['Credit Memo No.','Customer','Product Name','Qty','Unit Price','Line Total','Date & Time','Reason'];
   var rows = [];
-  d.returns.forEach(function(sr){
-    var custName = d.partyMap[sr.customerId] || sr.customerId || '—';
+  returns.forEach(function(sr){
+    var custName = sr.customerName || d.partyMap[sr.customerId] || sr.customerId || '—';
     var dt = sr.createdAt ? new Date(sr.createdAt).toLocaleString() : '—';
     (sr.items||[]).forEach(function(item){
       rows.push([sr.id, custName, d.prodMap[item.productId]||item.productId, item.quantity, item.unitPrice||0, item.totalLinePrice||0, dt, sr.reason||'']);
     });
     rows.push([sr.id+' TOTAL', custName, '', '', '', sr.totalAmount||0, dt, sr.reason||'']);
   });
-  rows.push(['GRAND TOTAL','','','','',d.grandTotal,'','']);
+  rows.push(['GRAND TOTAL','','','','',grandTotal,'','']);
   var wb = XLSX.utils.book_new();
   var ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
   ws['!cols'] = [{wch:18},{wch:20},{wch:24},{wch:6},{wch:14},{wch:14},{wch:20},{wch:24}];
@@ -1648,12 +1688,21 @@ function exportSalesReturnExcel() {
   XLSX.writeFile(wb, 'Sales_Return_Report_'+new Date().toISOString().split('T')[0]+'.xlsx');
 }
 function exportSalesReturnPDF() {
-  var d = getSalesReturnReportData();
+  if (!rptValidateDateRange('rptSReturnFrom', 'rptSReturnTo')) return;
+  var params = { from: document.getElementById('rptSReturnFrom').value, to: document.getElementById('rptSReturnTo').value, export: 1 };
+  rptFetchReport(ERP.api.getSalesReturnReport, params)
+    .then(function(resp){ rptBuildSReturnPDF(resp.data || []); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildSReturnPDF(returns) {
+  var d = rptSReturnMaps();
+  var grandTotal = 0;
+  returns.forEach(function(sr){ grandTotal += (sr.totalAmount||0); });
   var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   var startY = pdfMakeHeader(doc, d.companyName, 'Sales Return Report');
   var rows = [];
-  d.returns.forEach(function(sr){
-    var custName = d.partyMap[sr.customerId] || sr.customerId || '—';
+  returns.forEach(function(sr){
+    var custName = sr.customerName || d.partyMap[sr.customerId] || sr.customerId || '—';
     var dt = sr.createdAt ? new Date(sr.createdAt).toLocaleString() : '—';
     (sr.items||[]).forEach(function(item){
       rows.push([sr.id, custName, d.prodMap[item.productId]||item.productId, item.quantity, ERP.formatCurrency(item.unitPrice||0), ERP.formatCurrency(item.totalLinePrice||0), dt]);
@@ -1664,7 +1713,7 @@ function exportSalesReturnPDF() {
     startY: startY,
     head: [['Credit Memo No.','Customer','Product Name','Qty','Unit Price','Total','Date & Time']],
     body: rows,
-    foot: [['Grand Total','','','','',ERP.formatCurrency(d.grandTotal),'']],
+    foot: [['Grand Total','','','','',ERP.formatCurrency(grandTotal),'']],
     headStyles: { fillColor:[0,0,0], textColor:255, fontSize:7, fontStyle:'bold' },
     footStyles: { fillColor:[220,220,220], textColor:[0,0,0], fontSize:7, fontStyle:'bold' },
     bodyStyles: { fontSize:7 },
