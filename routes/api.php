@@ -159,5 +159,7 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
         Route::get('/reports/detailed-purchase', [ReportDataController::class, 'detailedPurchase']);
         Route::get('/reports/sales-returns',      [ReportDataController::class, 'salesReturns']);
         Route::get('/reports/purchase-returns',   [ReportDataController::class, 'purchaseReturns']);
+        Route::get('/reports/sales-by-customer',  [ReportDataController::class, 'salesByCustomer']);
+        Route::get('/reports/purchase-by-vendor', [ReportDataController::class, 'purchaseByVendor']);
     });
 });

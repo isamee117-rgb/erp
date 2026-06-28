@@ -11,7 +11,7 @@ use App\Models\PurchaseReturn;
 use App\Models\SaleOrder;
 use App\Models\SaleReturn;
 use Carbon\Carbon;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class ReportQueryService
@@ -142,6 +142,84 @@ class ReportQueryService
             $export ? $query->get() : $query->paginate($perPage, ['*'], 'page', $page),
             $shape, $summary, $export
         );
+    }
+
+    public function salesByCustomer(
+        string $companyId, Carbon $from, Carbon $to, array $filters, int $page, int $perPage, bool $export
+    ): array {
+        $this->assertExportRange($from, $to, $export);
+
+        $q = SaleOrder::with(['items', 'customer'])
+            ->where('company_id', $companyId)
+            ->whereBetween('created_at', [$from, $to]);
+        if (!empty($filters['customerId']))    $q->where('customer_id', $filters['customerId']);
+        if (!empty($filters['paymentMethod'])) $q->where('payment_method', $filters['paymentMethod']);
+        $sales = $q->orderByDesc('created_at')->get();
+
+        $groups = $sales->groupBy(fn($s) => $s->customer_id ?? '__walkin__')
+            ->map(function ($rows, $key) {
+                $first = $rows->first();
+                return [
+                    'customerId'    => $key === '__walkin__' ? null : $key,
+                    'customerName'  => $key === '__walkin__' ? 'Walk-in / Cash' : ($first->customer?->name ?? $key),
+                    'invoiceCount'  => $rows->count(),
+                    'customerTotal' => (float) $rows->sum('total_amount'),
+                    'sales'         => $rows->map(fn($s) => (new SaleOrderResource($s))->resolve())->values()->all(),
+                ];
+            })
+            ->sortBy('customerName', SORT_FLAG_CASE | SORT_STRING)
+            ->values();
+
+        $summary = [
+            'totalCustomers' => $groups->count(),
+            'totalInvoices'  => $sales->count(),
+            'grandTotal'     => (float) $sales->sum('total_amount'),
+        ];
+
+        $pageGroups = $export
+            ? $groups
+            : new LengthAwarePaginator($groups->forPage($page, $perPage)->values(), $groups->count(), $perPage, $page);
+
+        return $this->buildEnvelope($pageGroups, fn($g) => $g, $summary, $export);
+    }
+
+    public function purchaseByVendor(
+        string $companyId, Carbon $from, Carbon $to, array $filters, int $page, int $perPage, bool $export
+    ): array {
+        $this->assertExportRange($from, $to, $export);
+
+        $q = PurchaseOrder::with(['items', 'vendor'])
+            ->where('company_id', $companyId)
+            ->whereBetween('created_at', [$from, $to]);
+        if (!empty($filters['vendorId'])) $q->where('vendor_id', $filters['vendorId']);
+        if (!empty($filters['status']))   $q->where('status', $filters['status']);
+        $orders = $q->orderByDesc('created_at')->get();
+
+        $groups = $orders->groupBy(fn($o) => $o->vendor_id ?? '__none__')
+            ->map(function ($rows, $key) {
+                $first = $rows->first();
+                return [
+                    'vendorId'    => $key === '__none__' ? null : $key,
+                    'vendorName'  => $key === '__none__' ? '—' : ($first->vendor?->name ?? $key),
+                    'orderCount'  => $rows->count(),
+                    'vendorTotal' => (float) $rows->sum('total_amount'),
+                    'orders'      => $rows->map(fn($o) => (new PurchaseOrderResource($o))->resolve())->values()->all(),
+                ];
+            })
+            ->sortBy('vendorName', SORT_FLAG_CASE | SORT_STRING)
+            ->values();
+
+        $summary = [
+            'totalVendors' => $groups->count(),
+            'totalOrders'  => $orders->count(),
+            'grandTotal'   => (float) $orders->sum('total_amount'),
+        ];
+
+        $pageGroups = $export
+            ? $groups
+            : new LengthAwarePaginator($groups->forPage($page, $perPage)->values(), $groups->count(), $perPage, $page);
+
+        return $this->buildEnvelope($pageGroups, fn($g) => $g, $summary, $export);
     }
 
     // ── Shared helpers (reused by every report method) ─────────────────────────

@@ -167,4 +167,28 @@ class ReportDataTest extends ApiTestCase
         $res->assertStatus(200)
             ->assertJsonStructure(['data', 'pagination' => ['page', 'perPage', 'total', 'lastPage'], 'summary' => ['totalReturns', 'grandTotal']]);
     }
+
+    /** @test */
+    public function sales_by_customer_groups_and_paginates_by_customer(): void
+    {
+        $this->makeSale();
+        $this->makeSale();
+
+        $res = $this->getJson('/api/reports/sales-by-customer?' . $this->range(), $this->auth());
+        $res->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => [['customerId', 'customerName', 'invoiceCount', 'customerTotal', 'sales']],
+                'pagination' => ['page', 'perPage', 'total', 'lastPage'],
+                'summary' => ['totalCustomers', 'totalInvoices', 'grandTotal'],
+            ]);
+        // Both sales belong to one customer -> one group
+        $this->assertSame(1, $res->json('pagination.total'));
+        $this->assertSame(2, $res->json('data.0.invoiceCount'));
+    }
+
+    /** @test */
+    public function purchase_by_vendor_requires_dates(): void
+    {
+        $this->getJson('/api/reports/purchase-by-vendor', $this->auth())->assertStatus(422);
+    }
 }
