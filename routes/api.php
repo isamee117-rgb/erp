@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\AccountMappingController;
 use App\Http\Controllers\Api\JournalEntryController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReportBuilderController;
+use App\Http\Controllers\Api\ReportDataController;
 use App\Http\Controllers\Api\JobCardController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Middleware\ApiTokenAuth;
@@ -153,5 +154,7 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
 
         Route::get('/report-builder/{type}', [ReportBuilderController::class, 'index']);
         Route::put('/report-builder/{type}', [ReportBuilderController::class, 'update']);
+
+        Route::get('/reports/detailed-sales', [ReportDataController::class, 'detailedSales']);
     });
 });
