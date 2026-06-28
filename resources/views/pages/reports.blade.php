@@ -654,21 +654,21 @@
           <div class="row g-2 align-items-end">
             <div class="col-auto">
               <label class="pm-label">From</label>
-              <input type="date" class="form-control inv-input" id="rptSBCFrom" class="erp-filter-w-150" onchange="runSalesByCustomerReport()">
+              <input type="date" class="form-control inv-input" id="rptSBCFrom" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">To</label>
-              <input type="date" class="form-control inv-input" id="rptSBCTo" class="erp-filter-w-150" onchange="runSalesByCustomerReport()">
+              <input type="date" class="form-control inv-input" id="rptSBCTo" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">Customer</label>
-              <select class="form-select inv-input" id="rptSBCCustomer" class="erp-filter-w-160" onchange="runSalesByCustomerReport()">
+              <select class="form-select inv-input" id="rptSBCCustomer" class="erp-filter-w-160">
                 <option value="">All Customers</option>
               </select>
             </div>
             <div class="col-auto">
               <label class="pm-label">Payment Method</label>
-              <select class="form-select inv-input" id="rptSBCPayment" class="erp-filter-w-150" onchange="runSalesByCustomerReport()">
+              <select class="form-select inv-input" id="rptSBCPayment" class="erp-filter-w-150">
                 <option value="">All Methods</option>
                 <option value="Cash">Cash</option>
                 <option value="Credit">Credit</option>
@@ -678,7 +678,7 @@
             </div>
             <div class="col-auto">
               <button class="btn btn-light inv-input px-3 me-1" onclick="rptSBCClear()" title="Clear filters"><i class="ti ti-x"></i></button>
-              <button class="btn btn-primary rpt-btn" onclick="runSalesByCustomerReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
+              <button id="rptSBCRunBtn" class="btn btn-primary rpt-btn" onclick="runSalesByCustomerReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
             </div>
           </div>
         </div>
@@ -708,6 +708,7 @@
             </table>
           </div>
           <div id="rptSBCSummary"></div>
+          <div id="rptSBCPagination" class="d-print-none"></div>
         </div>
       </div>
 
@@ -727,21 +728,21 @@
           <div class="row g-2 align-items-end">
             <div class="col-auto">
               <label class="pm-label">From</label>
-              <input type="date" class="form-control inv-input" id="rptPBVFrom" class="erp-filter-w-150" onchange="runPurchaseByVendorReport()">
+              <input type="date" class="form-control inv-input" id="rptPBVFrom" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">To</label>
-              <input type="date" class="form-control inv-input" id="rptPBVTo" class="erp-filter-w-150" onchange="runPurchaseByVendorReport()">
+              <input type="date" class="form-control inv-input" id="rptPBVTo" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">Vendor</label>
-              <select class="form-select inv-input" id="rptPBVVendor" class="erp-filter-w-160" onchange="runPurchaseByVendorReport()">
+              <select class="form-select inv-input" id="rptPBVVendor" class="erp-filter-w-160">
                 <option value="">All Vendors</option>
               </select>
             </div>
             <div class="col-auto">
               <label class="pm-label">Status</label>
-              <select class="form-select inv-input" id="rptPBVStatus" class="erp-filter-w-150" onchange="runPurchaseByVendorReport()">
+              <select class="form-select inv-input" id="rptPBVStatus" class="erp-filter-w-150">
                 <option value="">All Statuses</option>
                 <option value="Draft">Draft</option>
                 <option value="Partially Received">Partially Received</option>
@@ -752,7 +753,7 @@
             </div>
             <div class="col-auto">
               <button class="btn btn-light inv-input px-3 me-1" onclick="rptPBVClear()" title="Clear filters"><i class="ti ti-x"></i></button>
-              <button class="btn btn-primary rpt-btn" onclick="runPurchaseByVendorReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
+              <button id="rptPBVRunBtn" class="btn btn-primary rpt-btn" onclick="runPurchaseByVendorReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
             </div>
           </div>
         </div>
@@ -782,6 +783,7 @@
             </table>
           </div>
           <div id="rptPBVSummary"></div>
+          <div id="rptPBVPagination" class="d-print-none"></div>
         </div>
       </div>
 

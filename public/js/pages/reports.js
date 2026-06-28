@@ -1,21 +1,5 @@
 var salesChart, purchChart, finChart;
 window.ERP.onReady = function(){ /* reports page uses tile navigation — no auto-render needed */ };
-function rptRefetchIfNeeded(fromValue, toValue, callback) {
-    var loadedFrom = window.ERP.state.transactionLoadedFrom;
-    if (loadedFrom && fromValue && fromValue < loadedFrom) {
-        ERP.api.syncTransactions({ from: fromValue, to: toValue || undefined })
-            .then(function(txData) {
-                ERP.mergeState(txData);
-                if (txData.loadedFrom) {
-                    window.ERP.state.transactionLoadedFrom = txData.loadedFrom;
-                }
-                if (typeof callback === 'function') callback();
-            })
-            .catch(function(e) { alert('Error loading data: ' + e.message); });
-    } else {
-        if (typeof callback === 'function') callback();
-    }
-}
 // Build a ms timestamp from a date string + optional time string.
 // If no date, returns null. If no time, defaults to start-of-day or end-of-day.
 function buildTs(dateVal, timeVal, isEnd){
@@ -240,7 +224,13 @@ function rptOpen(type) {
     var sel = document.getElementById('rptSBCCustomer');
     sel.innerHTML = '<option value="">All Customers</option>';
     custs.forEach(function(c){ sel.innerHTML += '<option value="'+c.id+'">'+c.name+'</option>'; });
-    runSalesByCustomerReport();
+    var rSBC = rptCurrentMonthRange();
+    document.getElementById('rptSBCFrom').value = rSBC.from;
+    document.getElementById('rptSBCTo').value = rSBC.to;
+    document.getElementById('rptSBCBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+    document.getElementById('rptSBCFoot').innerHTML = '';
+    document.getElementById('rptSBCSummary').innerHTML = '';
+    var sbcPag = document.getElementById('rptSBCPagination'); if (sbcPag) sbcPag.innerHTML = '';
   } else if (type === 'purchaseByVendor') {
     document.getElementById('rpt-purchaseByVendor-panel').classList.remove('d-none');
     var state = window.ERP.state;
@@ -250,7 +240,13 @@ function rptOpen(type) {
     var sel = document.getElementById('rptPBVVendor');
     sel.innerHTML = '<option value="">All Vendors</option>';
     vends.forEach(function(v){ sel.innerHTML += '<option value="'+v.id+'">'+v.name+'</option>'; });
-    runPurchaseByVendorReport();
+    var rPBV = rptCurrentMonthRange();
+    document.getElementById('rptPBVFrom').value = rPBV.from;
+    document.getElementById('rptPBVTo').value = rPBV.to;
+    document.getElementById('rptPBVBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+    document.getElementById('rptPBVFoot').innerHTML = '';
+    document.getElementById('rptPBVSummary').innerHTML = '';
+    var pbvPag = document.getElementById('rptPBVPagination'); if (pbvPag) pbvPag.innerHTML = '';
   } else if (type === 'profitLoss') {
     document.getElementById('rpt-profitLoss-panel').classList.remove('d-none');
     rptPlSetPeriod('month');
@@ -339,16 +335,24 @@ function rptPReturnClear() {
 function rptSBCClear() {
   document.getElementById('rptSBCCustomer').value = '';
   document.getElementById('rptSBCPayment').value = '';
-  document.getElementById('rptSBCFrom').value = '';
-  document.getElementById('rptSBCTo').value = '';
-  runSalesByCustomerReport();
+  var r = rptCurrentMonthRange();
+  document.getElementById('rptSBCFrom').value = r.from;
+  document.getElementById('rptSBCTo').value = r.to;
+  document.getElementById('rptSBCBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+  document.getElementById('rptSBCFoot').innerHTML = '';
+  document.getElementById('rptSBCSummary').innerHTML = '';
+  var sbcPag = document.getElementById('rptSBCPagination'); if (sbcPag) sbcPag.innerHTML = '';
 }
 function rptPBVClear() {
   document.getElementById('rptPBVVendor').value = '';
   document.getElementById('rptPBVStatus').value = '';
-  document.getElementById('rptPBVFrom').value = '';
-  document.getElementById('rptPBVTo').value = '';
-  runPurchaseByVendorReport();
+  var r = rptCurrentMonthRange();
+  document.getElementById('rptPBVFrom').value = r.from;
+  document.getElementById('rptPBVTo').value = r.to;
+  document.getElementById('rptPBVBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+  document.getElementById('rptPBVFoot').innerHTML = '';
+  document.getElementById('rptPBVSummary').innerHTML = '';
+  var pbvPag = document.getElementById('rptPBVPagination'); if (pbvPag) pbvPag.innerHTML = '';
 }
 function runProductReport() {
   var state = window.ERP.state;
@@ -1724,66 +1728,52 @@ function rptBuildSReturnPDF(returns) {
   doc.save('Sales_Return_Report_'+new Date().toISOString().split('T')[0]+'.pdf');
 }
 /* ====== Sales by Customer Report ====== */
-function runSalesByCustomerReport() {
-  var fromVal = (document.getElementById('rptSBCFrom').value || '');
-  var toVal   = (document.getElementById('rptSBCTo').value   || '');
-  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
-      return rptRefetchIfNeeded(fromVal, toVal, runSalesByCustomerReport);
-  }
-  var state = window.ERP.state;
-  var coId  = (state.currentUser || {}).companyId;
-  var sales = (state.sales || []).filter(function(s){ return !coId || s.companyId === coId; });
+var _rptSBCPage = 1;
+function runSalesByCustomerReport(page) {
+  if (!rptValidateDateRange('rptSBCFrom', 'rptSBCTo')) return;
+  _rptSBCPage = page || 1;
 
-  var custId   = document.getElementById('rptSBCCustomer').value;
-  var payMeth  = document.getElementById('rptSBCPayment').value;
-  var dateFrom = document.getElementById('rptSBCFrom').value;
-  var dateTo   = document.getElementById('rptSBCTo').value;
+  var params = {
+    from: document.getElementById('rptSBCFrom').value,
+    to:   document.getElementById('rptSBCTo').value,
+    page: _rptSBCPage, perPage: 50
+  };
+  var custId  = document.getElementById('rptSBCCustomer').value;
+  var payMeth = document.getElementById('rptSBCPayment').value;
+  if (custId)  params.customerId = custId;
+  if (payMeth) params.paymentMethod = payMeth;
 
-  if (custId)   sales = sales.filter(function(s){ return s.customerId === custId; });
-  if (payMeth)  sales = sales.filter(function(s){ return (s.paymentMethod||'') === payMeth; });
-  if (dateFrom) sales = sales.filter(function(s){ return (s.createdAt||0) >= new Date(dateFrom+'T00:00:00').getTime(); });
-  if (dateTo)   sales = sales.filter(function(s){ return (s.createdAt||0) <= new Date(dateTo+'T23:59:59').getTime(); });
+  var btn = document.getElementById('rptSBCRunBtn');
+  if (btn) btn.disabled = true;
+  document.getElementById('rptSBCBody').innerHTML = '<tr><td colspan="6" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading…</td></tr>';
 
-  // Build maps
-  var partyMap = {};
-  (state.parties||[]).forEach(function(p){ partyMap[p.id] = p.name; });
+  rptFetchReport(ERP.api.getSalesByCustomerReport, params)
+    .then(function(resp){
+      rptRenderSBCRows(resp.data || []);
+      rptRenderSBCSummary(resp.summary || {});
+      rptRenderPagination('rptSBCPagination', resp.pagination, function(p){ runSalesByCustomerReport(p); });
+    })
+    .catch(function(e){ alert('Error loading report: ' + e.message); })
+    .finally(function(){ if (btn) btn.disabled = false; });
+}
 
-  // Group by customer
-  var grouped = {};   // custId -> { name, sales[] }
-  sales.forEach(function(s) {
-    var key  = s.customerId || '__walkin__';
-    var name = s.customerId ? (partyMap[s.customerId] || s.customerId) : 'Walk-in / Cash';
-    if (!grouped[key]) grouped[key] = { name: name, sales: [] };
-    grouped[key].sales.push(s);
-  });
-
-  // Sort customers by name
-  var custKeys = Object.keys(grouped).sort(function(a,b){
-    return grouped[a].name.localeCompare(grouped[b].name);
-  });
-
-  var html = '', grandTotal = 0, totalCustomers = custKeys.length, totalInvoices = sales.length;
-
+function rptRenderSBCRows(groups) {
+  var html = '';
   var payBadgeColors = { 'Cash':'rpt-badge-blue', 'Credit':'rpt-badge-amber', 'Card':'rpt-badge-grey', 'Bank Transfer':'rpt-badge-grey' };
 
-  custKeys.forEach(function(key) {
-    var grp   = grouped[key];
-    var custTotal = 0;
-    grp.sales.forEach(function(s){ custTotal += (s.totalAmount||0); });
-    grandTotal += custTotal;
-
-    // Sort invoices newest first
-    grp.sales.sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+  groups.forEach(function(grp) {
+    var sales = grp.sales || [];
+    var count = grp.invoiceCount || sales.length;
 
     // 1. Customer header row (top)
     html += '<tr class="rpt-cust-header-row">';
-    html += '<td colspan="2"><span class="rpt-id-customer">'+grp.name+'</span></td>';
-    html += '<td class="rpt-meta-text">'+grp.sales.length+' invoice'+(grp.sales.length!==1?'s':'')+'</td>';
+    html += '<td colspan="2"><span class="rpt-id-customer">'+(grp.customerName||'—')+'</span></td>';
+    html += '<td class="rpt-meta-text">'+count+' invoice'+(count!==1?'s':'')+'</td>';
     html += '<td></td><td></td><td></td>';
     html += '</tr>';
 
     // 2. Invoice rows (middle)
-    grp.sales.forEach(function(s) {
+    sales.forEach(function(s) {
       var dt = s.createdAt ? new Date(s.createdAt) : null;
       var dateStr = dt ? dt.toLocaleDateString()+' '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
       var payBadge = '<span class="rpt-badge '+(payBadgeColors[s.paymentMethod]||'rpt-badge-grey')+'">'+( s.paymentMethod||'—')+'</span>';
@@ -1802,87 +1792,73 @@ function runSalesByCustomerReport() {
     html += '<tr class="rpt-cust-total-row">';
     html += '<td></td><td></td><td></td><td></td>';
     html += '<td class="text-end" class="rpt-total-label">Customer Total</td>';
-    html += '<td class="text-end rpt-total-val text-success">'+ERP.formatCurrency(custTotal)+'</td>';
+    html += '<td class="text-end rpt-total-val text-success">'+ERP.formatCurrency(grp.customerTotal||0)+'</td>';
     html += '</tr>';
   });
 
-  if (!custKeys.length) {
+  if (!groups.length) {
     html = '<tr><td colspan="6" class="text-center text-muted py-5"><i class="ti ti-users-group d-block mb-2" class="fs-2"></i>No sales match the selected filters</td></tr>';
   }
-
   document.getElementById('rptSBCBody').innerHTML = html;
-  document.getElementById('rptSBCFoot').innerHTML = custKeys.length
+
+  // Print header
+  var state = window.ERP.state;
+  var coId = (state.currentUser || {}).companyId;
+  var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
+  document.getElementById('rptSBCPrintCompany').textContent = (company.info && company.info.name) || company.name || '';
+  var parts = [];
+  var fCust = document.getElementById('rptSBCCustomer');
+  var fPay  = document.getElementById('rptSBCPayment').value;
+  if (fCust.value) parts.push('Customer: '+fCust.options[fCust.selectedIndex].text);
+  if (fPay)        parts.push('Method: '+fPay);
+  parts.push('From: '+document.getElementById('rptSBCFrom').value);
+  parts.push('To: '+document.getElementById('rptSBCTo').value);
+  parts.push('Generated: '+new Date().toLocaleString());
+  document.getElementById('rptSBCPrintParams').textContent = parts.join('  |  ');
+}
+
+function rptRenderSBCSummary(summary) {
+  var totalCustomers = summary.totalCustomers || 0;
+  var totalInvoices  = summary.totalInvoices || 0;
+  var grandTotal     = summary.grandTotal || 0;
+  document.getElementById('rptSBCFoot').innerHTML = totalCustomers
     ? '<tr>'
       +'<td colspan="4" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalCustomers+' customers, '+totalInvoices+' invoices)</span></td>'
       +'<td class="text-end fw-bold text-success">'+ERP.formatCurrency(grandTotal)+'</td>'
       +'<td></td>'
       +'</tr>'
     : '';
-  document.getElementById('rptSBCSummary').innerHTML = custKeys.length
+  document.getElementById('rptSBCSummary').innerHTML = totalCustomers
     ? '<div class="rpt-summary-bar d-print-none">'
       +'<span><b>'+totalCustomers+'</b> customers</span>'
       +'<span>Total Invoices: <b>'+totalInvoices+'</b></span>'
       +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span>'
       +'</div>'
     : '';
-
-  // Print header
-  var coId = (state.currentUser || {}).companyId;
-  var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
-  document.getElementById('rptSBCPrintCompany').textContent = (company.info && company.info.name) || company.name || '';
-  var parts = [];
-  if (custId)  parts.push('Customer: '+(partyMap[custId]||custId));
-  if (payMeth) parts.push('Method: '+payMeth);
-  if (dateFrom) parts.push('From: '+dateFrom);
-  if (dateTo)   parts.push('To: '+dateTo);
-  if (!parts.length) parts.push('All customers');
-  parts.push('Generated: '+new Date().toLocaleString());
-  document.getElementById('rptSBCPrintParams').textContent = parts.join('  |  ');
 }
-function getSalesByCustomerData() {
+function rptReportCompanyName() {
   var state = window.ERP.state;
-  var coId  = (state.currentUser || {}).companyId;
-  var sales = (state.sales || []).filter(function(s){ return !coId || s.companyId === coId; });
-  var custId   = document.getElementById('rptSBCCustomer').value;
-  var payMeth  = document.getElementById('rptSBCPayment').value;
-  var dateFrom = document.getElementById('rptSBCFrom').value;
-  var dateTo   = document.getElementById('rptSBCTo').value;
-  if (custId)   sales = sales.filter(function(s){ return s.customerId === custId; });
-  if (payMeth)  sales = sales.filter(function(s){ return (s.paymentMethod||'') === payMeth; });
-  if (dateFrom) sales = sales.filter(function(s){ return (s.createdAt||0) >= new Date(dateFrom+'T00:00:00').getTime(); });
-  if (dateTo)   sales = sales.filter(function(s){ return (s.createdAt||0) <= new Date(dateTo+'T23:59:59').getTime(); });
-  var partyMap = {};
-  (state.parties||[]).forEach(function(p){ partyMap[p.id] = p.name; });
-  var grouped = {};
-  sales.forEach(function(s) {
-    var key = s.customerId || '__walkin__';
-    var name = s.customerId ? (partyMap[s.customerId]||s.customerId) : 'Walk-in / Cash';
-    if (!grouped[key]) grouped[key] = { name: name, sales: [] };
-    grouped[key].sales.push(s);
-  });
-  var custKeys = Object.keys(grouped).sort(function(a,b){ return grouped[a].name.localeCompare(grouped[b].name); });
-  var grandTotal = 0;
-  custKeys.forEach(function(k){ grouped[k].sales.forEach(function(s){ grandTotal += (s.totalAmount||0); }); });
   var coId = (state.currentUser || {}).companyId;
   var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
-  return { grouped: grouped, custKeys: custKeys, grandTotal: grandTotal, partyMap: partyMap,
-           companyName: (company.info && company.info.name) || company.name || '' };
+  return (company.info && company.info.name) || company.name || '';
 }
 function exportSalesByCustomerExcel() {
-  var d = getSalesByCustomerData();
+  if (!rptValidateDateRange('rptSBCFrom', 'rptSBCTo')) return;
+  var params = { from: document.getElementById('rptSBCFrom').value, to: document.getElementById('rptSBCTo').value, export: 1 };
+  rptFetchReport(ERP.api.getSalesByCustomerReport, params)
+    .then(function(resp){ rptBuildSBCExcel(resp.data || [], resp.summary || {}); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildSBCExcel(groups, summary) {
   var headers = ['Customer','Invoice No.','Payment Method','Items','Amount','Date & Time'];
   var rows = [];
-  d.custKeys.forEach(function(key) {
-    var grp = d.grouped[key];
-    var custTotal = 0;
-    grp.sales.sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
-    grp.sales.forEach(function(s) {
-      custTotal += (s.totalAmount||0);
-      rows.push([grp.name, s.id, s.paymentMethod||'—', (s.items||[]).length, s.totalAmount||0, s.createdAt ? new Date(s.createdAt).toLocaleString() : '—']);
+  groups.forEach(function(grp) {
+    (grp.sales||[]).forEach(function(s) {
+      rows.push([grp.customerName, s.id, s.paymentMethod||'—', (s.items||[]).length, s.totalAmount||0, s.createdAt ? new Date(s.createdAt).toLocaleString() : '—']);
     });
-    rows.push([grp.name+' TOTAL','','','',custTotal,'']);
+    rows.push([grp.customerName+' TOTAL','','','',grp.customerTotal||0,'']);
   });
-  rows.push(['GRAND TOTAL','','','',d.grandTotal,'']);
+  rows.push(['GRAND TOTAL','','','',summary.grandTotal||0,'']);
   var wb = XLSX.utils.book_new();
   var ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
   ws['!cols'] = [{wch:24},{wch:16},{wch:16},{wch:8},{wch:14},{wch:22}];
@@ -1890,25 +1866,27 @@ function exportSalesByCustomerExcel() {
   XLSX.writeFile(wb, 'Sales_By_Customer_'+new Date().toISOString().split('T')[0]+'.xlsx');
 }
 function exportSalesByCustomerPDF() {
-  var d = getSalesByCustomerData();
+  if (!rptValidateDateRange('rptSBCFrom', 'rptSBCTo')) return;
+  var params = { from: document.getElementById('rptSBCFrom').value, to: document.getElementById('rptSBCTo').value, export: 1 };
+  rptFetchReport(ERP.api.getSalesByCustomerReport, params)
+    .then(function(resp){ rptBuildSBCPDF(resp.data || [], resp.summary || {}); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildSBCPDF(groups, summary) {
   var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  var startY = pdfMakeHeader(doc, d.companyName, 'Sales by Customer Report');
+  var startY = pdfMakeHeader(doc, rptReportCompanyName(), 'Sales by Customer Report');
   var rows = [];
-  d.custKeys.forEach(function(key) {
-    var grp = d.grouped[key];
-    var custTotal = 0;
-    grp.sales.sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
-    grp.sales.forEach(function(s) {
-      custTotal += (s.totalAmount||0);
-      rows.push([grp.name, s.id, s.paymentMethod||'—', (s.items||[]).length, ERP.formatCurrency(s.totalAmount||0), s.createdAt ? new Date(s.createdAt).toLocaleString() : '—']);
+  groups.forEach(function(grp) {
+    (grp.sales||[]).forEach(function(s) {
+      rows.push([grp.customerName, s.id, s.paymentMethod||'—', (s.items||[]).length, ERP.formatCurrency(s.totalAmount||0), s.createdAt ? new Date(s.createdAt).toLocaleString() : '—']);
     });
-    rows.push([{content:'Customer Total', colSpan:4, styles:{fontStyle:'bold',fillColor:[236,253,245]}}, {content:ERP.formatCurrency(custTotal), styles:{halign:'right',fontStyle:'bold',fillColor:[236,253,245],textColor:[5,150,105]}}, '']);
+    rows.push([{content:'Customer Total', colSpan:4, styles:{fontStyle:'bold',fillColor:[236,253,245]}}, {content:ERP.formatCurrency(grp.customerTotal||0), styles:{halign:'right',fontStyle:'bold',fillColor:[236,253,245],textColor:[5,150,105]}}, '']);
   });
   doc.autoTable({
     startY: startY,
     head: [['Customer','Invoice No.','Payment Method','Items','Amount','Date & Time']],
     body: rows,
-    foot: [['Grand Total','','','',ERP.formatCurrency(d.grandTotal),'']],
+    foot: [['Grand Total','','','',ERP.formatCurrency(summary.grandTotal||0),'']],
     headStyles: { fillColor:[0,0,0], textColor:255, fontSize:7, fontStyle:'bold' },
     footStyles: { fillColor:[220,220,220], textColor:[0,0,0], fontSize:7, fontStyle:'bold' },
     bodyStyles: { fontSize:7 },
@@ -1919,64 +1897,53 @@ function exportSalesByCustomerPDF() {
   doc.save('Sales_By_Customer_'+new Date().toISOString().split('T')[0]+'.pdf');
 }
 /* ====== Purchase by Vendor Report ====== */
-function runPurchaseByVendorReport() {
-  var fromVal = (document.getElementById('rptPBVFrom').value || '');
-  var toVal   = (document.getElementById('rptPBVTo').value   || '');
-  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
-      return rptRefetchIfNeeded(fromVal, toVal, runPurchaseByVendorReport);
-  }
-  var state = window.ERP.state;
-  var coId  = (state.currentUser || {}).companyId;
-  var orders = (state.purchaseOrders || []).filter(function(po){ return !coId || po.companyId === coId; });
+var _rptPBVPage = 1;
+function runPurchaseByVendorReport(page) {
+  if (!rptValidateDateRange('rptPBVFrom', 'rptPBVTo')) return;
+  _rptPBVPage = page || 1;
 
-  var vendId   = document.getElementById('rptPBVVendor').value;
-  var status   = document.getElementById('rptPBVStatus').value;
-  var dateFrom = document.getElementById('rptPBVFrom').value;
-  var dateTo   = document.getElementById('rptPBVTo').value;
+  var params = {
+    from: document.getElementById('rptPBVFrom').value,
+    to:   document.getElementById('rptPBVTo').value,
+    page: _rptPBVPage, perPage: 50
+  };
+  var vendId = document.getElementById('rptPBVVendor').value;
+  var status = document.getElementById('rptPBVStatus').value;
+  if (vendId) params.vendorId = vendId;
+  if (status) params.status = status;
 
-  if (vendId)   orders = orders.filter(function(po){ return po.vendorId === vendId; });
-  if (status)   orders = orders.filter(function(po){ return (po.status||'') === status; });
-  if (dateFrom) orders = orders.filter(function(po){ return (po.createdAt||0) >= new Date(dateFrom+'T00:00:00').getTime(); });
-  if (dateTo)   orders = orders.filter(function(po){ return (po.createdAt||0) <= new Date(dateTo+'T23:59:59').getTime(); });
+  var btn = document.getElementById('rptPBVRunBtn');
+  if (btn) btn.disabled = true;
+  document.getElementById('rptPBVBody').innerHTML = '<tr><td colspan="6" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading…</td></tr>';
 
-  var partyMap = {};
-  (state.parties||[]).forEach(function(p){ partyMap[p.id] = p.name; });
+  rptFetchReport(ERP.api.getPurchaseByVendorReport, params)
+    .then(function(resp){
+      rptRenderPBVRows(resp.data || []);
+      rptRenderPBVSummary(resp.summary || {});
+      rptRenderPagination('rptPBVPagination', resp.pagination, function(p){ runPurchaseByVendorReport(p); });
+    })
+    .catch(function(e){ alert('Error loading report: ' + e.message); })
+    .finally(function(){ if (btn) btn.disabled = false; });
+}
 
-  // Group by vendor
-  var grouped = {};
-  orders.forEach(function(po) {
-    var key  = po.vendorId || '__unknown__';
-    var name = po.vendorId ? (partyMap[po.vendorId] || po.vendorId) : 'Unknown Vendor';
-    if (!grouped[key]) grouped[key] = { name: name, orders: [] };
-    grouped[key].orders.push(po);
-  });
-
-  var vendKeys = Object.keys(grouped).sort(function(a,b){
-    return grouped[a].name.localeCompare(grouped[b].name);
-  });
-
+function rptRenderPBVRows(groups) {
+  var html = '';
   var statusColors = { 'Draft':'rpt-badge-grey', 'Partially Received':'rpt-badge-amber',
     'Received':'rpt-badge-blue', 'Cancelled':'rpt-badge-red', 'Returned':'rpt-badge-red' };
 
-  var html = '', grandTotal = 0, totalVendors = vendKeys.length, totalOrders = orders.length;
-
-  vendKeys.forEach(function(key) {
-    var grp = grouped[key];
-    var vendTotal = 0;
-    grp.orders.forEach(function(po){ vendTotal += (po.totalAmount||0); });
-    grandTotal += vendTotal;
-
-    grp.orders.sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+  groups.forEach(function(grp) {
+    var orders = grp.orders || [];
+    var count = grp.orderCount || orders.length;
 
     // 1. Vendor header row (top)
     html += '<tr class="rpt-vend-header-row">';
-    html += '<td colspan="2"><span class="rpt-id-vendor">'+grp.name+'</span></td>';
-    html += '<td class="rpt-meta-text">'+grp.orders.length+' order'+(grp.orders.length!==1?'s':'')+'</td>';
+    html += '<td colspan="2"><span class="rpt-id-vendor">'+(grp.vendorName||'—')+'</span></td>';
+    html += '<td class="rpt-meta-text">'+count+' order'+(count!==1?'s':'')+'</td>';
     html += '<td></td><td></td><td></td>';
     html += '</tr>';
 
     // 2. PO rows (middle)
-    grp.orders.forEach(function(po) {
+    orders.forEach(function(po) {
       var dt = po.createdAt ? new Date(po.createdAt) : null;
       var dateStr = dt ? dt.toLocaleDateString()+' '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
       var stBadge = '<span class="rpt-badge '+(statusColors[po.status]||'rpt-badge-grey')+'">'+( po.status||'—')+'</span>';
@@ -1995,86 +1962,67 @@ function runPurchaseByVendorReport() {
     html += '<tr class="rpt-vend-total-row">';
     html += '<td></td><td></td><td></td><td></td>';
     html += '<td class="text-end" class="rpt-total-label">Vendor Total</td>';
-    html += '<td class="text-end rpt-total-val text-erp-orange">'+ERP.formatCurrency(vendTotal)+'</td>';
+    html += '<td class="text-end rpt-total-val text-erp-orange">'+ERP.formatCurrency(grp.vendorTotal||0)+'</td>';
     html += '</tr>';
   });
 
-  if (!vendKeys.length) {
+  if (!groups.length) {
     html = '<tr><td colspan="6" class="text-center text-muted py-5"><i class="ti ti-building-store d-block mb-2" class="fs-2"></i>No purchase orders match the selected filters</td></tr>';
   }
-
   document.getElementById('rptPBVBody').innerHTML = html;
-  document.getElementById('rptPBVFoot').innerHTML = vendKeys.length
+
+  // Print header
+  var state = window.ERP.state;
+  var coId = (state.currentUser || {}).companyId;
+  var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
+  document.getElementById('rptPBVPrintCompany').textContent = (company.info && company.info.name) || company.name || '';
+  var parts = [];
+  var fVend = document.getElementById('rptPBVVendor');
+  var fStatus = document.getElementById('rptPBVStatus').value;
+  if (fVend.value) parts.push('Vendor: '+fVend.options[fVend.selectedIndex].text);
+  if (fStatus)     parts.push('Status: '+fStatus);
+  parts.push('From: '+document.getElementById('rptPBVFrom').value);
+  parts.push('To: '+document.getElementById('rptPBVTo').value);
+  parts.push('Generated: '+new Date().toLocaleString());
+  document.getElementById('rptPBVPrintParams').textContent = parts.join('  |  ');
+}
+
+function rptRenderPBVSummary(summary) {
+  var totalVendors = summary.totalVendors || 0;
+  var totalOrders  = summary.totalOrders || 0;
+  var grandTotal   = summary.grandTotal || 0;
+  document.getElementById('rptPBVFoot').innerHTML = totalVendors
     ? '<tr>'
       +'<td colspan="4" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalVendors+' vendors, '+totalOrders+' orders)</span></td>'
       +'<td class="text-end fw-bold text-erp-orange">'+ERP.formatCurrency(grandTotal)+'</td>'
       +'<td></td>'
       +'</tr>'
     : '';
-  document.getElementById('rptPBVSummary').innerHTML = vendKeys.length
+  document.getElementById('rptPBVSummary').innerHTML = totalVendors
     ? '<div class="rpt-summary-bar d-print-none">'
       +'<span><b>'+totalVendors+'</b> vendors</span>'
       +'<span>Total Orders: <b>'+totalOrders+'</b></span>'
       +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span>'
       +'</div>'
     : '';
-
-  var coId = (state.currentUser || {}).companyId;
-  var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
-  document.getElementById('rptPBVPrintCompany').textContent = (company.info && company.info.name) || company.name || '';
-  var parts = [];
-  if (vendId)   parts.push('Vendor: '+(partyMap[vendId]||vendId));
-  if (status)   parts.push('Status: '+status);
-  if (dateFrom) parts.push('From: '+dateFrom);
-  if (dateTo)   parts.push('To: '+dateTo);
-  if (!parts.length) parts.push('All vendors');
-  parts.push('Generated: '+new Date().toLocaleString());
-  document.getElementById('rptPBVPrintParams').textContent = parts.join('  |  ');
-}
-function getPurchaseByVendorData() {
-  var state = window.ERP.state;
-  var coId  = (state.currentUser || {}).companyId;
-  var orders = (state.purchaseOrders || []).filter(function(po){ return !coId || po.companyId === coId; });
-  var vendId   = document.getElementById('rptPBVVendor').value;
-  var status   = document.getElementById('rptPBVStatus').value;
-  var dateFrom = document.getElementById('rptPBVFrom').value;
-  var dateTo   = document.getElementById('rptPBVTo').value;
-  if (vendId)   orders = orders.filter(function(po){ return po.vendorId === vendId; });
-  if (status)   orders = orders.filter(function(po){ return (po.status||'') === status; });
-  if (dateFrom) orders = orders.filter(function(po){ return (po.createdAt||0) >= new Date(dateFrom+'T00:00:00').getTime(); });
-  if (dateTo)   orders = orders.filter(function(po){ return (po.createdAt||0) <= new Date(dateTo+'T23:59:59').getTime(); });
-  var partyMap = {};
-  (state.parties||[]).forEach(function(p){ partyMap[p.id] = p.name; });
-  var grouped = {};
-  orders.forEach(function(po) {
-    var key = po.vendorId || '__unknown__';
-    var name = po.vendorId ? (partyMap[po.vendorId]||po.vendorId) : 'Unknown Vendor';
-    if (!grouped[key]) grouped[key] = { name: name, orders: [] };
-    grouped[key].orders.push(po);
-  });
-  var vendKeys = Object.keys(grouped).sort(function(a,b){ return grouped[a].name.localeCompare(grouped[b].name); });
-  var grandTotal = 0;
-  vendKeys.forEach(function(k){ grouped[k].orders.forEach(function(po){ grandTotal += (po.totalAmount||0); }); });
-  var coId = (state.currentUser || {}).companyId;
-  var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
-  return { grouped: grouped, vendKeys: vendKeys, grandTotal: grandTotal, partyMap: partyMap,
-           companyName: (company.info && company.info.name) || company.name || '' };
 }
 function exportPurchaseByVendorExcel() {
-  var d = getPurchaseByVendorData();
+  if (!rptValidateDateRange('rptPBVFrom', 'rptPBVTo')) return;
+  var params = { from: document.getElementById('rptPBVFrom').value, to: document.getElementById('rptPBVTo').value, export: 1 };
+  rptFetchReport(ERP.api.getPurchaseByVendorReport, params)
+    .then(function(resp){ rptBuildPBVExcel(resp.data || [], resp.summary || {}); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildPBVExcel(groups, summary) {
   var headers = ['Vendor','PO No.','Status','Items','Amount','Date & Time'];
   var rows = [];
-  d.vendKeys.forEach(function(key) {
-    var grp = d.grouped[key];
-    var vendTotal = 0;
-    grp.orders.sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
-    grp.orders.forEach(function(po) {
-      vendTotal += (po.totalAmount||0);
-      rows.push([grp.name, po.id, po.status||'—', (po.items||[]).length, po.totalAmount||0, po.createdAt ? new Date(po.createdAt).toLocaleString() : '—']);
+  groups.forEach(function(grp) {
+    (grp.orders||[]).forEach(function(po) {
+      rows.push([grp.vendorName, po.id, po.status||'—', (po.items||[]).length, po.totalAmount||0, po.createdAt ? new Date(po.createdAt).toLocaleString() : '—']);
     });
-    rows.push([grp.name+' TOTAL','','','',vendTotal,'']);
+    rows.push([grp.vendorName+' TOTAL','','','',grp.vendorTotal||0,'']);
   });
-  rows.push(['GRAND TOTAL','','','',d.grandTotal,'']);
+  rows.push(['GRAND TOTAL','','','',summary.grandTotal||0,'']);
   var wb = XLSX.utils.book_new();
   var ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
   ws['!cols'] = [{wch:24},{wch:16},{wch:18},{wch:8},{wch:14},{wch:22}];
@@ -2082,25 +2030,27 @@ function exportPurchaseByVendorExcel() {
   XLSX.writeFile(wb, 'Purchase_By_Vendor_'+new Date().toISOString().split('T')[0]+'.xlsx');
 }
 function exportPurchaseByVendorPDF() {
-  var d = getPurchaseByVendorData();
+  if (!rptValidateDateRange('rptPBVFrom', 'rptPBVTo')) return;
+  var params = { from: document.getElementById('rptPBVFrom').value, to: document.getElementById('rptPBVTo').value, export: 1 };
+  rptFetchReport(ERP.api.getPurchaseByVendorReport, params)
+    .then(function(resp){ rptBuildPBVPDF(resp.data || [], resp.summary || {}); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildPBVPDF(groups, summary) {
   var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  var startY = pdfMakeHeader(doc, d.companyName, 'Purchase by Vendor Report');
+  var startY = pdfMakeHeader(doc, rptReportCompanyName(), 'Purchase by Vendor Report');
   var rows = [];
-  d.vendKeys.forEach(function(key) {
-    var grp = d.grouped[key];
-    var vendTotal = 0;
-    grp.orders.sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
-    grp.orders.forEach(function(po) {
-      vendTotal += (po.totalAmount||0);
-      rows.push([grp.name, po.id, po.status||'—', (po.items||[]).length, ERP.formatCurrency(po.totalAmount||0), po.createdAt ? new Date(po.createdAt).toLocaleString() : '—']);
+  groups.forEach(function(grp) {
+    (grp.orders||[]).forEach(function(po) {
+      rows.push([grp.vendorName, po.id, po.status||'—', (po.items||[]).length, ERP.formatCurrency(po.totalAmount||0), po.createdAt ? new Date(po.createdAt).toLocaleString() : '—']);
     });
-    rows.push([{content:'Vendor Total', colSpan:4, styles:{fontStyle:'bold',fillColor:[255,247,237]}}, {content:ERP.formatCurrency(vendTotal), styles:{halign:'right',fontStyle:'bold',fillColor:[255,247,237],textColor:[234,88,12]}}, '']);
+    rows.push([{content:'Vendor Total', colSpan:4, styles:{fontStyle:'bold',fillColor:[255,247,237]}}, {content:ERP.formatCurrency(grp.vendorTotal||0), styles:{halign:'right',fontStyle:'bold',fillColor:[255,247,237],textColor:[234,88,12]}}, '']);
   });
   doc.autoTable({
     startY: startY,
     head: [['Vendor','PO No.','Status','Items','Amount','Date & Time']],
     body: rows,
-    foot: [['Grand Total','','','',ERP.formatCurrency(d.grandTotal),'']],
+    foot: [['Grand Total','','','',ERP.formatCurrency(summary.grandTotal||0),'']],
     headStyles: { fillColor:[0,0,0], textColor:255, fontSize:7, fontStyle:'bold' },
     footStyles: { fillColor:[220,220,220], textColor:[0,0,0], fontSize:7, fontStyle:'bold' },
     bodyStyles: { fontSize:7 },
