@@ -201,6 +201,24 @@
             var qs = parts.length ? '?' + parts.join('&') : '';
             return request('GET', '/sales' + qs);
         },
+        getDetailedSalesReport: function(params) {
+            return request('GET', '/reports/detailed-sales?' + new URLSearchParams(params).toString());
+        },
+        getDetailedPurchaseReport: function(params) {
+            return request('GET', '/reports/detailed-purchase?' + new URLSearchParams(params).toString());
+        },
+        getSalesReturnReport: function(params) {
+            return request('GET', '/reports/sales-returns?' + new URLSearchParams(params).toString());
+        },
+        getPurchaseReturnReport: function(params) {
+            return request('GET', '/reports/purchase-returns?' + new URLSearchParams(params).toString());
+        },
+        getSalesByCustomerReport: function(params) {
+            return request('GET', '/reports/sales-by-customer?' + new URLSearchParams(params).toString());
+        },
+        getPurchaseByVendorReport: function(params) {
+            return request('GET', '/reports/purchase-by-vendor?' + new URLSearchParams(params).toString());
+        },
         createCompany: function(name, adminUsername, adminPassword, limit, registrationPayment, saasPlan) {
             return request('POST', '/companies', { name: name, adminUsername: adminUsername, adminPassword: adminPassword, limit: limit, registrationPayment: registrationPayment, saasPlan: saasPlan });
         },

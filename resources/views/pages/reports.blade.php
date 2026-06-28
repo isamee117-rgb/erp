@@ -357,21 +357,21 @@
           <div class="row g-2 align-items-end">
             <div class="col-auto">
               <label class="pm-label">From</label>
-              <input type="date" class="form-control inv-input" id="rptSalesFrom" class="erp-filter-w-150" onchange="runSalesReport()">
+              <input type="date" class="form-control inv-input" id="rptSalesFrom" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">To</label>
-              <input type="date" class="form-control inv-input" id="rptSalesTo" class="erp-filter-w-150" onchange="runSalesReport()">
+              <input type="date" class="form-control inv-input" id="rptSalesTo" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">Customer</label>
-              <select class="form-select inv-input" id="rptSalesCustomer" class="erp-filter-w-160" onchange="runSalesReport()">
+              <select class="form-select inv-input" id="rptSalesCustomer" class="erp-filter-w-160">
                 <option value="">All Customers</option>
               </select>
             </div>
             <div class="col-auto">
               <label class="pm-label">Payment Method</label>
-              <select class="form-select inv-input" id="rptSalesPayment" class="erp-filter-w-150" onchange="runSalesReport()">
+              <select class="form-select inv-input" id="rptSalesPayment" class="erp-filter-w-150">
                 <option value="">All Methods</option>
                 <option value="Cash">Cash</option>
                 <option value="Credit">Credit</option>
@@ -381,11 +381,11 @@
             </div>
             <div class="col-auto">
               <label class="pm-label">Invoice No.</label>
-              <input type="text" class="form-control inv-input" id="rptSalesSearch" placeholder="Search..." class="erp-filter-w-150" oninput="runSalesReport()">
+              <input type="text" class="form-control inv-input" id="rptSalesSearch" placeholder="Search..." class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <button class="btn btn-light inv-input px-3 me-1" onclick="rptSalesClear()" title="Clear filters"><i class="ti ti-x"></i></button>
-              <button class="btn btn-primary rpt-btn" onclick="runSalesReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
+              <button id="rptSalesRunBtn" class="btn btn-primary rpt-btn" onclick="runSalesReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
             </div>
           </div>
         </div>
@@ -416,6 +416,7 @@
             </table>
           </div>
           <div id="rptSalesSummary"></div>
+          <div id="rptSalesPagination" class="d-print-none"></div>
         </div>
       </div>
 
