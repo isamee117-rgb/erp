@@ -192,7 +192,13 @@ function rptOpen(type) {
     var sel = document.getElementById('rptPurchVendor');
     sel.innerHTML = '<option value="">All Vendors</option>';
     vends.forEach(function(v){ sel.innerHTML += '<option value="'+v.id+'">'+v.name+'</option>'; });
-    runPurchaseReport();
+    var rP = rptCurrentMonthRange();
+    document.getElementById('rptPurchFrom').value = rP.from;
+    document.getElementById('rptPurchTo').value = rP.to;
+    document.getElementById('rptPurchaseBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+    document.getElementById('rptPurchaseFoot').innerHTML = '';
+    document.getElementById('rptPurchaseSummary').innerHTML = '';
+    var pPag = document.getElementById('rptPurchPagination'); if (pPag) pPag.innerHTML = '';
   } else if (type === 'salesReturn') {
     document.getElementById('rpt-salesReturn-panel').classList.remove('d-none');
     var state = window.ERP.state;
@@ -288,9 +294,13 @@ function rptPurchClear() {
   document.getElementById('rptPurchSearch').value = '';
   document.getElementById('rptPurchVendor').value = '';
   document.getElementById('rptPurchStatus').value = '';
-  document.getElementById('rptPurchFrom').value = '';
-  document.getElementById('rptPurchTo').value = '';
-  runPurchaseReport();
+  var r = rptCurrentMonthRange();
+  document.getElementById('rptPurchFrom').value = r.from;
+  document.getElementById('rptPurchTo').value = r.to;
+  document.getElementById('rptPurchaseBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">Select a date range and click Run Report.</td></tr>';
+  document.getElementById('rptPurchaseFoot').innerHTML = '';
+  document.getElementById('rptPurchaseSummary').innerHTML = '';
+  var pPag = document.getElementById('rptPurchPagination'); if (pPag) pPag.innerHTML = '';
 }
 function rptSReturnClear() {
   document.getElementById('rptSReturnSearch').value = '';
@@ -793,33 +803,39 @@ function exportVendorPDF() {
   doc.save('Vendor_Report_'+new Date().toISOString().split('T')[0]+'.pdf');
 }
 /* ====== Detailed Purchase Report ====== */
-function runPurchaseReport() {
-  var fromVal = (document.getElementById('rptPurchFrom').value || '');
-  var toVal   = (document.getElementById('rptPurchTo').value   || '');
-  if (window.ERP.state.transactionLoadedFrom && fromVal && fromVal < window.ERP.state.transactionLoadedFrom) {
-      return rptRefetchIfNeeded(fromVal, toVal, runPurchaseReport);
-  }
+var _rptPurchPage = 1;
+function runPurchaseReport(page) {
+  if (!rptValidateDateRange('rptPurchFrom', 'rptPurchTo')) return;
+  _rptPurchPage = page || 1;
+
+  var params = {
+    from: document.getElementById('rptPurchFrom').value,
+    to:   document.getElementById('rptPurchTo').value,
+    page: _rptPurchPage, perPage: 50
+  };
+  var vendId = document.getElementById('rptPurchVendor').value;
+  var status = document.getElementById('rptPurchStatus').value;
+  var search = (document.getElementById('rptPurchSearch').value || '').trim();
+  if (vendId) params.vendorId = vendId;
+  if (status) params.status = status;
+  if (search) params.search = search;
+
+  var btn = document.getElementById('rptPurchRunBtn');
+  if (btn) btn.disabled = true;
+  document.getElementById('rptPurchaseBody').innerHTML = '<tr><td colspan="7" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading…</td></tr>';
+
+  rptFetchReport(ERP.api.getDetailedPurchaseReport, params)
+    .then(function(resp){
+      rptRenderPurchaseRows(resp.data || []);
+      rptRenderPurchaseSummary(resp.summary || {});
+      rptRenderPagination('rptPurchPagination', resp.pagination, function(p){ runPurchaseReport(p); });
+    })
+    .catch(function(e){ alert('Error loading report: ' + e.message); })
+    .finally(function(){ if (btn) btn.disabled = false; });
+}
+
+function rptRenderPurchaseRows(orders) {
   var state = window.ERP.state;
-  var coId = (state.currentUser || {}).companyId;
-  var orders = (state.purchaseOrders || []).filter(function(po){ return !coId || po.companyId === coId; });
-
-  var search   = (document.getElementById('rptPurchSearch').value || '').trim().toLowerCase();
-  var vendId   = document.getElementById('rptPurchVendor').value;
-  var status   = document.getElementById('rptPurchStatus').value;
-  var dateFrom = document.getElementById('rptPurchFrom').value;
-  var dateTo   = document.getElementById('rptPurchTo').value;
-
-  var fromTs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : null;
-  var toTs   = dateTo   ? new Date(dateTo   + 'T23:59:59').getTime() : null;
-
-  if (fromTs)  orders = orders.filter(function(po){ return (po.createdAt||0) >= fromTs; });
-  if (toTs)    orders = orders.filter(function(po){ return (po.createdAt||0) <= toTs; });
-  if (search)  orders = orders.filter(function(po){ return po.id.toLowerCase().indexOf(search) !== -1; });
-  if (vendId)  orders = orders.filter(function(po){ return po.vendorId === vendId; });
-  if (status)  orders = orders.filter(function(po){ return (po.status||'') === status; });
-
-  orders.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
-
   var prodMap = {};
   (state.products || []).forEach(function(p){ prodMap[p.id] = p.name || p.id; });
   var partyMap = {};
@@ -833,15 +849,12 @@ function runPurchaseReport() {
     'Returned':            'rpt-badge-red'
   };
 
-  var html = '', totalOrders = 0, totalItems = 0, grandTotal = 0;
+  var html = '';
 
   orders.forEach(function(po) {
-    totalOrders++;
-    grandTotal += po.totalAmount || 0;
     var items = po.items || [];
-    totalItems += items.length;
 
-    var vendName = po.vendorId ? (partyMap[po.vendorId] || po.vendorId) : '—';
+    var vendName = po.vendorName || (po.vendorId ? (partyMap[po.vendorId] || po.vendorId) : '—');
     var dt = po.createdAt ? new Date(po.createdAt) : null;
     var dateStr = dt ? dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
 
@@ -895,72 +908,63 @@ function runPurchaseReport() {
   if (!orders.length) {
     html = '<tr><td colspan="7" class="text-center text-muted py-5"><i class="ti ti-truck-delivery d-block mb-2" class="fs-2"></i>No purchase orders match the selected filters</td></tr>';
   }
-
   document.getElementById('rptPurchaseBody').innerHTML = html;
-  document.getElementById('rptPurchaseFoot').innerHTML = orders.length
-    ? '<tr><td colspan="5" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalOrders+' orders, '+totalItems+' items)</span></td>'
-      +'<td class="text-end fw-bold">'+ERP.formatCurrency(grandTotal)+'</td>'
-      +'<td></td></tr>'
-    : '';
-  document.getElementById('rptPurchaseSummary').innerHTML = orders.length
-    ? '<div class="rpt-summary-bar d-print-none"><span><b>'+totalOrders+'</b> orders</span>'
-      +'<span>Total Items: <b>'+totalItems+'</b></span>'
-      +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span></div>'
-    : '';
 
   // Print header
   var coId = (state.currentUser || {}).companyId;
   var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
   document.getElementById('rptPurchPrintCompany').textContent = (company.info && company.info.name) || company.name || '';
   var parts = [];
-  if (search)  parts.push('PO: '+search);
-  if (vendId)  parts.push('Vendor: '+(partyMap[vendId]||vendId));
-  if (status)  parts.push('Status: '+status);
-  if (dateFrom) parts.push('From: '+dateFrom);
-  if (dateTo)   parts.push('To: '+dateTo);
-  if (!parts.length) parts.push('All purchase orders');
+  var fSearch = (document.getElementById('rptPurchSearch').value || '').trim();
+  var fVend   = document.getElementById('rptPurchVendor');
+  var fStatus = document.getElementById('rptPurchStatus').value;
+  if (fSearch)     parts.push('PO: '+fSearch);
+  if (fVend.value) parts.push('Vendor: '+fVend.options[fVend.selectedIndex].text);
+  if (fStatus)     parts.push('Status: '+fStatus);
+  parts.push('From: '+document.getElementById('rptPurchFrom').value);
+  parts.push('To: '+document.getElementById('rptPurchTo').value);
   parts.push('Generated: '+new Date().toLocaleString());
   document.getElementById('rptPurchPrintParams').textContent = parts.join('  |  ');
 }
-function getPurchaseReportData() {
+
+function rptRenderPurchaseSummary(summary) {
+  var totalOrders = summary.totalOrders || 0;
+  var grandTotal  = summary.grandTotal || 0;
+  document.getElementById('rptPurchaseFoot').innerHTML = totalOrders
+    ? '<tr><td colspan="5" class="fw-bold">Grand Total &nbsp;<span class="rpt-count-span">('+totalOrders+' orders)</span></td>'
+      +'<td class="text-end fw-bold">'+ERP.formatCurrency(grandTotal)+'</td>'
+      +'<td></td></tr>'
+    : '';
+  document.getElementById('rptPurchaseSummary').innerHTML = totalOrders
+    ? '<div class="rpt-summary-bar d-print-none"><span><b>'+totalOrders+'</b> orders</span>'
+      +'<span>Grand Total: <b>'+ERP.formatCurrency(grandTotal)+'</b></span></div>'
+    : '';
+}
+function rptPurchaseMaps() {
   var state = window.ERP.state;
-  var coId = (state.currentUser || {}).companyId;
-  var orders = (state.purchaseOrders || []).filter(function(po){ return !coId || po.companyId === coId; });
-
-  var search   = (document.getElementById('rptPurchSearch').value || '').trim().toLowerCase();
-  var vendId   = document.getElementById('rptPurchVendor').value;
-  var status   = document.getElementById('rptPurchStatus').value;
-  var dateFrom = document.getElementById('rptPurchFrom').value;
-  var dateTo   = document.getElementById('rptPurchTo').value;
-
-  var fromTs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : null;
-  var toTs   = dateTo   ? new Date(dateTo   + 'T23:59:59').getTime() : null;
-  if (fromTs)  orders = orders.filter(function(po){ return (po.createdAt||0) >= fromTs; });
-  if (toTs)    orders = orders.filter(function(po){ return (po.createdAt||0) <= toTs; });
-  if (search)  orders = orders.filter(function(po){ return po.id.toLowerCase().indexOf(search) !== -1; });
-  if (vendId)  orders = orders.filter(function(po){ return po.vendorId === vendId; });
-  if (status)  orders = orders.filter(function(po){ return (po.status||'') === status; });
-  orders.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
-
   var prodMap = {};
   (state.products || []).forEach(function(p){ prodMap[p.id] = p.name || p.id; });
   var partyMap = {};
   (state.parties || []).forEach(function(p){ partyMap[p.id] = p.name || p.id; });
-
-  var grandTotal = 0, totalItems = 0;
-  orders.forEach(function(po){ grandTotal += po.totalAmount||0; totalItems += (po.items||[]).length; });
   var coId = (state.currentUser || {}).companyId;
   var company = (state.companies || []).find(function(c){ return c.id === coId; }) || (state.companies && state.companies.length === 1 ? state.companies[0] : {});
-  return { orders: orders, prodMap: prodMap, partyMap: partyMap,
-           grandTotal: grandTotal, totalItems: totalItems,
-           companyName: (company.info && company.info.name) || company.name || '' };
+  return { prodMap: prodMap, partyMap: partyMap, companyName: (company.info && company.info.name) || company.name || '' };
 }
 function exportPurchaseExcel() {
-  var d = getPurchaseReportData();
+  if (!rptValidateDateRange('rptPurchFrom', 'rptPurchTo')) return;
+  var params = { from: document.getElementById('rptPurchFrom').value, to: document.getElementById('rptPurchTo').value, export: 1 };
+  rptFetchReport(ERP.api.getDetailedPurchaseReport, params)
+    .then(function(resp){ rptBuildPurchaseExcel(resp.data || []); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildPurchaseExcel(orders) {
+  var d = rptPurchaseMaps();
+  var grandTotal = 0, totalItems = 0;
+  orders.forEach(function(po){ grandTotal += po.totalAmount||0; totalItems += (po.items||[]).length; });
   var headers = ['PO No.','Vendor','Status','Product Name','Qty','Unit Cost','Received Qty','Line Cost','PO Total','Date & Time'];
   var rows = [];
-  d.orders.forEach(function(po) {
-    var vendName = po.vendorId ? (d.partyMap[po.vendorId]||po.vendorId) : '';
+  orders.forEach(function(po) {
+    var vendName = po.vendorName || (po.vendorId ? (d.partyMap[po.vendorId]||po.vendorId) : '');
     var dtStr = po.createdAt ? new Date(po.createdAt).toLocaleString() : '';
     var items = po.items || [];
     items.forEach(function(item) {
@@ -975,7 +979,7 @@ function exportPurchaseExcel() {
       rows.push([po.id, vendName, po.status||'','',0,0,0,0,po.totalAmount||0,dtStr]);
     }
   });
-  rows.push(['GRAND TOTAL ('+d.orders.length+' orders, '+d.totalItems+' items)','','','','','','','',d.grandTotal,'']);
+  rows.push(['GRAND TOTAL ('+orders.length+' orders, '+totalItems+' items)','','','','','','','',grandTotal,'']);
   var wb = XLSX.utils.book_new();
   var ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
   ws['!cols'] = [{wch:14},{wch:22},{wch:18},{wch:28},{wch:6},{wch:12},{wch:10},{wch:14},{wch:14},{wch:22}];
@@ -983,14 +987,23 @@ function exportPurchaseExcel() {
   XLSX.writeFile(wb, 'Purchase_Report_'+new Date().toISOString().split('T')[0]+'.xlsx');
 }
 function exportPurchasePDF() {
-  var d = getPurchaseReportData();
+  if (!rptValidateDateRange('rptPurchFrom', 'rptPurchTo')) return;
+  var params = { from: document.getElementById('rptPurchFrom').value, to: document.getElementById('rptPurchTo').value, export: 1 };
+  rptFetchReport(ERP.api.getDetailedPurchaseReport, params)
+    .then(function(resp){ rptBuildPurchasePDF(resp.data || []); })
+    .catch(function(e){ alert('Error: ' + e.message); });
+}
+function rptBuildPurchasePDF(orders) {
+  var d = rptPurchaseMaps();
+  var grandTotal = 0, totalItems = 0;
+  orders.forEach(function(po){ grandTotal += po.totalAmount||0; totalItems += (po.items||[]).length; });
   var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   var startY = pdfMakeHeader(doc, d.companyName, 'Purchase Order Report');
 
   var tableRows = [];
   var headerRowIndexes = [];
-  d.orders.forEach(function(po) {
-    var vendName = po.vendorId ? (d.partyMap[po.vendorId]||po.vendorId) : '—';
+  orders.forEach(function(po) {
+    var vendName = po.vendorName || (po.vendorId ? (d.partyMap[po.vendorId]||po.vendorId) : '—');
     var dtStr = po.createdAt ? new Date(po.createdAt).toLocaleString() : '—';
     var items = po.items || [];
     headerRowIndexes.push(tableRows.length);
@@ -1004,7 +1017,7 @@ function exportPurchasePDF() {
     startY: startY,
     head: [['PO No.','Vendor','Product Name','Qty','Unit Cost','Total','Date & Time']],
     body: tableRows,
-    foot: [['Grand Total ('+d.orders.length+' orders, '+d.totalItems+' items)','','','','',ERP.formatCurrency(d.grandTotal),'']],
+    foot: [['Grand Total ('+orders.length+' orders, '+totalItems+' items)','','','','',ERP.formatCurrency(grandTotal),'']],
     headStyles: { fillColor:[0,0,0], textColor:255, fontSize:7, fontStyle:'bold' },
     footStyles: { fillColor:[220,220,220], textColor:[0,0,0], fontSize:7, fontStyle:'bold' },
     bodyStyles: { fontSize:7 },

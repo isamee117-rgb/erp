@@ -436,21 +436,21 @@
           <div class="row g-2 align-items-end">
             <div class="col-auto">
               <label class="pm-label">From</label>
-              <input type="date" class="form-control inv-input" id="rptPurchFrom" class="erp-filter-w-150" onchange="runPurchaseReport()">
+              <input type="date" class="form-control inv-input" id="rptPurchFrom" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">To</label>
-              <input type="date" class="form-control inv-input" id="rptPurchTo" class="erp-filter-w-150" onchange="runPurchaseReport()">
+              <input type="date" class="form-control inv-input" id="rptPurchTo" class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <label class="pm-label">Vendor</label>
-              <select class="form-select inv-input" id="rptPurchVendor" class="erp-filter-w-160" onchange="runPurchaseReport()">
+              <select class="form-select inv-input" id="rptPurchVendor" class="erp-filter-w-160">
                 <option value="">All Vendors</option>
               </select>
             </div>
             <div class="col-auto">
               <label class="pm-label">Status</label>
-              <select class="form-select inv-input" id="rptPurchStatus" class="erp-filter-w-160" onchange="runPurchaseReport()">
+              <select class="form-select inv-input" id="rptPurchStatus" class="erp-filter-w-160">
                 <option value="">All Statuses</option>
                 <option value="Draft">Draft</option>
                 <option value="Partially Received">Partially Received</option>
@@ -461,11 +461,11 @@
             </div>
             <div class="col-auto">
               <label class="pm-label">PO No.</label>
-              <input type="text" class="form-control inv-input" id="rptPurchSearch" placeholder="Search..." class="erp-filter-w-150" oninput="runPurchaseReport()">
+              <input type="text" class="form-control inv-input" id="rptPurchSearch" placeholder="Search..." class="erp-filter-w-150">
             </div>
             <div class="col-auto">
               <button class="btn btn-light inv-input px-3 me-1" onclick="rptPurchClear()" title="Clear filters"><i class="ti ti-x"></i></button>
-              <button class="btn btn-primary rpt-btn" onclick="runPurchaseReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
+              <button id="rptPurchRunBtn" class="btn btn-primary rpt-btn" onclick="runPurchaseReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
             </div>
           </div>
         </div>
@@ -496,6 +496,7 @@
             </table>
           </div>
           <div id="rptPurchaseSummary"></div>
+          <div id="rptPurchPagination" class="d-print-none"></div>
         </div>
       </div>
 
