@@ -466,6 +466,13 @@
         },
         updateJobCardMode: function(enabled) {
             return request('PUT', '/settings/job-card-mode', { jobCardMode: enabled });
+        },
+        updateInventoryDates: function(expiryEnabled, mfgEnabled, alertDays) {
+            return request('PUT', '/settings/inventory-dates', {
+                expiryDateEnabled: expiryEnabled,
+                mfgDateEnabled: mfgEnabled,
+                expiryAlertDays: alertDays
+            });
         }
     };
 

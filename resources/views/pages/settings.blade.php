@@ -377,6 +377,33 @@
             <input class="form-check-input" type="checkbox" id="setting-job-card-mode" role="switch" style="width:2.5em;height:1.4em;cursor:pointer">
           </div>
         </div>
+        <hr class="my-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="fw-semibold set-module-title">Expiry Date Tracking</div>
+            <div class="text-muted set-module-desc">Capture expiry dates per batch when receiving goods</div>
+          </div>
+          <div class="form-check form-switch ms-3">
+            <input class="form-check-input set-switch-lg" type="checkbox" id="setting-expiry-date" role="switch">
+          </div>
+        </div>
+        <div class="d-flex align-items-center justify-content-between mt-2 d-none" id="expiry-alert-days-row">
+          <div>
+            <div class="fw-semibold set-module-title">Expiry Alert Days</div>
+            <div class="text-muted set-module-desc">Batches expiring within this many days show as &quot;Expiring Soon&quot;</div>
+          </div>
+          <input type="number" class="form-control inv-input ms-3 set-alert-days-input" id="setting-expiry-alert-days" min="1" max="365">
+        </div>
+        <hr class="my-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="fw-semibold set-module-title">Manufacturing Date Tracking</div>
+            <div class="text-muted set-module-desc">Capture manufacturing dates per batch when receiving goods</div>
+          </div>
+          <div class="form-check form-switch ms-3">
+            <input class="form-check-input set-switch-lg" type="checkbox" id="setting-mfg-date" role="switch">
+          </div>
+        </div>
       </div>
     </div>
   </div>

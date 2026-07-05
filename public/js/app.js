@@ -31,6 +31,9 @@
         invoiceFormat: 'A4',
         costingMethod: 'moving_average',
         jobCardMode: false,
+        expiryDateEnabled: false,
+        mfgDateEnabled: false,
+        expiryAlertDays: 30,
         documentSequences: [],
         chartOfAccounts: [],
         accountMappings: {}

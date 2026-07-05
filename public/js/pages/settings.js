@@ -41,6 +41,7 @@ function renderPage(){
     renderSequences();
     renderDynamicFieldSettings();
     initJobCardModeToggle();
+    initInventoryDatesToggles();
 }
 function initJobCardModeToggle(){
     var toggle = document.getElementById('setting-job-card-mode');
@@ -54,6 +55,47 @@ function initJobCardModeToggle(){
             var jcNav = document.querySelector('[data-nav-mode="job-card"]');
             if (jcNav) jcNav.style.display = enabled ? '' : 'none';
         }).catch(function(e){ alert('Error: ' + e.message); toggle.checked = !enabled; });
+    });
+}
+function initInventoryDatesToggles(){
+    var expToggle = document.getElementById('setting-expiry-date');
+    var mfgToggle = document.getElementById('setting-mfg-date');
+    var daysInput = document.getElementById('setting-expiry-alert-days');
+    var daysRow   = document.getElementById('expiry-alert-days-row');
+    if (!expToggle || !mfgToggle || !daysInput || !daysRow) return;
+
+    var state = window.ERP.state;
+    expToggle.checked = !!state.expiryDateEnabled;
+    mfgToggle.checked = !!state.mfgDateEnabled;
+    daysInput.value   = state.expiryAlertDays || 30;
+    daysRow.classList.toggle('d-none', !state.expiryDateEnabled);
+
+    function saveInventoryDates(revertFn){
+        var days = parseInt(daysInput.value, 10);
+        if (isNaN(days) || days < 1 || days > 365) {
+            alert('Expiry alert days must be between 1 and 365.');
+            revertFn();
+            return;
+        }
+        ERP.api.updateInventoryDates(expToggle.checked, mfgToggle.checked, days).then(function(resp){
+            window.ERP.state.expiryDateEnabled = resp.expiryDateEnabled;
+            window.ERP.state.mfgDateEnabled    = resp.mfgDateEnabled;
+            window.ERP.state.expiryAlertDays   = resp.expiryAlertDays;
+            daysRow.classList.toggle('d-none', !resp.expiryDateEnabled);
+        }).catch(function(e){
+            alert('Error: ' + e.message);
+            revertFn();
+        });
+    }
+
+    expToggle.addEventListener('change', function(){
+        saveInventoryDates(function(){ expToggle.checked = !expToggle.checked; });
+    });
+    mfgToggle.addEventListener('change', function(){
+        saveInventoryDates(function(){ mfgToggle.checked = !mfgToggle.checked; });
+    });
+    daysInput.addEventListener('change', function(){
+        saveInventoryDates(function(){ daysInput.value = window.ERP.state.expiryAlertDays || 30; });
     });
 }
 function renderTags(containerId,items,deleteFn){

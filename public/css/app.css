@@ -2200,3 +2200,9 @@ body { font-family: var(--tblr-font-sans-serif); }
 
 /* Summary bar */
 .rpt-summary-bar { padding: 8px 18px; font-size: 0.8rem; color: #64748b; border-top: 1px solid #E8EAF0; }
+
+/* Settings — Inventory Dates toggles */
+.set-switch-lg { width: 2.5em; height: 1.4em; cursor: pointer; }
+.set-alert-days-input { width: 90px; }
+.set-module-title { font-size: 0.9rem; }
+.set-module-desc { font-size: 0.82rem; }
