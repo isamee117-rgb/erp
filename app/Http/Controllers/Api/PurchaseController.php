@@ -59,8 +59,21 @@ class PurchaseController extends Controller
 
     public function store(StorePurchaseOrderRequest $request)
     {
-        $po = $this->purchaseService->createOrder($request->get('auth_user'), $request->validated());
-        return new PurchaseOrderResource($po);
+        $user = $request->get('auth_user');
+        $po   = $this->purchaseService->createOrder($user, $request->validated());
+
+        $journalWarning = null;
+        $latestReceive  = $po->receives()->latest()->first();
+        if ($latestReceive) {
+            try {
+                $this->journalService->postPurchaseReceive($latestReceive, $user->id);
+            } catch (\Throwable $e) {
+                Log::error('Journal posting failed for auto-received PO', ['po_id' => $po->id, 'error' => $e->getMessage()]);
+                $journalWarning = $e->getMessage();
+            }
+        }
+
+        return (new PurchaseOrderResource($po))->additional(array_filter(['warning' => $journalWarning]));
     }
 
     public function receive(ReceivePurchaseOrderRequest $request, $id)

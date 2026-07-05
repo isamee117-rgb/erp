@@ -11,6 +11,7 @@ use App\Models\PurchaseReceive;
 use App\Models\PurchaseReceiveItem;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\UomConversionService;
 use Carbon\Carbon;
@@ -75,8 +76,25 @@ class PurchaseService
             PurchaseItem::create(array_merge($item, ['purchase_order_id' => $poUUID]));
         }
 
-        $po->load('items');
-        return $po;
+        if ($this->grnEnabled($user->company_id)) {
+            $po->load('items');
+            return $po;
+        }
+
+        $receiveItems = [];
+        foreach (($data['items'] ?? []) as $i => $item) {
+            $receiveItems[] = [
+                'purchaseItemId' => $mappedItems[$i]['id'],
+                'productId'      => $mappedItems[$i]['product_id'],
+                'quantity'       => $mappedItems[$i]['quantity'],
+                'unitCost'       => $mappedItems[$i]['unit_cost'],
+                'batchNo'        => $item['batchNo'] ?? $item['batch_no'] ?? null,
+                'mfgDate'        => $item['mfgDate'] ?? $item['mfg_date'] ?? null,
+                'expiryDate'     => $item['expiryDate'] ?? $item['expiry_date'] ?? null,
+            ];
+        }
+
+        return $this->receiveOrder($user, $po->id, $receiveItems, 'Auto-received (GRN disabled)');
     }
 
     public function receiveOrder(User $user, string $id, array $receiveItems, string $notes, ?string $receiveDate = null): PurchaseOrder
@@ -353,5 +371,14 @@ class PurchaseService
             $po->return_status = 'partial';
         }
         $po->save();
+    }
+
+    private function grnEnabled(?string $companyId): bool
+    {
+        $value = Setting::where('company_id', $companyId)
+            ->where('key', 'grn_enabled')
+            ->value('value');
+
+        return $value === null ? true : $value === '1';
     }
 }
