@@ -86,6 +86,7 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
         Route::delete('/job-cards/{id}',                [JobCardController::class, 'destroy']);
 
         Route::put('/settings/job-card-mode',      [SettingsController::class, 'updateJobCardMode']);
+        Route::put('/settings/grn-mode',           [SettingsController::class, 'updateGrnMode']);
         Route::put('/settings/inventory-dates',    [SettingsController::class, 'updateInventoryDates']);
         Route::put('/settings/currency',           [SettingsController::class, 'updateCurrency']);
         Route::put('/settings/invoice-format',     [SettingsController::class, 'updateInvoiceFormat']);

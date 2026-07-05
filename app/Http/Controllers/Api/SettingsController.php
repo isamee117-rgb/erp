@@ -55,6 +55,17 @@ class SettingsController extends Controller
         return response()->json(['success' => true, 'jobCardMode' => (bool) $mode]);
     }
 
+    public function updateGrnMode(Request $request)
+    {
+        $user = $request->get('auth_user');
+        $mode = $request->input('grnEnabled') ? '1' : '0';
+        Setting::updateOrCreate(
+            ['company_id' => $user->company_id, 'key' => 'grn_enabled'],
+            ['value' => $mode]
+        );
+        return response()->json(['success' => true, 'grnEnabled' => (bool) $mode]);
+    }
+
     public function updateInventoryDates(UpdateInventoryDatesRequest $request)
     {
         $user = $request->get('auth_user');

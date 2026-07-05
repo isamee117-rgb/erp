@@ -62,7 +62,7 @@ class SyncService
 
         // 1 query instead of 3 separate Setting lookups
         $settings         = Setting::where('company_id', $coId)
-            ->whereIn('key', ['currency', 'invoice_format', 'job_card_mode', 'expiry_date_enabled', 'mfg_date_enabled', 'expiry_alert_days'])
+            ->whereIn('key', ['currency', 'invoice_format', 'job_card_mode', 'expiry_date_enabled', 'mfg_date_enabled', 'expiry_alert_days', 'grn_enabled'])
             ->get()->keyBy('key');
 
         $costingMethod     = 'moving_average';
@@ -112,6 +112,7 @@ class SyncService
             'invoiceFormat'      => $settings->get('invoice_format')?->value ?? 'A4',
             'costingMethod'      => $costingMethod,
             'jobCardMode'        => (bool) ($settings->get('job_card_mode')?->value ?? false),
+            'grnEnabled'         => (bool) ($settings->get('grn_enabled')?->value ?? true),
             'expiryDateEnabled'  => (bool) ($settings->get('expiry_date_enabled')?->value ?? false),
             'mfgDateEnabled'     => (bool) ($settings->get('mfg_date_enabled')?->value ?? false),
             'expiryAlertDays'    => (int) ($settings->get('expiry_alert_days')?->value ?? 30),
