@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateInventoryDatesRequest;
 use App\Http\Resources\BusinessCategoryResource;
 use App\Http\Resources\CategoryResource;
 use App\Http\Resources\EntityTypeResource;
@@ -52,6 +53,32 @@ class SettingsController extends Controller
             ['value' => $mode]
         );
         return response()->json(['success' => true, 'jobCardMode' => (bool) $mode]);
+    }
+
+    public function updateInventoryDates(UpdateInventoryDatesRequest $request)
+    {
+        $user = $request->get('auth_user');
+        $v    = $request->validated();
+
+        Setting::updateOrCreate(
+            ['company_id' => $user->company_id, 'key' => 'expiry_date_enabled'],
+            ['value' => $v['expiryDateEnabled'] ? '1' : '0']
+        );
+        Setting::updateOrCreate(
+            ['company_id' => $user->company_id, 'key' => 'mfg_date_enabled'],
+            ['value' => $v['mfgDateEnabled'] ? '1' : '0']
+        );
+        Setting::updateOrCreate(
+            ['company_id' => $user->company_id, 'key' => 'expiry_alert_days'],
+            ['value' => (string) $v['expiryAlertDays']]
+        );
+
+        return response()->json([
+            'success'           => true,
+            'expiryDateEnabled' => (bool) $v['expiryDateEnabled'],
+            'mfgDateEnabled'    => (bool) $v['mfgDateEnabled'],
+            'expiryAlertDays'   => (int) $v['expiryAlertDays'],
+        ]);
     }
 
     public function updateCostingMethod(Request $request)
