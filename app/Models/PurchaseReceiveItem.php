@@ -11,12 +11,14 @@ class PurchaseReceiveItem extends Model
 
     protected $fillable = [
         'id', 'purchase_receive_id', 'purchase_item_id', 'product_id',
-        'quantity', 'unit_cost',
+        'quantity', 'unit_cost', 'batch_no', 'mfg_date', 'expiry_date',
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
-        'unit_cost' => 'float',
+        'quantity'    => 'integer',
+        'unit_cost'   => 'float',
+        'mfg_date'    => 'date',
+        'expiry_date' => 'date',
     ];
 
     public function purchaseReceive()

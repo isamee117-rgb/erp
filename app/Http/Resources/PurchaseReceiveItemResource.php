@@ -15,6 +15,9 @@ class PurchaseReceiveItemResource extends JsonResource
             'productId'       => $this->product_id,
             'quantity'        => (int)   $this->quantity,
             'unitCost'        => (float) $this->unit_cost,
+            'batchNo'         => $this->batch_no,
+            'mfgDate'         => $this->mfg_date?->toDateString(),
+            'expiryDate'      => $this->expiry_date?->toDateString(),
         ];
     }
 }

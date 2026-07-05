@@ -27,6 +27,22 @@ class InventoryDatesTest extends ApiTestCase
         ], $this->auth())->assertOk();
     }
 
+    private function receiveWithDates(array $itemOverrides = []): \Illuminate\Testing\TestResponse
+    {
+        $po = $this->postJson('/api/purchases', [
+            'vendorId' => $this->vendor['id'],
+            'items'    => [['productId' => $this->product['id'], 'quantity' => 10, 'unitCost' => 50]],
+        ], $this->auth());
+
+        return $this->putJson('/api/purchases/' . $po->json('id') . '/receive', [
+            'items' => [array_merge([
+                'productId' => $this->product['id'],
+                'quantity'  => 10,
+                'unitCost'  => 50,
+            ], $itemOverrides)],
+        ], $this->auth());
+    }
+
     #[Test]
     public function inventory_dates_settings_are_saved(): void
     {
@@ -69,5 +85,43 @@ class InventoryDatesTest extends ApiTestCase
             'mfgDateEnabled'    => false,
             'expiryAlertDays'   => 0,
         ], $this->auth())->assertStatus(422);
+    }
+
+    #[Test]
+    public function receive_stores_batch_and_dates(): void
+    {
+        $this->receiveWithDates([
+            'batchNo'    => 'LOT-001',
+            'mfgDate'    => '2026-01-01',
+            'expiryDate' => '2027-01-01',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('purchase_receive_items', [
+            'product_id'  => $this->product['id'],
+            'batch_no'    => 'LOT-001',
+            'mfg_date'    => '2026-01-01',
+            'expiry_date' => '2027-01-01',
+        ]);
+    }
+
+    #[Test]
+    public function receive_without_batch_fields_still_works(): void
+    {
+        $this->receiveWithDates()->assertOk();
+
+        $this->assertDatabaseHas('purchase_receive_items', [
+            'product_id' => $this->product['id'],
+            'batch_no'   => null,
+            'mfg_date'   => null,
+        ]);
+    }
+
+    #[Test]
+    public function expiry_before_mfg_date_is_rejected(): void
+    {
+        $this->receiveWithDates([
+            'mfgDate'    => '2026-06-01',
+            'expiryDate' => '2026-05-01',
+        ])->assertStatus(422);
     }
 }

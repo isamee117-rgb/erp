@@ -149,6 +149,9 @@ class PurchaseService
                 'product_id'          => $productId,
                 'quantity'            => $actualQty,
                 'unit_cost'           => $unitCost,
+                'batch_no'            => $ri['batchNo'] ?? $ri['batch_no'] ?? null,
+                'mfg_date'            => $ri['mfgDate'] ?? $ri['mfg_date'] ?? null,
+                'expiry_date'         => $ri['expiryDate'] ?? $ri['expiry_date'] ?? null,
             ]);
 
             $poItem->received_quantity += $actualQty;
