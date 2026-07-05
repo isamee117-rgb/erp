@@ -28,6 +28,7 @@
 .db-kpi-icon-green{background:rgba(16,185,129,0.12);color:#059669;}
 .db-kpi-icon-blue{background:rgba(205,0,0,0.12);color:#CD0000;}
 .db-kpi-icon-orange{background:rgba(249,115,22,0.12);color:#ea580c;}
+.db-kpi-icon-red{background:rgba(239,68,68,0.12);color:#ef4444;}
 .db-kpi-icon-purple{background:rgba(124,58,237,0.12);color:#7c3aed;}
 .db-kpi-icon-yellow{background:rgba(234,179,8,0.12);color:#ca8a04;}
 .db-kpi-icon-teal{background:rgba(20,184,166,0.12);color:#0d9488;}

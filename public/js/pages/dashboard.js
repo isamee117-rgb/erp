@@ -134,6 +134,14 @@ function renderUserDashboard(state, container, companyId) {
     '<div class="db-kpi-value" id="kpi-pending-po">--</div>' +
     '<div class="db-kpi-sub">Draft purchase orders</div>' +
     '</div>';
+  if (window.ERP.state.expiryDateEnabled) {
+    html += '<div class="db-kpi-card">' +
+      '<div class="db-kpi-icon-wrap db-kpi-icon-red"><i class="ti ti-calendar-x"></i></div>' +
+      '<div class="db-kpi-label">Expiry Alerts</div>' +
+      '<div class="db-kpi-value" id="kpi-expiry">--</div>' +
+      '<div class="db-kpi-sub" id="kpi-expiry-sub">&nbsp;</div>' +
+      '</div>';
+  }
   html += '</div>';
 
   html += '<div class="db-row db-row-8-4">' +
@@ -159,6 +167,19 @@ function renderUserDashboard(state, container, companyId) {
 
   // Initial API load
   loadDashboardData(currentFilter);
+
+  if (window.ERP.state.expiryDateEnabled) {
+    ERP.api.getExpirySummary().then(function(s) {
+      var el  = document.getElementById('kpi-expiry');
+      var sub = document.getElementById('kpi-expiry-sub');
+      if (el)  el.textContent  = (s.expired || 0) + (s.expiringSoon ? ' + ' + s.expiringSoon : '');
+      if (sub) sub.textContent = (s.expired || 0) + ' expired · ' + (s.expiringSoon || 0) + ' expiring in ' + (s.alertDays || 30) + ' days';
+    }).catch(function(e) {
+      var el = document.getElementById('kpi-expiry');
+      if (el) el.textContent = '—';
+      console.error('Expiry summary failed: ' + e.message);
+    });
+  }
 }
 
 function loadDashboardData(filter) {
