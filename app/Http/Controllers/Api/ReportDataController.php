@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ExpiryReportRequest;
 use App\Http\Requests\ReportQueryRequest;
 use App\Services\ReportQueryService;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class ReportDataController extends Controller
 {
@@ -51,6 +53,31 @@ class ReportDataController extends Controller
         return $this->run($request, fn($coId, $from, $to, $filters, $page, $perPage, $export) =>
             $this->service->purchaseByVendor($coId, $from, $to, $filters, $page, $perPage, $export)
         );
+    }
+
+    public function expiry(ExpiryReportRequest $request)
+    {
+        $user = $request->get('auth_user');
+        if (!$user->company_id) {
+            return response()->json(['error' => 'Not available for Super Admin.'], 403);
+        }
+
+        $page    = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('perPage', config('reports.default_per_page'));
+
+        return response()->json(
+            $this->service->expiryReport($user->company_id, $request->input('status'), $page, $perPage)
+        );
+    }
+
+    public function expirySummary(Request $request)
+    {
+        $user = $request->get('auth_user');
+        if (!$user->company_id) {
+            return response()->json(['error' => 'Not available for Super Admin.'], 403);
+        }
+
+        return response()->json($this->service->expirySummary($user->company_id));
     }
 
     /**

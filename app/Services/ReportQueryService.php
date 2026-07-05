@@ -7,9 +7,11 @@ use App\Http\Resources\PurchaseReturnResource;
 use App\Http\Resources\SaleOrderResource;
 use App\Http\Resources\SaleReturnResource;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseReceiveItem;
 use App\Models\PurchaseReturn;
 use App\Models\SaleOrder;
 use App\Models\SaleReturn;
+use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -220,6 +222,75 @@ class ReportQueryService
             : new LengthAwarePaginator($groups->forPage($page, $perPage)->values(), $groups->count(), $perPage, $page);
 
         return $this->buildEnvelope($pageGroups, fn($g) => $g, $summary, $export);
+    }
+
+    public function expiryReport(string $companyId, ?string $status, int $page, int $perPage): array
+    {
+        $alertDays = $this->expiryAlertDays($companyId);
+        $today     = Carbon::today();
+        $soonEnd   = $today->copy()->addDays($alertDays);
+
+        $query = PurchaseReceiveItem::with(['product:id,name,sku', 'purchaseReceive:id,receive_date'])
+            ->whereNotNull('expiry_date')
+            ->whereHas('purchaseReceive', fn($q) => $q->where('company_id', $companyId));
+
+        if ($status === 'expired')       $query->whereDate('expiry_date', '<', $today);
+        if ($status === 'expiring_soon') $query->whereDate('expiry_date', '>=', $today)->whereDate('expiry_date', '<=', $soonEnd);
+        if ($status === 'ok')            $query->whereDate('expiry_date', '>', $soonEnd);
+
+        $query->orderBy('expiry_date');
+
+        $summary = array_merge($this->expiryCounts($companyId, $alertDays), ['alertDays' => $alertDays]);
+
+        $shape = function ($item) use ($today, $soonEnd) {
+            $expiry    = $item->expiry_date;
+            $rowStatus = $expiry->lt($today) ? 'expired' : ($expiry->lte($soonEnd) ? 'expiring_soon' : 'ok');
+            return [
+                'id'           => $item->id,
+                'productId'    => $item->product_id,
+                'productName'  => $item->product?->name ?? $item->product_id,
+                'sku'          => $item->product?->sku,
+                'batchNo'      => $item->batch_no,
+                'mfgDate'      => $item->mfg_date?->toDateString(),
+                'expiryDate'   => $expiry->toDateString(),
+                'receiveDate'  => $item->purchaseReceive?->receive_date,
+                'quantity'     => (int) $item->quantity,
+                'status'       => $rowStatus,
+                'daysToExpiry' => (int) $today->diffInDays($expiry, false),
+            ];
+        };
+
+        return $this->buildEnvelope(
+            $query->paginate($perPage, ['*'], 'page', $page),
+            $shape,
+            $summary,
+            false
+        );
+    }
+
+    public function expirySummary(string $companyId): array
+    {
+        $alertDays = $this->expiryAlertDays($companyId);
+        return array_merge($this->expiryCounts($companyId, $alertDays), ['alertDays' => $alertDays]);
+    }
+
+    protected function expiryCounts(string $companyId, int $alertDays): array
+    {
+        $today   = Carbon::today();
+        $soonEnd = $today->copy()->addDays($alertDays);
+        $base    = fn() => PurchaseReceiveItem::whereNotNull('expiry_date')
+            ->whereHas('purchaseReceive', fn($q) => $q->where('company_id', $companyId));
+
+        return [
+            'expired'      => $base()->whereDate('expiry_date', '<', $today)->count(),
+            'expiringSoon' => $base()->whereDate('expiry_date', '>=', $today)->whereDate('expiry_date', '<=', $soonEnd)->count(),
+            'ok'           => $base()->whereDate('expiry_date', '>', $soonEnd)->count(),
+        ];
+    }
+
+    protected function expiryAlertDays(string $companyId): int
+    {
+        return (int) (Setting::forCompany($companyId)->where('key', 'expiry_alert_days')->value('value') ?? 30);
     }
 
     // ── Shared helpers (reused by every report method) ─────────────────────────

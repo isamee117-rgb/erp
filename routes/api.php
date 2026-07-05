@@ -162,5 +162,7 @@ Route::middleware(ApiTokenAuth::class)->group(function () {
         Route::get('/reports/purchase-returns',   [ReportDataController::class, 'purchaseReturns']);
         Route::get('/reports/sales-by-customer',  [ReportDataController::class, 'salesByCustomer']);
         Route::get('/reports/purchase-by-vendor', [ReportDataController::class, 'purchaseByVendor']);
+        Route::get('/reports/expiry',             [ReportDataController::class, 'expiry']);
+        Route::get('/reports/expiry-summary',     [ReportDataController::class, 'expirySummary']);
     });
 });

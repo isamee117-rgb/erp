@@ -124,4 +124,72 @@ class InventoryDatesTest extends ApiTestCase
             'expiryDate' => '2026-05-01',
         ])->assertStatus(422);
     }
+
+    #[Test]
+    public function expiry_report_classifies_batches(): void
+    {
+        $this->enableInventoryDates(30);
+        $this->receiveWithDates(['batchNo' => 'EXP',  'expiryDate' => now()->subDays(5)->toDateString()]);
+        $this->receiveWithDates(['batchNo' => 'SOON', 'expiryDate' => now()->addDays(10)->toDateString()]);
+        $this->receiveWithDates(['batchNo' => 'OK',   'expiryDate' => now()->addDays(90)->toDateString()]);
+
+        $resp = $this->getJson('/api/reports/expiry', $this->auth());
+        $resp->assertOk()
+             ->assertJsonPath('summary.expired', 1)
+             ->assertJsonPath('summary.expiringSoon', 1)
+             ->assertJsonPath('summary.ok', 1)
+             ->assertJsonPath('summary.alertDays', 30);
+
+        $rows = collect($resp->json('data'))->keyBy('batchNo');
+        $this->assertEquals('expired',       $rows['EXP']['status']);
+        $this->assertEquals('expiring_soon', $rows['SOON']['status']);
+        $this->assertEquals('ok',            $rows['OK']['status']);
+    }
+
+    #[Test]
+    public function expiry_report_status_filter_limits_rows(): void
+    {
+        $this->enableInventoryDates(30);
+        $this->receiveWithDates(['batchNo' => 'EXP', 'expiryDate' => now()->subDays(5)->toDateString()]);
+        $this->receiveWithDates(['batchNo' => 'OK',  'expiryDate' => now()->addDays(90)->toDateString()]);
+
+        $this->getJson('/api/reports/expiry?status=expired', $this->auth())
+             ->assertOk()
+             ->assertJsonCount(1, 'data')
+             ->assertJsonPath('data.0.batchNo', 'EXP');
+    }
+
+    #[Test]
+    public function expiry_report_is_company_scoped(): void
+    {
+        $this->receiveWithDates(['batchNo' => 'MINE', 'expiryDate' => now()->addDays(10)->toDateString()]);
+
+        $otherCo    = $this->createCompany(['name' => 'Other Co']);
+        $otherAdmin = $this->createAdminUser($otherCo, ['username' => 'otheradmin']);
+        $otherToken = $this->loginAndGetToken($otherAdmin);
+
+        $this->getJson('/api/reports/expiry', $this->auth($otherToken))
+             ->assertOk()
+             ->assertJsonCount(0, 'data');
+    }
+
+    #[Test]
+    public function expiry_summary_returns_counts_with_default_threshold(): void
+    {
+        // No settings saved — alertDays must default to 30
+        $this->receiveWithDates(['expiryDate' => now()->subDay()->toDateString()]);
+
+        $this->getJson('/api/reports/expiry-summary', $this->auth())
+             ->assertOk()
+             ->assertJsonPath('expired', 1)
+             ->assertJsonPath('expiringSoon', 0)
+             ->assertJsonPath('alertDays', 30);
+    }
+
+    #[Test]
+    public function expiry_report_rejects_invalid_status(): void
+    {
+        $this->getJson('/api/reports/expiry?status=bogus', $this->auth())
+             ->assertStatus(422);
+    }
 }
