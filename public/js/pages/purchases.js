@@ -421,6 +421,24 @@ function openReceiveModal(poId) {
   var today = new Date();
   document.getElementById('recv-date').value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
 
+  var expiryOn = !!window.ERP.state.expiryDateEnabled;
+  var mfgOn    = !!window.ERP.state.mfgDateEnabled;
+  var batchOn  = expiryOn || mfgOn;
+
+  var dlg = document.querySelector('#receiveModal .modal-dialog');
+  if (dlg) dlg.classList.toggle('modal-dialog-recv-wide', batchOn);
+
+  var head = '<th class="po-th-col" style="width:36px;">#</th>' +
+    '<th class="po-th-col">Product</th>' +
+    '<th class="po-th-col text-center">Ordered</th>' +
+    '<th class="po-th-col text-center">Received</th>' +
+    '<th class="po-th-col text-center">Remaining</th>' +
+    '<th class="po-th-col" style="width:120px;">Receive Qty</th>';
+  if (batchOn)  head += '<th class="po-th-col">Batch No</th>';
+  if (mfgOn)    head += '<th class="po-th-col">Mfg Date</th>';
+  if (expiryOn) head += '<th class="po-th-col">Expiry Date</th>';
+  document.getElementById('recv-head').innerHTML = head;
+
   var tbody = document.getElementById('recv-items');
   var html = '';
   (po.items || []).forEach(function(item, idx) {
@@ -440,7 +458,20 @@ function openReceiveModal(poId) {
           'min="0" max="' + remaining + '" value="' + Math.max(0, remaining) + '" ' +
           'oninput="validateRecvQty(this)">' +
         '<div class="text-danger" style="font-size:0.72rem;min-height:14px;" id="recv-err-' + item.id + '"></div>' +
-      '</td></tr>';
+      '</td>';
+    if (batchOn) {
+      html += '<td class="po-td-input"><input type="text" class="form-control pm-input recv-batch po-input-sm" ' +
+        'data-item-id="' + item.id + '" maxlength="255" placeholder="Batch/Lot"></td>';
+    }
+    if (mfgOn) {
+      html += '<td class="po-td-input"><input type="date" class="form-control pm-input recv-mfg po-input-sm" ' +
+        'data-item-id="' + item.id + '"></td>';
+    }
+    if (expiryOn) {
+      html += '<td class="po-td-input"><input type="date" class="form-control pm-input recv-expiry po-input-sm" ' +
+        'data-item-id="' + item.id + '"></td>';
+    }
+    html += '</tr>';
   });
   tbody.innerHTML = html;
   new bootstrap.Modal(document.getElementById('receiveModal')).show();
@@ -577,18 +608,35 @@ async function submitReceive() {
   inputs.forEach(function(inp) {
     var qty = parseInt(inp.value) || 0;
     if (qty > 0) {
-      items.push({
+      var entry = {
         purchaseItemId: inp.dataset.itemId,
         productId: inp.dataset.productId,
         quantity: qty,
         unitCost: parseFloat(inp.dataset.unitCost) || 0
-      });
+      };
+      var itemId  = inp.dataset.itemId;
+      var batchEl = document.querySelector('.recv-batch[data-item-id="' + itemId + '"]');
+      var mfgEl   = document.querySelector('.recv-mfg[data-item-id="' + itemId + '"]');
+      var expEl   = document.querySelector('.recv-expiry[data-item-id="' + itemId + '"]');
+      if (batchEl && batchEl.value.trim()) entry.batchNo = batchEl.value.trim();
+      if (mfgEl && mfgEl.value) entry.mfgDate = mfgEl.value;
+      if (expEl && expEl.value) entry.expiryDate = expEl.value;
+      items.push(entry);
     }
   });
   if (items.length === 0) {
     var errBox = document.getElementById('recv-save-error');
     errBox.textContent = 'Enter at least one quantity to receive.';
     errBox.classList.remove('d-none');
+    return;
+  }
+  var dateError = items.some(function(it) {
+    return it.mfgDate && it.expiryDate && it.expiryDate <= it.mfgDate;
+  });
+  if (dateError) {
+    var dateErrBox = document.getElementById('recv-save-error');
+    dateErrBox.textContent = 'Expiry date must be after the manufacturing date.';
+    dateErrBox.classList.remove('d-none');
     return;
   }
   var notes = document.getElementById('recv-notes').value;

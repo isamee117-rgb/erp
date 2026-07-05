@@ -2206,3 +2206,6 @@ body { font-family: var(--tblr-font-sans-serif); }
 .set-alert-days-input { width: 90px; }
 .set-module-title { font-size: 0.9rem; }
 .set-module-desc { font-size: 0.82rem; }
+
+/* Receive modal — wider when batch/date columns are visible */
+.modal-dialog-recv-wide { max-width: 920px; }

@@ -192,14 +192,7 @@
           </div>
         </div>
         <table class="table table-sm mb-0">
-          <thead><tr>
-            <th class="po-th-col" style="width:36px;">#</th>
-            <th class="po-th-col">Product</th>
-            <th class="po-th-col text-center">Ordered</th>
-            <th class="po-th-col text-center">Received</th>
-            <th class="po-th-col text-center">Remaining</th>
-            <th class="po-th-col" style="width:120px;">Receive Qty</th>
-          </tr></thead>
+          <thead><tr id="recv-head"></tr></thead>
           <tbody id="recv-items"></tbody>
         </table>
         <div class="pm-field-row mt-3 mb-0">
