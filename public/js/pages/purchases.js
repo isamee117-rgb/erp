@@ -309,6 +309,23 @@ function renderUomCell(idx, item) {
 }
 
 function renderPOItems() {
+  var grnOff   = window.ERP.state.grnEnabled === false;
+  var expiryOn = grnOff && !!window.ERP.state.expiryDateEnabled;
+  var mfgOn    = grnOff && !!window.ERP.state.mfgDateEnabled;
+  var batchOn  = expiryOn || mfgOn;
+
+  var head = '<th class="po-th-col" style="width:36px;">#</th>' +
+    '<th class="po-th-col">Product</th>' +
+    '<th class="po-th-col" style="width:90px;">UOM</th>' +
+    '<th class="po-th-col" style="width:80px;">Qty</th>' +
+    '<th class="po-th-col" style="width:110px;">Unit Cost</th>';
+  if (batchOn)  head += '<th class="po-th-col">Batch No</th>';
+  if (mfgOn)    head += '<th class="po-th-col">Mfg Date</th>';
+  if (expiryOn) head += '<th class="po-th-col">Expiry Date</th>';
+  head += '<th class="po-th-col" style="width:110px;">Line Total</th>' +
+    '<th class="po-th-act" style="width:36px;"></th>';
+  document.getElementById('npo-head').innerHTML = head;
+
   var tbody = document.getElementById('npo-items');
   var html = '';
   poItems.forEach(function(item, idx) {
@@ -317,8 +334,17 @@ function renderPOItems() {
       '<td class="po-td-input">' + renderProductSDD(idx, item.productId) + '</td>' +
       renderUomCell(idx, item) +
       '<td class="po-td-input"><input type="number" class="form-control pm-input text-center po-input-sm" value="' + item.quantity + '" onchange="updatePOItem(' + idx + ',\'quantity\',this.value)"></td>' +
-      '<td class="po-td-input"><input type="number" step="0.01" class="form-control pm-input po-input-sm" value="' + item.unitCost + '" onchange="updatePOItem(' + idx + ',\'unitCost\',this.value)"></td>' +
-      '<td class="po-td-input text-end" id="po-line-total-' + idx + '" style="font-weight:600;color:#1A1D2E;white-space:nowrap;">' + ERP.formatCurrency(item.quantity * item.unitCost) + '</td>' +
+      '<td class="po-td-input"><input type="number" step="0.01" class="form-control pm-input po-input-sm" value="' + item.unitCost + '" onchange="updatePOItem(' + idx + ',\'unitCost\',this.value)"></td>';
+    if (batchOn) {
+      html += '<td class="po-td-input"><input type="text" class="form-control pm-input po-input-sm" maxlength="255" placeholder="Batch/Lot" value="' + (item.batchNo || '') + '" onchange="updatePOItem(' + idx + ',\'batchNo\',this.value)"></td>';
+    }
+    if (mfgOn) {
+      html += '<td class="po-td-input"><input type="date" class="form-control pm-input po-input-sm" value="' + (item.mfgDate || '') + '" onchange="updatePOItem(' + idx + ',\'mfgDate\',this.value)"></td>';
+    }
+    if (expiryOn) {
+      html += '<td class="po-td-input"><input type="date" class="form-control pm-input po-input-sm" value="' + (item.expiryDate || '') + '" onchange="updatePOItem(' + idx + ',\'expiryDate\',this.value)"></td>';
+    }
+    html += '<td class="po-td-input text-end" id="po-line-total-' + idx + '" style="font-weight:600;color:#1A1D2E;white-space:nowrap;">' + ERP.formatCurrency(item.quantity * item.unitCost) + '</td>' +
       '<td class="po-td-input text-center"><button type="button" class="po-del-btn" onclick="removePOItem(' + idx + ')"><i class="ti ti-x"></i></button></td></tr>';
   });
   tbody.innerHTML = html;
@@ -364,6 +390,12 @@ function updatePOItem(idx, field, value) {
     var ltCell = document.getElementById('po-line-total-' + idx);
     if (ltCell) ltCell.textContent = ERP.formatCurrency(poItems[idx].quantity * poItems[idx].unitCost);
     updatePOTotal();
+  } else if (field === 'batchNo') {
+    poItems[idx].batchNo = value;
+  } else if (field === 'mfgDate') {
+    poItems[idx].mfgDate = value;
+  } else if (field === 'expiryDate') {
+    poItems[idx].expiryDate = value;
   }
 }
 
@@ -390,7 +422,11 @@ async function createPO() {
   if (!vendorId) { vendorErr.classList.remove('d-none'); return; }
 
   var validItems = poItems.filter(function(i) { return i.productId; }).map(function(i) {
-    return { productId: i.productId, uomId: i.uomId || null, quantity: i.quantity, unitCost: i.unitCost };
+    var out = { productId: i.productId, uomId: i.uomId || null, quantity: i.quantity, unitCost: i.unitCost };
+    if (i.batchNo)    out.batchNo = i.batchNo;
+    if (i.mfgDate)    out.mfgDate = i.mfgDate;
+    if (i.expiryDate) out.expiryDate = i.expiryDate;
+    return out;
   });
   if (validItems.length === 0) { itemsErr.classList.remove('d-none'); return; }
 

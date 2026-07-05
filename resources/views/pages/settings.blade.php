@@ -380,6 +380,16 @@
         <hr class="my-3">
         <div class="d-flex align-items-center justify-content-between">
           <div>
+            <div class="fw-semibold set-module-title">Goods Receipt (GRN)</div>
+            <div class="text-muted set-module-desc">When on, purchase orders need a separate receive step. When off, creating a PO adds stock immediately.</div>
+          </div>
+          <div class="form-check form-switch ms-3">
+            <input class="form-check-input set-switch-lg" type="checkbox" id="setting-grn-mode" role="switch">
+          </div>
+        </div>
+        <hr class="my-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
             <div class="fw-semibold set-module-title">Expiry Date Tracking</div>
             <div class="text-muted set-module-desc">Capture expiry dates per batch when receiving goods</div>
           </div>

@@ -31,6 +31,7 @@
         invoiceFormat: 'A4',
         costingMethod: 'moving_average',
         jobCardMode: false,
+        grnEnabled: true,
         expiryDateEnabled: false,
         mfgDateEnabled: false,
         expiryAlertDays: 30,

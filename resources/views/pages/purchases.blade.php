@@ -149,7 +149,7 @@
           <button type="button" class="inv-action-btn" style="width:auto;padding:0 10px;font-size:0.78rem;color:#CD0000" onclick="addPOItemRow()"><i class="ti ti-plus me-1"></i>Add Row</button>
         </div>
         <table class="table table-sm mb-0" style="table-layout:fixed;">
-          <thead><tr>
+          <thead><tr id="npo-head">
             <th class="po-th-col" style="width:36px;">#</th>
             <th class="po-th-col">Product</th>
             <th class="po-th-col" style="width:90px;">UOM</th>

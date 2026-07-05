@@ -42,6 +42,18 @@ function renderPage(){
     renderDynamicFieldSettings();
     initJobCardModeToggle();
     initInventoryDatesToggles();
+    initGrnModeToggle();
+}
+function initGrnModeToggle(){
+    var toggle = document.getElementById('setting-grn-mode');
+    if (!toggle) return;
+    toggle.checked = !!(window.ERP.state.grnEnabled);
+    toggle.addEventListener('change', function(){
+        var enabled = toggle.checked;
+        ERP.api.updateGrnMode(enabled).then(function(){
+            window.ERP.state.grnEnabled = enabled;
+        }).catch(function(e){ alert('Error: ' + e.message); toggle.checked = !enabled; });
+    });
 }
 function initJobCardModeToggle(){
     var toggle = document.getElementById('setting-job-card-mode');
