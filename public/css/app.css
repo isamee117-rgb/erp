@@ -2209,3 +2209,6 @@ body { font-family: var(--tblr-font-sans-serif); }
 
 /* Receive modal — wider when batch/date columns are visible */
 .modal-dialog-recv-wide { max-width: 920px; }
+
+/* Expiry report */
+.rpt-expiry-note { font-size: 0.8rem; }

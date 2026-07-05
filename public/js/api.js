@@ -219,6 +219,12 @@
         getPurchaseByVendorReport: function(params) {
             return request('GET', '/reports/purchase-by-vendor?' + new URLSearchParams(params).toString());
         },
+        getExpiryReport: function(params) {
+            return request('GET', '/reports/expiry?' + new URLSearchParams(params).toString());
+        },
+        getExpirySummary: function() {
+            return request('GET', '/reports/expiry-summary');
+        },
         createCompany: function(name, adminUsername, adminPassword, limit, registrationPayment, saasPlan) {
             return request('POST', '/companies', { name: name, adminUsername: adminUsername, adminPassword: adminPassword, limit: limit, registrationPayment: registrationPayment, saasPlan: saasPlan });
         },

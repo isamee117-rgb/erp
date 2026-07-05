@@ -73,6 +73,14 @@
             </div>
             <div class="rpt-tile-arrow"><i class="ti ti-chevron-right"></i></div>
           </div>
+          <div class="rpt-tile d-none" id="rpt-tile-expiry" onclick="rptOpen('expiry')">
+            <div class="rpt-tile-icon rpt-tile-icon-purchase"><i class="ti ti-calendar-x"></i></div>
+            <div class="rpt-tile-body">
+              <div class="rpt-tile-name">Expiry Report</div>
+              <div class="rpt-tile-desc">Batch-wise expired and expiring-soon stock from goods receipts</div>
+            </div>
+            <div class="rpt-tile-arrow"><i class="ti ti-chevron-right"></i></div>
+          </div>
           <div class="rpt-tile" onclick="rptOpen('salesReturn')">
             <div class="rpt-tile-icon" class="rpt-tile-icon-purch-ret"><i class="ti ti-receipt-refund"></i></div>
             <div class="rpt-tile-body">
@@ -497,6 +505,57 @@
           </div>
           <div id="rptPurchaseSummary"></div>
           <div id="rptPurchPagination" class="d-print-none"></div>
+        </div>
+      </div>
+
+      {{-- Expiry Report Panel --}}
+      <div id="rpt-expiry-panel" class="d-none">
+        <div class="rpt-report-header d-print-none">
+          <button class="btn btn-light btn-sm" onclick="rptBack()"><i class="ti ti-arrow-left me-1"></i>Back</button>
+          <span class="rpt-report-title"><i class="ti ti-calendar-x me-2"></i>Expiry Report</span>
+          <div class="d-flex gap-2">
+            <button class="btn btn-light btn-sm" onclick="window.print()"><i class="ti ti-printer me-1"></i>Print</button>
+          </div>
+        </div>
+
+        <div class="rpt-filter-bar d-print-none">
+          <div class="row g-2 align-items-end">
+            <div class="col-auto">
+              <label class="pm-label">Status</label>
+              <select class="form-select inv-input" id="rptExpiryStatus">
+                <option value="">All</option>
+                <option value="expired">Expired</option>
+                <option value="expiring_soon">Expiring Soon</option>
+                <option value="ok">OK</option>
+              </select>
+            </div>
+            <div class="col-auto">
+              <button id="rptExpiryRunBtn" class="btn btn-primary rpt-btn" onclick="runExpiryReport()"><i class="ti ti-player-play me-1"></i>Run Report</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="rpt-expiry-results">
+          <div class="table-responsive">
+            <table class="table table-vcenter inv-table mb-0 rpt-compact-table">
+              <thead>
+                <tr>
+                  <th class="inv-th">Product</th>
+                  <th class="inv-th">SKU</th>
+                  <th class="inv-th">Batch No</th>
+                  <th class="inv-th">Receive Date</th>
+                  <th class="inv-th">Mfg Date</th>
+                  <th class="inv-th">Expiry Date</th>
+                  <th class="inv-th text-end">Received Qty</th>
+                  <th class="inv-th">Status</th>
+                </tr>
+              </thead>
+              <tbody id="rptExpiryBody"></tbody>
+            </table>
+          </div>
+          <div id="rptExpirySummary"></div>
+          <div id="rptExpiryPagination" class="d-print-none"></div>
+          <div class="text-muted mt-2 rpt-expiry-note">Quantities shown are received quantities &mdash; a batch may have been partially or fully sold since receipt.</div>
         </div>
       </div>
 

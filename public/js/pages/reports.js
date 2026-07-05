@@ -1,5 +1,8 @@
 var salesChart, purchChart, finChart;
-window.ERP.onReady = function(){ /* reports page uses tile navigation — no auto-render needed */ };
+window.ERP.onReady = function(){
+    var expiryTile = document.getElementById('rpt-tile-expiry');
+    if (expiryTile) expiryTile.classList.toggle('d-none', !window.ERP.state.expiryDateEnabled);
+};
 // Build a ms timestamp from a date string + optional time string.
 // If no date, returns null. If no time, defaults to start-of-day or end-of-day.
 function buildTs(dateVal, timeVal, isEnd){
@@ -247,6 +250,12 @@ function rptOpen(type) {
     document.getElementById('rptPBVFoot').innerHTML = '';
     document.getElementById('rptPBVSummary').innerHTML = '';
     var pbvPag = document.getElementById('rptPBVPagination'); if (pbvPag) pbvPag.innerHTML = '';
+  } else if (type === 'expiry') {
+    document.getElementById('rpt-expiry-panel').classList.remove('d-none');
+    document.getElementById('rptExpiryStatus').value = '';
+    document.getElementById('rptExpirySummary').innerHTML = '';
+    var ePag = document.getElementById('rptExpiryPagination'); if (ePag) ePag.innerHTML = '';
+    runExpiryReport();
   } else if (type === 'profitLoss') {
     document.getElementById('rpt-profitLoss-panel').classList.remove('d-none');
     rptPlSetPeriod('month');
@@ -1009,6 +1018,63 @@ function rptBuildPurchaseExcel(orders) {
   ws['!cols'] = [{wch:14},{wch:22},{wch:18},{wch:28},{wch:6},{wch:12},{wch:10},{wch:14},{wch:14},{wch:22}];
   XLSX.utils.book_append_sheet(wb, ws, 'Purchase Report');
   XLSX.writeFile(wb, 'Purchase_Report_'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+/* ====== Expiry Report ====== */
+var _rptExpiryPage = 1;
+function runExpiryReport(page) {
+  _rptExpiryPage = page || 1;
+  var params = { page: _rptExpiryPage, perPage: 50 };
+  var status = document.getElementById('rptExpiryStatus').value;
+  if (status) params.status = status;
+
+  var btn = document.getElementById('rptExpiryRunBtn');
+  if (btn) btn.disabled = true;
+  document.getElementById('rptExpiryBody').innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading…</td></tr>';
+
+  rptFetchReport(ERP.api.getExpiryReport, params)
+    .then(function(resp){
+      rptRenderExpiryRows(resp.data || []);
+      rptRenderExpirySummary(resp.summary || {});
+      rptRenderPagination('rptExpiryPagination', resp.pagination, function(p){ runExpiryReport(p); });
+    })
+    .catch(function(e){ alert('Error loading report: ' + e.message); })
+    .finally(function(){ if (btn) btn.disabled = false; });
+}
+
+function rptRenderExpiryRows(rows) {
+  var statusBadges = {
+    expired:       '<span class="rpt-badge rpt-badge-red">Expired</span>',
+    expiring_soon: '<span class="rpt-badge rpt-badge-amber">Expiring Soon</span>',
+    ok:            '<span class="rpt-badge rpt-badge-green">OK</span>'
+  };
+  var html = '';
+  rows.forEach(function(r){
+    html += '<tr>' +
+      '<td class="fw-bold">' + (r.productName || '—') + '</td>' +
+      '<td>' + (r.sku || '—') + '</td>' +
+      '<td>' + (r.batchNo || '—') + '</td>' +
+      '<td>' + (r.receiveDate || '—') + '</td>' +
+      '<td>' + (r.mfgDate || '—') + '</td>' +
+      '<td>' + (r.expiryDate || '—') + '</td>' +
+      '<td class="text-end">' + (r.quantity || 0) + '</td>' +
+      '<td>' + (statusBadges[r.status] || '') + '</td>' +
+      '</tr>';
+  });
+  if (!rows.length) {
+    html = '<tr><td colspan="8" class="text-center text-muted py-5"><i class="ti ti-calendar-x d-block mb-2 fs-2"></i>No batches with expiry dates found</td></tr>';
+  }
+  document.getElementById('rptExpiryBody').innerHTML = html;
+}
+
+function rptRenderExpirySummary(summary) {
+  var total = (summary.expired || 0) + (summary.expiringSoon || 0) + (summary.ok || 0);
+  document.getElementById('rptExpirySummary').innerHTML = total
+    ? '<div class="rpt-summary-bar d-print-none">' +
+      '<span>Expired: <b>' + (summary.expired || 0) + '</b></span> ' +
+      '<span>Expiring Soon (&le;' + (summary.alertDays || 30) + ' days): <b>' + (summary.expiringSoon || 0) + '</b></span> ' +
+      '<span>OK: <b>' + (summary.ok || 0) + '</b></span>' +
+      '</div>'
+    : '';
 }
 function exportPurchasePDF() {
   if (!rptValidateDateRange('rptPurchFrom', 'rptPurchTo')) return;
