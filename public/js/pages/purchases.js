@@ -336,7 +336,7 @@ function renderPOItems() {
       '<td class="po-td-input"><input type="number" class="form-control pm-input text-center po-input-sm" value="' + item.quantity + '" onchange="updatePOItem(' + idx + ',\'quantity\',this.value)"></td>' +
       '<td class="po-td-input"><input type="number" step="0.01" class="form-control pm-input po-input-sm" value="' + item.unitCost + '" onchange="updatePOItem(' + idx + ',\'unitCost\',this.value)"></td>';
     if (batchOn) {
-      html += '<td class="po-td-input"><input type="text" class="form-control pm-input po-input-sm" maxlength="255" placeholder="Batch/Lot" value="' + (item.batchNo || '') + '" onchange="updatePOItem(' + idx + ',\'batchNo\',this.value)"></td>';
+      html += '<td class="po-td-input"><input type="text" class="form-control pm-input po-input-sm" maxlength="255" placeholder="Batch/Lot" value="' + escHtml(item.batchNo || '') + '" onchange="updatePOItem(' + idx + ',\'batchNo\',this.value)"></td>';
     }
     if (mfgOn) {
       html += '<td class="po-td-input"><input type="date" class="form-control pm-input po-input-sm" value="' + (item.mfgDate || '') + '" onchange="updatePOItem(' + idx + ',\'mfgDate\',this.value)"></td>';
