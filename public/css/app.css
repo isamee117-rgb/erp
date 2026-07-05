@@ -2210,5 +2210,11 @@ body { font-family: var(--tblr-font-sans-serif); }
 /* Receive modal — wider when batch/date columns are visible */
 .modal-dialog-recv-wide { max-width: 920px; }
 
+/* Receive modal — align all row cells with the input fields */
+#recv-items .po-td-item,
+#recv-items .po-td-center { vertical-align: middle; }
+#recv-items .po-td-input { vertical-align: middle; }
+#recv-items .po-td-input .text-danger:empty { min-height: 0 !important; }
+
 /* Expiry report */
 .rpt-expiry-note { font-size: 0.8rem; }
