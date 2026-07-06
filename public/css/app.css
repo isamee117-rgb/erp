@@ -2209,6 +2209,7 @@ body { font-family: var(--tblr-font-sans-serif); }
 
 /* Receive modal — wider when batch/date columns are visible */
 .modal-dialog-recv-wide { max-width: 920px; }
+.modal-dialog-npo-wide { max-width: 840px; }
 
 /* Receive modal — align all row cells with the input fields */
 #recv-items .po-td-item,

@@ -315,7 +315,7 @@ function renderPOItems() {
   var batchOn  = expiryOn || mfgOn;
 
   var npoDlg = document.querySelector('#newPOModal .modal-dialog');
-  if (npoDlg) npoDlg.classList.toggle('modal-dialog-recv-wide', batchOn);
+  if (npoDlg) npoDlg.classList.toggle('modal-dialog-npo-wide', batchOn);
 
   var head = '<th class="po-th-col" style="width:36px;">#</th>' +
     '<th class="po-th-col">Product</th>' +
